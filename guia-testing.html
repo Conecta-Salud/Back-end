@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Unit Testing en Quarkus - TC3004B</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --accent: #38bdf8;
+    --accent2: #a78bfa;
+    --accent3: #34d399;
+    --accent4: #fb923c;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --code-bg: #0d1117;
+    --border: #334155;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Navigation */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(15,23,42,0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+  }
+  .nav-title { font-size: 14px; color: var(--muted); }
+  .nav-dots { display: flex; gap: 6px; }
+  .nav-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); transition: all 0.3s;
+    cursor: pointer; border: none;
+  }
+  .nav-dot.active { background: var(--accent); transform: scale(1.3); }
+  .nav-counter { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Slides */
+  .slides-container {
+    scroll-snap-type: x mandatory;
+    display: flex; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-top: 52px;
+    height: 100vh;
+  }
+  .slides-container::-webkit-scrollbar { display: none; }
+
+  .slide {
+    scroll-snap-align: start;
+    min-width: 100vw; height: calc(100vh - 52px);
+    padding: 28px 24px;
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+
+  /* Typography */
+  h1 { font-size: 32px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; }
+  h2 { font-size: 26px; font-weight: 700; line-height: 1.2; margin-bottom: 16px; }
+  h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+  .subtitle { font-size: 18px; color: var(--muted); margin-bottom: 24px; }
+  p, li { font-size: 16px; line-height: 1.6; }
+
+  /* Cards */
+  .card {
+    background: var(--card); border-radius: 16px;
+    padding: 20px; margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+  .card-accent { border-left: 4px solid var(--accent); }
+  .card-purple { border-left: 4px solid var(--accent2); }
+  .card-green { border-left: 4px solid var(--accent3); }
+  .card-orange { border-left: 4px solid var(--accent4); }
+
+  /* Code */
+  pre {
+    background: var(--code-bg); border-radius: 12px;
+    padding: 16px; overflow-x: auto;
+    font-size: 13px; line-height: 1.55;
+    border: 1px solid var(--border);
+    margin: 10px 0;
+  }
+  code {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    color: var(--text);
+  }
+  .kw { color: #c084fc; }
+  .str { color: #34d399; }
+  .ann { color: #fbbf24; }
+  .cm { color: #64748b; }
+  .fn { color: #38bdf8; }
+  .type { color: #fb923c; }
+  .num { color: #f472b6; }
+
+  /* Tags */
+  .tag {
+    display: inline-block; padding: 4px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; margin: 2px 4px 2px 0;
+  }
+  .tag-blue { background: rgba(56,189,248,0.15); color: var(--accent); }
+  .tag-purple { background: rgba(167,139,250,0.15); color: var(--accent2); }
+  .tag-green { background: rgba(52,211,153,0.15); color: var(--accent3); }
+  .tag-orange { background: rgba(251,146,60,0.15); color: var(--accent4); }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* Pyramid */
+  .pyramid { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 20px 0; }
+  .pyramid-level {
+    padding: 14px; border-radius: 12px; text-align: center;
+    font-weight: 600; font-size: 15px;
+  }
+  .p1 { width: 50%; background: rgba(251,146,60,0.2); color: var(--accent4); }
+  .p2 { width: 70%; background: rgba(167,139,250,0.2); color: var(--accent2); }
+  .p3 { width: 90%; background: rgba(56,189,248,0.2); color: var(--accent); }
+
+  /* Flow arrow */
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 16px 0; }
+  .flow-item {
+    background: var(--card); border: 1px solid var(--border);
+    padding: 10px 16px; border-radius: 10px;
+    font-size: 14px; font-weight: 500;
+  }
+  .flow-arrow { color: var(--accent); font-size: 20px; }
+
+  /* Highlight box */
+  .highlight {
+    background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.3);
+    border-radius: 12px; padding: 16px; margin: 12px 0;
+  }
+
+  /* Checklist */
+  .checklist { list-style: none; }
+  .checklist li { padding: 8px 0; display: flex; align-items: flex-start; gap: 10px; }
+  .checklist li::before { content: ""; display: none; }
+  .check-icon { color: var(--accent3); font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+
+  /* Title slide */
+  .title-slide {
+    justify-content: center; align-items: center; text-align: center;
+  }
+  .title-slide h1 { font-size: 40px; margin-bottom: 12px; }
+  .title-logo { font-size: 64px; margin-bottom: 20px; }
+
+  /* Diagram: Architecture layers */
+  .arch-layer {
+    padding: 16px; border-radius: 12px; text-align: center;
+    margin-bottom: 8px; font-weight: 600;
+  }
+  .arch-arrow { text-align: center; color: var(--muted); font-size: 20px; margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-title">TC3004B</span>
+  <div class="nav-dots" id="navDots"></div>
+  <span class="nav-counter" id="navCounter">1 / 12</span>
+</nav>
+
+<div class="slides-container" id="slides">
+
+  <!-- SLIDE 1: TITULO -->
+  <section class="slide title-slide">
+    <div class="title-logo">&#x1F9EA;</div>
+    <h1>Unit Testing<br>en Quarkus</h1>
+    <p class="subtitle">JUnit 5 + Mockito + REST Assured</p>
+    <div style="margin-top: 24px;">
+      <span class="tag tag-blue">TC3004B</span>
+      <span class="tag tag-purple">Sesion 3</span>
+      <span class="tag tag-green">HelloWorld Quarkus</span>
+    </div>
+    <p style="margin-top: 40px; color: var(--muted); font-size: 14px;">Desliza para navegar &rarr;</p>
+  </section>
+
+  <!-- SLIDE 2: POR QUE TESTING -->
+  <section class="slide">
+    <h2>Por que hacemos testing?</h2>
+    <p class="subtitle">Las pruebas son tu red de seguridad</p>
+    <div class="grid-2">
+      <div class="card card-accent">
+        <h3>&#x26A1; Detectar bugs temprano</h3>
+        <p>Un bug encontrado en desarrollo cuesta <strong>10x menos</strong> que en produccion.</p>
+      </div>
+      <div class="card card-purple">
+        <h3>&#x1F504; Refactorizar con confianza</h3>
+        <p>Cambias el codigo interno y los tests te confirman que nada se rompio.</p>
+      </div>
+      <div class="card card-green">
+        <h3>&#x1F4D6; Documentacion viva</h3>
+        <p>Los tests describen <strong>que debe hacer</strong> tu codigo mejor que cualquier comentario.</p>
+      </div>
+      <div class="card card-orange">
+        <h3>&#x1F680; Deploy con confianza</h3>
+        <p>CI/CD ejecuta tus tests automaticamente antes de cada deploy.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: PIRAMIDE DE TESTING -->
+  <section class="slide">
+    <h2>Piramide de Testing</h2>
+    <p class="subtitle">Mas tests unitarios, menos tests E2E</p>
+    <div class="pyramid">
+      <div class="pyramid-level p1">E2E / Integration Tests<br><small>Lentos, costosos, pocos</small></div>
+      <div class="pyramid-level p2">Integration Tests (REST Assured)<br><small>TodoResourceTest, UserResourceTest</small></div>
+      <div class="pyramid-level p3">Unit Tests (JUnit + Mockito)<br><small>CreateTodoUseCaseTest &mdash; rapidos, muchos</small></div>
+    </div>
+    <div class="highlight" style="margin-top: 16px;">
+      <strong>En nuestro proyecto:</strong><br>
+      &#x2705; <strong>Unit test:</strong> CreateTodoUseCaseTest &mdash; prueba logica de negocio aislada<br>
+      &#x2705; <strong>Integration test:</strong> TodoResourceTest, UserResourceTest &mdash; levantan Quarkus y prueban endpoints HTTP
+    </div>
+  </section>
+
+  <!-- SLIDE 4: HERRAMIENTAS -->
+  <section class="slide">
+    <h2>Nuestro Stack de Testing</h2>
+    <p class="subtitle">Herramientas que usamos en el proyecto</p>
+    <div class="card card-accent">
+      <h3>JUnit 5</h3>
+      <p>Framework de testing para Java. Provee <code>@Test</code>, <code>@BeforeEach</code>, assertions.</p>
+      <div style="margin-top:8px"><span class="tag tag-blue">@Test</span><span class="tag tag-blue">@BeforeEach</span><span class="tag tag-blue">assertEquals</span><span class="tag tag-blue">assertNotNull</span></div>
+    </div>
+    <div class="card card-purple">
+      <h3>Mockito</h3>
+      <p>Crea objetos <strong>mock</strong> que simulan dependencias. Puedes verificar interacciones.</p>
+      <div style="margin-top:8px"><span class="tag tag-purple">mock()</span><span class="tag tag-purple">when().thenReturn()</span><span class="tag tag-purple">verify()</span><span class="tag tag-purple">ArgumentCaptor</span></div>
+    </div>
+    <div class="card card-green">
+      <h3>REST Assured</h3>
+      <p>DSL para probar APIs REST. Sintaxis fluida: <code>given().when().then()</code></p>
+      <div style="margin-top:8px"><span class="tag tag-green">given()</span><span class="tag tag-green">.header()</span><span class="tag tag-green">.body()</span><span class="tag tag-green">statusCode()</span></div>
+    </div>
+    <div class="card card-orange">
+      <h3>@QuarkusTest</h3>
+      <p>Levanta el servidor Quarkus completo para tests de integracion. Permite <code>@InjectMock</code>.</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: ANATOMIA UNIT TEST -->
+  <section class="slide">
+    <h2>Anatomia de un Unit Test</h2>
+    <p class="subtitle">Patron AAA: Arrange - Act - Assert</p>
+    <pre><code><span class="ann">@Test</span>
+<span class="kw">void</span> <span class="fn">execute_shouldCreateTodoWithCorrectFields</span>() {
+    <span class="cm">// ARRANGE - preparar datos</span>
+    <span class="type">CreateTodoDto</span> dto = <span class="kw">new</span> <span class="type">CreateTodoDto</span>(
+        <span class="str">"Mi tarea"</span>, <span class="str">"Descripcion de la tarea"</span>
+    );
+
+    <span class="cm">// ACT - ejecutar lo que queremos probar</span>
+    <span class="type">Todo</span> result = createTodoUseCase.<span class="fn">execute</span>(dto);
+
+    <span class="cm">// ASSERT - verificar resultados</span>
+    <span class="fn">assertNotNull</span>(result);
+    <span class="fn">assertEquals</span>(<span class="str">"Mi tarea"</span>, result.<span class="fn">getTitle</span>());
+    <span class="fn">assertFalse</span>(result.<span class="fn">isCompleted</span>());
+}</code></pre>
+    <div class="grid-2" style="margin-top: 12px;">
+      <div class="card card-accent" style="padding:14px;">
+        <strong>Arrange</strong><br><small>Preparar objetos, mocks y datos de entrada</small>
+      </div>
+      <div class="card card-green" style="padding:14px;">
+        <strong>Act</strong><br><small>Ejecutar el metodo que se esta probando</small>
+      </div>
+    </div>
+    <div class="card card-purple" style="padding:14px;">
+      <strong>Assert</strong><br><small>Verificar que el resultado es el esperado</small>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: MOCKITO DEEP DIVE -->
+  <section class="slide">
+    <h2>Mockito: Simulando Dependencias</h2>
+    <p class="subtitle">Aislamos el codigo bajo prueba</p>
+    <pre><code><span class="ann">@BeforeEach</span>
+<span class="kw">void</span> <span class="fn">setUp</span>() {
+    <span class="cm">// Crear mocks de las dependencias</span>
+    todoRepository = <span class="fn">mock</span>(<span class="type">TodoRepository</span>.<span class="kw">class</span>);
+    authenticatedUserContext = <span class="fn">mock</span>(<span class="type">AuthenticatedUserContext</span>.<span class="kw">class</span>);
+
+    <span class="cm">// Definir comportamiento del mock</span>
+    <span class="fn">when</span>(authenticatedUserContext.<span class="fn">getCurrentUser</span>())
+        .<span class="fn">thenReturn</span>(currentUser);
+
+    <span class="fn">when</span>(todoRepository.<span class="fn">save</span>(<span class="fn">any</span>(<span class="type">Todo</span>.<span class="kw">class</span>)))
+        .<span class="fn">thenAnswer</span>(inv -> inv.<span class="fn">getArgument</span>(<span class="num">0</span>));
+
+    <span class="cm">// Inyectar mocks manualmente</span>
+    createTodoUseCase = <span class="kw">new</span> <span class="type">CreateTodoUseCase</span>(
+        todoRepository, authenticatedUserContext
+    );
+}</code></pre>
+    <div class="highlight">
+      <strong>Concepto clave:</strong> El mock <strong>no tiene logica real</strong>. Solo devuelve lo que le dices con <code>when().thenReturn()</code>. Esto aisla tu test de la base de datos, Firebase, etc.
+    </div>
+  </section>
+
+  <!-- SLIDE 7: VERIFY Y ARGUMENT CAPTOR -->
+  <section class="slide">
+    <h2>Verify y ArgumentCaptor</h2>
+    <p class="subtitle">Verificar que se llamaron los metodos correctos</p>
+    <pre><code><span class="ann">@Test</span>
+<span class="kw">void</span> <span class="fn">execute_shouldCallRepositorySave</span>() {
+    <span class="type">CreateTodoDto</span> dto = <span class="kw">new</span> <span class="type">CreateTodoDto</span>(<span class="str">"Tarea"</span>, <span class="str">"Desc"</span>);
+
+    createTodoUseCase.<span class="fn">execute</span>(dto);
+
+    <span class="cm">// Capturar el argumento que se paso a save()</span>
+    <span class="type">ArgumentCaptor</span>&lt;<span class="type">Todo</span>&gt; captor =
+        <span class="type">ArgumentCaptor</span>.<span class="fn">forClass</span>(<span class="type">Todo</span>.<span class="kw">class</span>);
+
+    <span class="cm">// Verificar que save() se llamo exactamente 1 vez</span>
+    <span class="fn">verify</span>(todoRepository, <span class="fn">times</span>(<span class="num">1</span>)).<span class="fn">save</span>(captor.<span class="fn">capture</span>());
+
+    <span class="cm">// Inspeccionar que se guardo</span>
+    <span class="type">Todo</span> saved = captor.<span class="fn">getValue</span>();
+    <span class="fn">assertEquals</span>(<span class="str">"Tarea"</span>, saved.<span class="fn">getTitle</span>());
+}</code></pre>
+    <div class="grid-2">
+      <div class="card card-accent" style="padding:14px;">
+        <strong>verify()</strong><br><small>Confirma que un metodo del mock fue invocado N veces</small>
+      </div>
+      <div class="card card-purple" style="padding:14px;">
+        <strong>ArgumentCaptor</strong><br><small>Captura el argumento real que se paso al mock</small>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 8: INTEGRATION TEST -->
+  <section class="slide">
+    <h2>Integration Test con @QuarkusTest</h2>
+    <p class="subtitle">Probando endpoints HTTP reales</p>
+    <pre><code><span class="ann">@QuarkusTest</span>
+<span class="kw">class</span> <span class="type">TodoResourceTest</span> {
+
+    <span class="ann">@InjectMock</span>
+    <span class="type">CreateTodoUseCase</span> createTodoUseCase;
+
+    <span class="ann">@Test</span>
+    <span class="kw">void</span> <span class="fn">createTodo_shouldReturn200WithTodo</span>() {
+        <span class="cm">// Mock del use case</span>
+        <span class="fn">when</span>(createTodoUseCase.<span class="fn">execute</span>(<span class="fn">any</span>()))
+            .<span class="fn">thenReturn</span>(mockTodo);
+
+        <span class="cm">// Llamada HTTP real al servidor</span>
+        <span class="fn">given</span>()
+            .<span class="fn">contentType</span>(<span class="str">"application/json"</span>)
+            .<span class="fn">header</span>(<span class="str">"Authorization"</span>, <span class="str">"Bearer mock-token"</span>)
+            .<span class="fn">body</span>(<span class="str">"{\"title\":\"Mi tarea\"}"</span>)
+        .<span class="fn">when</span>()
+            .<span class="fn">post</span>(<span class="str">"/todo"</span>)
+        .<span class="fn">then</span>()
+            .<span class="fn">statusCode</span>(<span class="num">200</span>)
+            .<span class="fn">body</span>(<span class="str">"title"</span>, <span class="fn">equalTo</span>(<span class="str">"Mi tarea"</span>));
+    }
+}</code></pre>
+    <div class="highlight">
+      <strong>@InjectMock</strong> reemplaza el bean real de Quarkus con un mock de Mockito dentro del contexto CDI.
+    </div>
+  </section>
+
+  <!-- SLIDE 9: MOCK AUTH FILTER -->
+  <section class="slide">
+    <h2>Mock del Auth Filter</h2>
+    <p class="subtitle">Simulando autenticacion de Firebase en tests</p>
+    <div class="card card-orange">
+      <h3>Problema</h3>
+      <p>En produccion, <code>FirebaseAuthFilter</code> valida tokens reales de Firebase. En tests <strong>no tenemos Firebase</strong>.</p>
+    </div>
+    <div style="text-align:center; margin: 8px 0;"><span style="font-size:24px;">&#x2B07;</span></div>
+    <div class="card card-green">
+      <h3>Solucion: MockFirebaseAuthFilter</h3>
+      <p>Un filtro simplificado que solo checa si hay header <code>Authorization: Bearer *</code></p>
+    </div>
+    <pre><code><span class="cm">// Si no hay token, rechazar</span>
+<span class="kw">if</span> (authHeader == <span class="kw">null</span> || !authHeader.<span class="fn">startsWith</span>(<span class="str">"Bearer "</span>)) {
+    requestContext.<span class="fn">abortWith</span>(Response.<span class="fn">status</span>(<span class="num">401</span>).<span class="fn">build</span>());
+    <span class="kw">return</span>;
+}
+
+<span class="cm">// Si hay token, crear usuario mock</span>
+<span class="type">CurrentUser</span> currentUser = <span class="kw">new</span> <span class="type">CurrentUser</span>(
+    mockUUID, <span class="str">"mock-firebase-uid"</span>,
+    <span class="str">"test@test.com"</span>, <span class="str">"USER"</span>, <span class="str">"Test User"</span>
+);</code></pre>
+  </section>
+
+  <!-- SLIDE 10: TESTING AUTH -->
+  <section class="slide">
+    <h2>Testeando Seguridad</h2>
+    <p class="subtitle">Verificar que endpoints protegidos requieren token</p>
+    <div class="grid-2">
+      <div class="card card-green">
+        <h3>&#x2705; Con token</h3>
+        <pre style="margin:8px 0"><code><span class="fn">given</span>()
+  .<span class="fn">header</span>(<span class="str">"Authorization"</span>,
+         <span class="str">"Bearer mock-token"</span>)
+.<span class="fn">when</span>()
+  .<span class="fn">get</span>(<span class="str">"/todo/test"</span>)
+.<span class="fn">then</span>()
+  .<span class="fn">statusCode</span>(<span class="num">200</span>);</code></pre>
+      </div>
+      <div class="card card-orange">
+        <h3>&#x274C; Sin token</h3>
+        <pre style="margin:8px 0"><code><span class="fn">given</span>()
+.<span class="fn">when</span>()
+  .<span class="fn">get</span>(<span class="str">"/todo/test"</span>)
+.<span class="fn">then</span>()
+  .<span class="fn">statusCode</span>(<span class="num">401</span>);</code></pre>
+      </div>
+    </div>
+    <div class="highlight" style="margin-top:12px;">
+      <strong>Siempre prueba ambos escenarios:</strong> acceso autorizado Y no autorizado. Un endpoint sin test de 401 es un riesgo de seguridad no verificado.
+    </div>
+  </section>
+
+  <!-- SLIDE 11: ESTRUCTURA DEL PROYECTO -->
+  <section class="slide">
+    <h2>Estructura de Tests</h2>
+    <p class="subtitle">Espejo de la estructura del codigo fuente</p>
+    <pre><code>src/test/java/com/itesm/
+<span class="cm">|</span>
+<span class="cm">|-- application/usecase/</span>
+<span class="cm">|   |</span>
+<span class="fn">|   +-- CreateTodoUseCaseTest.java</span>   <span class="cm"># Unit test puro</span>
+<span class="cm">|</span>
+<span class="cm">|-- infrastructure/security/</span>
+<span class="cm">|   |</span>
+<span class="type">|   +-- MockFirebaseAuthFilter.java</span>  <span class="cm"># Mock del filtro</span>
+<span class="cm">|</span>
+<span class="cm">+-- interfaces/rest/</span>
+<span class="cm">    |</span>
+<span class="fn">    +-- TodoResourceTest.java</span>        <span class="cm"># Integration test</span>
+<span class="fn">    +-- UserResourceTest.java</span>        <span class="cm"># Integration test</span></code></pre>
+    <div class="grid-2" style="margin-top: 16px;">
+      <div class="card card-accent" style="padding:14px;">
+        <strong>Unit Tests</strong><br>
+        <small>En <code>application/</code><br>Sin @QuarkusTest<br>Solo Mockito</small>
+      </div>
+      <div class="card card-green" style="padding:14px;">
+        <strong>Integration Tests</strong><br>
+        <small>En <code>interfaces/</code><br>Con @QuarkusTest<br>REST Assured + @InjectMock</small>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 12: EJECUTAR TESTS -->
+  <section class="slide">
+    <h2>Ejecutando los Tests</h2>
+    <p class="subtitle">Comandos Maven para correr tests</p>
+    <div class="card card-accent">
+      <h3>Todos los tests</h3>
+      <pre style="margin:8px 0"><code>./mvnw test</code></pre>
+    </div>
+    <div class="card card-purple">
+      <h3>Un test especifico</h3>
+      <pre style="margin:8px 0"><code>./mvnw test -Dtest=CreateTodoUseCaseTest</code></pre>
+    </div>
+    <div class="card card-green">
+      <h3>Un metodo especifico</h3>
+      <pre style="margin:8px 0"><code>./mvnw test \
+  -Dtest=CreateTodoUseCaseTest#execute_shouldCreateTodoWithCorrectFields</code></pre>
+    </div>
+    <div class="card card-orange">
+      <h3>Naming convention</h3>
+      <p><code>metodo_deberia_comportamiento</code></p>
+      <p style="margin-top:6px;"><code><span class="fn">execute</span>_<span class="fn">shouldCreateTodoWithCorrectFields</span></code></p>
+      <p style="margin-top:6px;"><code><span class="fn">createTodo</span>_<span class="fn">shouldReturn401WithoutToken</span></code></p>
+    </div>
+  </section>
+
+  <!-- SLIDE 13: RESUMEN -->
+  <section class="slide">
+    <h2>Resumen / Checklist</h2>
+    <p class="subtitle">Lo que debes recordar</p>
+    <ul class="checklist">
+      <li><span class="check-icon">&#x2713;</span><span><strong>Patron AAA</strong> &mdash; Arrange, Act, Assert en cada test</span></li>
+      <li><span class="check-icon">&#x2713;</span><span><strong>Mockito</strong> para aislar dependencias (DB, Firebase, etc.)</span></li>
+      <li><span class="check-icon">&#x2713;</span><span><strong>@QuarkusTest</strong> levanta el servidor para integration tests</span></li>
+      <li><span class="check-icon">&#x2713;</span><span><strong>@InjectMock</strong> reemplaza beans reales en el contexto CDI</span></li>
+      <li><span class="check-icon">&#x2713;</span><span><strong>REST Assured</strong> para probar endpoints HTTP con <code>given/when/then</code></span></li>
+      <li><span class="check-icon">&#x2713;</span><span><strong>verify()</strong> para confirmar que se invocaron metodos del mock</span></li>
+      <li><span class="check-icon">&#x2713;</span><span><strong>Probar seguridad</strong> &mdash; siempre testear con y sin token</span></li>
+      <li><span class="check-icon">&#x2713;</span><span><strong>Naming</strong> descriptivo: <code>metodo_shouldBehavior</code></span></li>
+    </ul>
+    <div style="text-align:center; margin-top: 30px; color: var(--muted);">
+      <p style="font-size: 28px;">&#x1F389;</p>
+      <p>Ahora a escribir tests!</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const container = document.getElementById('slides');
+  const slides = container.querySelectorAll('.slide');
+  const dotsContainer = document.getElementById('navDots');
+  const counter = document.getElementById('navCounter');
+  const total = slides.length;
+
+  // Create dots
+  slides.forEach((_, i) => {
+    const dot = document.createElement('button');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', () => {
+      slides[i].scrollIntoView({ behavior: 'smooth', inline: 'start' });
+    });
+    dotsContainer.appendChild(dot);
+  });
+
+  const dots = dotsContainer.querySelectorAll('.nav-dot');
+
+  function updateNav() {
+    const scrollLeft = container.scrollLeft;
+    const slideWidth = container.clientWidth;
+    const current = Math.round(scrollLeft / slideWidth);
+    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+    counter.textContent = `${current + 1} / ${total}`;
+  }
+
+  container.addEventListener('scroll', updateNav, { passive: true });
+</script>
+
+</body>
+</html>
