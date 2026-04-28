@@ -1,6 +1,6 @@
 package com.itesm.infrastructure.persistence.repository;
 
-import com.itesm.domain.models.User;
+import com.itesm.domain.models.user_model.User;
 import com.itesm.domain.repository.UserRepository;
 import com.itesm.infrastructure.mapper.UserMapper;
 import com.itesm.infrastructure.persistence.entity.UserEntity;
@@ -22,8 +22,6 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
     @Transactional
     public User create(User user) {
         UserEntity userEntity = UserMapper.toEntity(user);
-        userEntity.setCreatedAt(LocalDateTime.now());
-        userEntity.setUpdatedAt(LocalDateTime.now());
         persist(userEntity);
         return UserMapper.toDomain(userEntity) ;
     }

@@ -1,43 +1,52 @@
 package com.itesm.application.security;
+import com.itesm.domain.models.user_model.UserRole;
 
 import java.util.UUID;
 
 public class CurrentUser {
     private final UUID userId;
-    private final String firebaseUuid;
+    private final String nombre;
+    private final String apellidos;
     private final String email;
-    private final String role;
-    private final String fullName;
+    private final String firebaseUuid;
+    private final UserRole rol;
 
-    public CurrentUser(UUID userId, String firebaseUuid, String email, String role, String fullName) {
+    public CurrentUser(UUID userId, String nombre, String apellidos, String email, String firebaseUuid, UserRole rol) {
         this.userId = userId;
-        this.firebaseUuid = firebaseUuid;
+        this.nombre = nombre;
+        this.apellidos = apellidos;
         this.email = email;
-        this.role = role;
-        this.fullName = fullName;
+        this.firebaseUuid = firebaseUuid;
+        this.rol = rol;
     }
 
-    public boolean hasRole(String role){
-        return this.role.equals(role);
+    public boolean hasRol(UserRole rol){
+        return this.rol.equals(rol);
     }
 
     public UUID getUserId() {
         return userId;
     }
 
-    public String getFirebaseUuid() {
-        return firebaseUuid;
+    public String getNombre() {
+        return nombre;
+    }
+
+    public String getApellidos() {
+        return apellidos;
     }
 
     public String getEmail() {
         return email;
     }
 
-    public String getRole() {
-        return role;
+    public String getFirebaseUuid() {
+        return firebaseUuid;
     }
 
-    public String getFullName() {
-        return fullName;
+    public UserRole getRol() {
+        return rol;
     }
+
+
 }

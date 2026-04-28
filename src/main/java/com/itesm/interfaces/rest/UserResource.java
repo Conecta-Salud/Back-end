@@ -1,15 +1,14 @@
 package com.itesm.interfaces.rest;
 
 import com.google.firebase.auth.FirebaseAuthException;
-import com.itesm.application.dto.RegisterUserDto;
-import com.itesm.application.usecase.RegisterUserUseCase;
-import com.itesm.domain.models.User;
+import com.itesm.application.dto.user_dto.RegisterUserDto;
+import com.itesm.application.dto.user_dto.UserProfileResponseDto;
+import com.itesm.application.usecase.user_usecase.GetCurrentUserUseCase;
+import com.itesm.application.usecase.user_usecase.RegisterUserUseCase;
+import com.itesm.domain.models.user_model.User;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -19,11 +18,13 @@ import jakarta.ws.rs.core.Response;
 public class UserResource {
     @Inject
     RegisterUserUseCase registerUserUseCase;
+    GetCurrentUserUseCase  getCurrentUserUseCase;
 
     public UserResource(
-            RegisterUserUseCase registerUserUseCase
+            RegisterUserUseCase registerUserUseCase, GetCurrentUserUseCase getCurrentUserUseCase
     ) {
         this.registerUserUseCase = registerUserUseCase;
+        this.getCurrentUserUseCase = getCurrentUserUseCase;
     }
 
     @POST
@@ -35,5 +36,12 @@ public class UserResource {
             e.printStackTrace();
             return Response.serverError().build();
         }
+    }
+
+    @GET
+    @Path("/profile")
+    public Response getCurrentUser(){
+        UserProfileResponseDto user = getCurrentUserUseCase.execute();
+        return Response.ok(user).build();
     }
 }

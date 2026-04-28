@@ -1,49 +1,24 @@
-package com.itesm.infrastructure.persistence.entity;
-
-import com.itesm.domain.models.user_model.UserRole;
-import jakarta.persistence.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
-import java.time.LocalDateTime;
-import java.util.List;
+package com.itesm.domain.models.user_model;
 import java.util.UUID;
 
-@Entity
-@Table(name="usuarios")
-public class UserEntity {
-    @Id
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(length = 36, nullable = false)
+public class User {
     private UUID id;
-
-    @Column(nullable = false, length = 100)
     private String nombre;
-
-    @Column(nullable = false, length = 150)
     private String apellidos;
-
-    @Column(nullable = false, length = 255, unique = true )
     private String email;
-
-    @Column(name="firebase_uuid", unique = true, length = 128, nullable = false)
     private String firebaseUuid;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private UserRole rol;
-
-    @Column(name="is_active", nullable = false)
     private boolean isActive;
 
-    public UserEntity(){}
-    public UserEntity(UUID id, String nombre, String apellidos, String email, String firebaseUuid, UserRole rol, boolean isActive) {
+    public User() {}
+
+    public User(UUID id, String nombre, String apellidos, String email, String firebaseUuid, UserRole rol,  boolean isActive) {
         this.id = id;
         this.nombre = nombre;
         this.apellidos = apellidos;
         this.email = email;
         this.firebaseUuid = firebaseUuid;
-        this.rol = rol;
+        this.rol=rol;
         this.isActive = isActive;
     }
 
