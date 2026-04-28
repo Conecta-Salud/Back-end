@@ -15,7 +15,7 @@ substitutions:
   _REPOSITORY: todorepo
   _IMAGE: backend
   _SERVICE: backend
-  _PROJECT_ID: "Conecta Salud"
+  _PROJECT_ID: conecta-salud-123456
 
 options:
   logging: CLOUD_LOGGING_ONLY
