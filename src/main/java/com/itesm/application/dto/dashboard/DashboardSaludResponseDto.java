@@ -1,19 +1,19 @@
 package com.itesm.application.dto.dashboard;
 
-public class IndicadoresResponseDto {
+public class DashboardSaludResponseDto {
 
     private TerritorioDto territorio;
     private PeriodoDto periodo;
-    private DashboardIndicadoresDto indicadores;
+    private SaludDashboardDto salud;
 
-    public IndicadoresResponseDto(
+    public DashboardSaludResponseDto(
             TerritorioDto territorio,
             PeriodoDto periodo,
-            DashboardIndicadoresDto indicadores
+            SaludDashboardDto salud
     ) {
         this.territorio = territorio;
         this.periodo = periodo;
-        this.indicadores = indicadores;
+        this.salud = salud;
     }
 
     public TerritorioDto getTerritorio() {
@@ -32,11 +32,11 @@ public class IndicadoresResponseDto {
         this.periodo = periodo;
     }
 
-    public DashboardIndicadoresDto getIndicadores() {
-        return indicadores;
+    public SaludDashboardDto getSalud() {
+        return salud;
     }
 
-    public void setIndicadores(DashboardIndicadoresDto indicadores) {
-        this.indicadores = indicadores;
+    public void setSalud(SaludDashboardDto salud) {
+        this.salud = salud;
     }
 }

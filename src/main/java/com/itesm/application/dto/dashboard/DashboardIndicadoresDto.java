@@ -3,14 +3,14 @@ package com.itesm.application.dto.dashboard;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-public class IndicadoresDto {
+public class DashboardIndicadoresDto {
 
     private BigInteger poblacionTotal;
     private BigDecimal porcentaje60mas;
     private BigInteger carenciaAccesoSalud;
     private BigInteger situacionPobrezaTotal;
 
-    public IndicadoresDto(
+    public DashboardIndicadoresDto(
             BigInteger poblacionTotal,
             BigDecimal porcentaje60mas,
             BigInteger carenciaAccesoSalud,

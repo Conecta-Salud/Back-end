@@ -1,6 +1,6 @@
 package com.itesm.application.usecase.dashboard;
 
-import com.itesm.application.dto.dashboard.IndicadoresDto;
+import com.itesm.application.dto.dashboard.DashboardIndicadoresDto;
 import com.itesm.application.dto.dashboard.IndicadoresResponseDto;
 import com.itesm.application.dto.dashboard.PeriodoDto;
 import com.itesm.application.dto.dashboard.TerritorioDto;
@@ -37,7 +37,7 @@ public class GetDashboardEstadoUseCase {
                 indicador.getAnio()
         );
 
-        IndicadoresDto indicadores = new IndicadoresDto(
+        DashboardIndicadoresDto indicadores = new DashboardIndicadoresDto(
                 indicador.getPoblacionTotal(),
                 indicador.getPorcentaje60mas(),
                 indicador.getCarenciaAccesoSalud(),
