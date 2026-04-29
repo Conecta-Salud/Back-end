@@ -1,4 +1,4 @@
-package com.itesm.domain.models.user_model;
+package com.itesm.domain.models.usuario;
 
 public enum UserRole {
     estrategico,

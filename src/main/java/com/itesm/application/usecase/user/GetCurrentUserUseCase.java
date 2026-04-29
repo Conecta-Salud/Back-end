@@ -1,6 +1,6 @@
-package com.itesm.application.usecase.user_usecase;
+package com.itesm.application.usecase.user;
 
-import com.itesm.application.dto.user_dto.UserProfileResponseDto;
+import com.itesm.application.dto.user.UserProfileResponseDto;
 import com.itesm.application.security.AuthenticatedUserContext;
 import com.itesm.application.security.CurrentUser;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -21,6 +21,8 @@ public class GetCurrentUserUseCase {
 
         return new UserProfileResponseDto(
                 currentUser.getUserId(),
+                currentUser.getIdDependencia(),
+                currentUser.getNombreDependencia(),
                 currentUser.getNombre(),
                 currentUser.getApellidos(),
                 currentUser.getEmail(),

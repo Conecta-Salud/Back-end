@@ -1,8 +1,10 @@
-package com.itesm.domain.models.user_model;
+package com.itesm.domain.models.usuario;
 import java.util.UUID;
 
 public class User {
     private UUID id;
+    private Integer idDependencia;
+    private String nombreDependencia;
     private String nombre;
     private String apellidos;
     private String email;
@@ -12,8 +14,10 @@ public class User {
 
     public User() {}
 
-    public User(UUID id, String nombre, String apellidos, String email, String firebaseUuid, UserRole rol,  boolean isActive) {
+    public User(UUID id, Integer idDependencia, String nombreDependencia,String nombre, String apellidos, String email, String firebaseUuid, UserRole rol,  boolean isActive) {
         this.id = id;
+        this.idDependencia = idDependencia;
+        this.nombreDependencia = nombreDependencia;
         this.nombre = nombre;
         this.apellidos = apellidos;
         this.email = email;
@@ -28,6 +32,12 @@ public class User {
     public void setId(UUID id) {
         this.id = id;
     }
+
+    public Integer getIdDependencia() { return idDependencia; }
+    public void setIdDependencia(Integer idDependencia) { this.idDependencia = idDependencia; }
+
+    public String getNombreDependencia() { return nombreDependencia; }
+    public void setNombreDependencia(String nombreDependencia) { this.nombreDependencia = nombreDependencia; }
 
     public String getNombre() {
         return nombre;

@@ -1,11 +1,11 @@
-package com.itesm.application.usecase.user_usecase;
+package com.itesm.application.usecase.user;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
-import com.itesm.application.dto.user_dto.RegisterUserDto;
-import com.itesm.domain.models.user_model.User;
-import com.itesm.domain.models.user_model.UserRole;
+import com.itesm.application.dto.user.RegisterUserDto;
+import com.itesm.domain.models.usuario.User;
+import com.itesm.domain.models.usuario.UserRole;
 import com.itesm.domain.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -24,7 +24,9 @@ public class RegisterUserUseCase {
 
     public User execute(RegisterUserDto registerUserDto) throws FirebaseAuthException {
         User user = new User();
+
         user.setId(UUID.randomUUID());
+        user.setIdDependencia(registerUserDto.getIdDependencia());
         user.setNombre(registerUserDto.getNombre());
         user.setApellidos(registerUserDto.getApellidos());
         user.setEmail(registerUserDto.getEmail());
@@ -34,8 +36,10 @@ public class RegisterUserUseCase {
         UserRecord.CreateRequest createRequest = new UserRecord.CreateRequest()
                 .setEmail(user.getEmail())
                 .setPassword(registerUserDto.getPassword());
+
         UserRecord userRecord= FirebaseAuth.getInstance().createUser(createRequest);
         user.setFirebaseUuid(userRecord.getUid());
+
         user = userRepository.create(user);
         return user;
 

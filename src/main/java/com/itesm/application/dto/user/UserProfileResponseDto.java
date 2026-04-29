@@ -1,19 +1,23 @@
-package com.itesm.application.dto.user_dto;
+package com.itesm.application.dto.user;
 
-import com.itesm.domain.models.user_model.UserRole;
+import com.itesm.domain.models.usuario.UserRole;
 
 import java.util.UUID;
 
 public class UserProfileResponseDto {
     private UUID id;
+    private Integer idDependencia;
+    private String nombreDependencia;
     private String nombre;
     private String email;
     private String apellido;
     private String firebaseUuid;
     private UserRole rol;
 
-    public UserProfileResponseDto(UUID id, String nombre, String apellido, String email, String firebaseUuid, UserRole rol) {
+    public UserProfileResponseDto(UUID id, Integer idDependencia, String nombreDependencia, String nombre, String apellido, String email, String firebaseUuid, UserRole rol) {
         this.id = id;
+        this.idDependencia = idDependencia;
+        this.nombreDependencia = nombreDependencia;
         this.nombre = nombre;
         this.apellido = apellido;
         this.email = email;
@@ -27,6 +31,12 @@ public class UserProfileResponseDto {
     public void setId(UUID id) {
         this.id = id;
     }
+
+    public Integer getIdDependencia() { return idDependencia; }
+    public void setIdDependencia(Integer idDependencia) { this.idDependencia = idDependencia; }
+
+    public String getNombreDependencia() { return nombreDependencia; }
+    public void setNombreDependencia(String nombreDependencia) { this.nombreDependencia = nombreDependencia; }
 
     public String getNombre() {
         return nombre;
