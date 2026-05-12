@@ -1,106 +1,117 @@
 package com.itesm.infrastructure.persistence.entity;
 
+import com.itesm.domain.models.usuario.UserRole;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name="users")
+@Table(name="usuarios")
+@NamedEntityGraph(
+        name = "User.withDependencia",
+        attributeNodes = {
+                @NamedAttributeNode("dependencia")
+        }
+)
+
 public class UserEntity {
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(length = 36, nullable = false)
     private UUID id;
-    @Column(nullable = false, length = 255, name="full_name")
-    private String fullName;
-    @Column(nullable = false, length = 255, unique = true )
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "id_dependencia", nullable = false)
+    private DependenciaEntity dependencia;
+
+    @Column(nullable = false, length = 100)
+    private String nombre;
+
+    @Column(nullable = false, length = 150)
+    private String apellidos;
+
+    @Column(nullable = false, length = 255, unique = true)
     private String email;
-    @Column(nullable = false)
-    private boolean active;
-    @Column(name="firebase_uuid", unique = true, length = 128)
+
+    @Column(name="firebase_uuid", unique = true, length = 128, nullable = false)
     private String firebaseUuid;
-    @Column(nullable = false, name="created_at")
-    private LocalDateTime createdAt;
-    @Column(nullable = false, name="updated_at")
-    private LocalDateTime updatedAt;
-    @Column
-    private String role;
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TodoEntity> todos;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole rol;
+
+    @Column(name="is_active", nullable = false)
+    private boolean isActive;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
 
     public UserEntity(){}
-    public UserEntity(UUID id, String fullName, String email, boolean active, String firebaseUuid, LocalDateTime createdAt, LocalDateTime updatedAt, String role) {
+    public UserEntity(UUID id, DependenciaEntity dependencia ,String nombre, String apellidos, String email, String firebaseUuid, UserRole rol, boolean isActive,  LocalDateTime lastLoginAt) {
         this.id = id;
-        this.fullName = fullName;
+        this.dependencia = dependencia;
+        this.nombre = nombre;
+        this.apellidos = apellidos;
         this.email = email;
-        this.active = active;
         this.firebaseUuid = firebaseUuid;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-        this.role = role;
+        this.rol = rol;
+        this.isActive = isActive;
+        this.lastLoginAt = lastLoginAt;
     }
 
     public UUID getId() {
         return id;
     }
+    public void setId(UUID id) { this.id = id; }
 
-    public void setId(UUID id) {
-        this.id = id;
+    public DependenciaEntity getDependencia() { return dependencia; }
+    public void setDependencia(DependenciaEntity dependencia) { this.dependencia = dependencia; }
+
+    public String getNombre() {
+        return nombre;
+    }
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
     }
 
-    public String getFullName() {
-        return fullName;
+    public String getApellidos() {
+        return apellidos;
     }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
+    public void setApellidos(String apellidos) {
+        this.apellidos = apellidos;
     }
 
     public String getEmail() {
         return email;
     }
-
     public void setEmail(String email) {
         this.email = email;
-    }
-
-    public boolean isActive() {
-        return active;
-    }
-
-    public void setActive(boolean active) {
-        this.active = active;
     }
 
     public String getFirebaseUuid() {
         return firebaseUuid;
     }
-
     public void setFirebaseUuid(String firebaseUuid) {
         this.firebaseUuid = firebaseUuid;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
+    public UserRole getRol() {
+        return rol;
+    }
+    public void setRol(UserRole rol) {
+        this.rol = rol;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public boolean isActive() {
+        return isActive;
+    }
+    public void setActive(boolean active) {
+        isActive = active;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public String getRole() {
-        return role;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
+    public LocalDateTime getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
 }

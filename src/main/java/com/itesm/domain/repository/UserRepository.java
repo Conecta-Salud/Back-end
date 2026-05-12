@@ -1,7 +1,7 @@
 package com.itesm.domain.repository;
 
 
-import com.itesm.domain.models.User;
+import com.itesm.domain.models.usuario.User;
 
 import java.util.Optional;
 

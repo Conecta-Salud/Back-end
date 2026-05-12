@@ -1,15 +1,14 @@
 package com.itesm.interfaces.rest;
 
 import com.google.firebase.auth.FirebaseAuthException;
-import com.itesm.application.dto.RegisterUserDto;
-import com.itesm.application.usecase.RegisterUserUseCase;
-import com.itesm.domain.models.User;
+import com.itesm.application.dto.user.RegisterUserDto;
+import com.itesm.application.dto.user.UserProfileResponseDto;
+import com.itesm.application.usecase.user.GetCurrentUserUseCase;
+import com.itesm.application.usecase.user.RegisterUserUseCase;
+import com.itesm.domain.models.usuario.User;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -17,23 +16,34 @@ import jakarta.ws.rs.core.Response;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class UserResource {
-    @Inject
-    RegisterUserUseCase registerUserUseCase;
 
+    private final RegisterUserUseCase registerUserUseCase;
+    private final GetCurrentUserUseCase getCurrentUserUseCase;
+
+    @Inject
     public UserResource(
-            RegisterUserUseCase registerUserUseCase
+            RegisterUserUseCase registerUserUseCase,
+            GetCurrentUserUseCase getCurrentUserUseCase
     ) {
         this.registerUserUseCase = registerUserUseCase;
+        this.getCurrentUserUseCase = getCurrentUserUseCase;
     }
 
     @POST
     public Response registerUser(@Valid RegisterUserDto registerUserDto) {
         try {
             User user= registerUserUseCase.execute(registerUserDto);
-            return Response.ok(user).build();
+            return Response.status(Response.Status.CREATED).entity(user).build();
         } catch (FirebaseAuthException e) {
             e.printStackTrace();
             return Response.serverError().build();
         }
+    }
+
+    @GET
+    @Path("/me")
+    public Response getCurrentUser(){
+        UserProfileResponseDto user = getCurrentUserUseCase.execute();
+        return Response.ok(user).build();
     }
 }

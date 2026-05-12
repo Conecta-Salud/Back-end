@@ -5,9 +5,8 @@ import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import com.itesm.application.security.AuthenticatedUserContext;
 import com.itesm.application.security.CurrentUser;
-import com.itesm.domain.models.User;
+import com.itesm.domain.models.usuario.User;
 import com.itesm.domain.repository.UserRepository;
-import com.itesm.infrastructure.firebase.FirebaseConfig;
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Priorities;
@@ -52,7 +51,14 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
             }
             User user= userOptional.get();
             CurrentUser currentUser= new CurrentUser(
-                    user.getId(),user.getFirebaseUuid(),user.getEmail(),user.getRole(), user.getFullName()
+                    user.getId(),
+                    user.getIdDependencia(),
+                    user.getNombreDependencia(),
+                    user.getNombre(),
+                    user.getApellidos(),
+                    user.getEmail(),
+                    user.getFirebaseUuid(),
+                    user.getRol()
             );
             authenticatedUserContext.setCurrentUser(currentUser);
         } catch (FirebaseAuthException e) {
