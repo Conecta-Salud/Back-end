@@ -21,13 +21,13 @@ public class GetCurrentUserUseCase {
 
         return new UserProfileResponseDto(
                 currentUser.getUserId(),
-                currentUser.getIdDependencia(),
-                currentUser.getNombreDependencia(),
-                currentUser.getNombre(),
-                currentUser.getApellidos(),
+                currentUser.getDepartmentId(),
+                currentUser.getDepartmentName(),
+                currentUser.getFirstName(),
+                currentUser.getLastName(),
                 currentUser.getEmail(),
                 currentUser.getFirebaseUuid(),
-                currentUser.getRol()
+                currentUser.getRole()
         );
     }
 }

@@ -1,47 +1,69 @@
 package com.itesm.application.security;
-import com.itesm.domain.models.usuario.UserRole;
+import com.itesm.domain.models.user.UserRole;
 
 import java.util.UUID;
 
 public class CurrentUser {
+
     private final UUID userId;
-    private final Integer idDependencia;
-    private final String nombreDependencia;
-    private final String nombre;
-    private final String apellidos;
+    private final Integer departmentId;
+    private final String departmentName;
+    private final String firstName;
+    private final String lastName;
     private final String email;
     private final String firebaseUuid;
-    private final UserRole rol;
+    private final UserRole role;
 
-    public CurrentUser(UUID userId, Integer idDependencia, String nombreDependencia, String nombre, String apellidos, String email, String firebaseUuid, UserRole rol) {
+    public CurrentUser(
+            UUID userId,
+            Integer departmentId,
+            String departmentName,
+            String firstName,
+            String lastName,
+            String email,
+            String firebaseUuid,
+            UserRole role
+    ) {
         this.userId = userId;
-        this.idDependencia = idDependencia;
-        this.nombreDependencia = nombreDependencia;
-        this.nombre = nombre;
-        this.apellidos = apellidos;
+        this.departmentId = departmentId;
+        this.departmentName = departmentName;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.email = email;
         this.firebaseUuid = firebaseUuid;
-        this.rol = rol;
+        this.role = role;
     }
 
-    public boolean hasRol(UserRole rol){
-        return this.rol.equals(rol);
+    public boolean hasRole(UserRole role) {
+        return this.role != null && this.role.equals(role);
+    }
+
+    public boolean isAdmin() {
+        return UserRole.admin.equals(this.role);
+    }
+
+    public boolean isStrategic() {
+        return UserRole.strategic.equals(this.role);
     }
 
     public UUID getUserId() {
         return userId;
     }
 
-    public Integer getIdDependencia() { return idDependencia; }
-
-    public String getNombreDependencia() { return nombreDependencia; }
-
-    public String getNombre() {
-        return nombre;
+    public Integer getDepartmentId() {
+        return departmentId;
     }
 
-    public String getApellidos() {
-        return apellidos;
+    public String getDepartmentName() {
+        return departmentName;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
     }
 
     public String getEmail() {
@@ -52,9 +74,7 @@ public class CurrentUser {
         return firebaseUuid;
     }
 
-    public UserRole getRol() {
-        return rol;
+    public UserRole getRole() {
+        return role;
     }
-
-
 }

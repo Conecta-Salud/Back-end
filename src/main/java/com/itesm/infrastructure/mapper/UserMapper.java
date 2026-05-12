@@ -1,41 +1,94 @@
 package com.itesm.infrastructure.mapper;
 
-import com.itesm.domain.models.usuario.User;
-import com.itesm.infrastructure.persistence.entity.DependenciaEntity;
+import com.itesm.domain.models.user.User;
+import com.itesm.infrastructure.persistence.entity.DepartmentEntity;
 import com.itesm.infrastructure.persistence.entity.UserEntity;
+
+import java.util.UUID;
 
 public class UserMapper {
 
-    public static UserEntity toEntity(User user, DependenciaEntity dependencia) {
-        UserEntity userEntity = new UserEntity();
+    private UserMapper() {}
 
-        userEntity.setId(user.getId());
-        userEntity.setDependencia(dependencia);
-        userEntity.setNombre(user.getNombre());
-        userEntity.setApellidos(user.getApellidos());
-        userEntity.setEmail(user.getEmail());
-        userEntity.setFirebaseUuid(user.getFirebaseUuid());
-        userEntity.setRol(user.getRol());
-        userEntity.setActive(user.isActive());
-
-        return userEntity;
-    }
-    public static User toDomain(UserEntity userEntity) {
-        User user = new User();
-
-        user.setId(userEntity.getId());
-        if (userEntity.getDependencia() != null) {
-            user.setIdDependencia(userEntity.getDependencia().getId());
-            user.setNombreDependencia(userEntity.getDependencia().getNombre());
+    public static UserEntity toEntity(User user, DepartmentEntity departmentEntity) {
+        if (user == null) {
+            return null;
         }
 
-        user.setNombre(userEntity.getNombre());
-        user.setApellidos(userEntity.getApellidos());
-        user.setEmail(userEntity.getEmail());
-        user.setFirebaseUuid(userEntity.getFirebaseUuid());
-        user.setActive(userEntity.isActive());
-        user.setRol(userEntity.getRol());
+        UserEntity entity = new UserEntity();
 
-        return user;
+        if (user.getId() != null) {
+            entity.setId(user.getId());
+        } else {
+            entity.setId(UUID.randomUUID());
+        }
+
+        entity.setDepartment(departmentEntity);
+        entity.setFirstName(user.getFirstName());
+        entity.setLastName(user.getLastName());
+        entity.setEmail(user.getEmail());
+        entity.setFirebaseUuid(user.getFirebaseUuid());
+        entity.setRole(user.getRole());
+        entity.setActive(user.isActive());
+
+        return entity;
+    }
+
+    public static User toDomain(UserEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        Integer departmentId = null;
+        String departmentName = null;
+
+        if (entity.getDepartment() != null) {
+            departmentId = entity.getDepartment().getId();
+            departmentName = entity.getDepartment().getName();
+        }
+
+        return new User(
+                entity.getId(),
+                departmentId,
+                departmentName,
+                entity.getFirstName(),
+                entity.getLastName(),
+                entity.getEmail(),
+                entity.getFirebaseUuid(),
+                entity.getRole(),
+                entity.isActive()
+        );
+    }
+
+    public static void updateEntity(UserEntity entity, User user, DepartmentEntity departmentEntity) {
+        if (entity == null || user == null) {
+            return;
+        }
+
+        if (departmentEntity != null) {
+            entity.setDepartment(departmentEntity);
+        }
+
+        if (user.getFirstName() != null) {
+            entity.setFirstName(user.getFirstName());
+        }
+
+        if (user.getLastName() != null) {
+            entity.setLastName(user.getLastName());
+        }
+
+        if (user.getEmail() != null) {
+            entity.setEmail(user.getEmail());
+        }
+
+        if (user.getFirebaseUuid() != null) {
+            entity.setFirebaseUuid(user.getFirebaseUuid());
+        }
+
+        if (user.getRole() != null) {
+            entity.setRole(user.getRole());
+        }
+
+        entity.setActive(user.isActive());
     }
 }

@@ -1,75 +1,101 @@
 package com.itesm.application.dto.user;
 
-import com.itesm.domain.models.usuario.UserRole;
+import com.itesm.domain.models.user.UserRole;
 
 import java.util.UUID;
 
 public class UserProfileResponseDto {
-    private UUID id;
-    private Integer idDependencia;
-    private String nombreDependencia;
-    private String nombre;
-    private String email;
-    private String apellido;
-    private String firebaseUuid;
-    private UserRole rol;
 
-    public UserProfileResponseDto(UUID id, Integer idDependencia, String nombreDependencia, String nombre, String apellido, String email, String firebaseUuid, UserRole rol) {
+    private UUID id;
+    private Integer departmentId;
+    private String departmentName;
+    private String firstName;
+    private String lastName;
+    private String email;
+    private String firebaseUuid;
+    private UserRole role;
+
+    public UserProfileResponseDto(
+            UUID id,
+            Integer departmentId,
+            String departmentName,
+            String firstName,
+            String lastName,
+            String email,
+            String firebaseUuid,
+            UserRole role
+    ) {
         this.id = id;
-        this.idDependencia = idDependencia;
-        this.nombreDependencia = nombreDependencia;
-        this.nombre = nombre;
-        this.apellido = apellido;
+        this.departmentId = departmentId;
+        this.departmentName = departmentName;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.email = email;
         this.firebaseUuid = firebaseUuid;
-        this.rol = rol;
+        this.role = role;
     }
 
     public UUID getId() {
         return id;
     }
+
     public void setId(UUID id) {
         this.id = id;
     }
 
-    public Integer getIdDependencia() { return idDependencia; }
-    public void setIdDependencia(Integer idDependencia) { this.idDependencia = idDependencia; }
-
-    public String getNombreDependencia() { return nombreDependencia; }
-    public void setNombreDependencia(String nombreDependencia) { this.nombreDependencia = nombreDependencia; }
-
-    public String getNombre() {
-        return nombre;
+    public Integer getDepartmentId() {
+        return departmentId;
     }
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
+
+    public void setDepartmentId(Integer departmentId) {
+        this.departmentId = departmentId;
+    }
+
+    public String getDepartmentName() {
+        return departmentName;
+    }
+
+    public void setDepartmentName(String departmentName) {
+        this.departmentName = departmentName;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
     }
 
     public String getEmail() {
         return email;
     }
+
     public void setEmail(String email) {
         this.email = email;
-    }
-
-    public String getApellido() {
-        return apellido;
-    }
-    public void setApellido(String apellido) {
-        this.apellido = apellido;
     }
 
     public String getFirebaseUuid() {
         return firebaseUuid;
     }
+
     public void setFirebaseUuid(String firebaseUuid) {
         this.firebaseUuid = firebaseUuid;
     }
 
-    public UserRole getRol() {
-        return rol;
+    public UserRole getRole() {
+        return role;
     }
-    public void setRol(UserRole rol) {
-        this.rol = rol;
+
+    public void setRole(UserRole role) {
+        this.role = role;
     }
 }

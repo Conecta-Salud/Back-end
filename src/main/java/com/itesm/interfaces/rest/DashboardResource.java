@@ -1,70 +1,76 @@
 package com.itesm.interfaces.rest;
 
-import com.itesm.application.usecase.dashboard.GetDashboardEstadoUseCase;
-import com.itesm.application.usecase.dashboard.GetDashboardMunicipioUseCase;
-import com.itesm.application.usecase.dashboard.GetDashboardSaludEstadoUseCase;
-import com.itesm.application.usecase.dashboard.GetDashboardSaludMunicipioUseCase;
+import com.itesm.application.dto.dashboard.HealthDashboardResponseDto;
+import com.itesm.application.dto.dashboard.IndicatorsResponseDto;
+import com.itesm.application.usecase.dashboard.GetStateDashboardUseCase;
+import com.itesm.application.usecase.dashboard.GetMunicipalityDashboardUseCase;
+import com.itesm.application.usecase.dashboard.GetStateHealthDashboardUseCase;
+import com.itesm.application.usecase.dashboard.GetMunicipalityHealthDashboardUseCase;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 @Path("/dashboard")
-@Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
 public class DashboardResource {
 
-    private final GetDashboardEstadoUseCase getDashboardEstadoUseCase;
-    private final GetDashboardMunicipioUseCase getDashboardMunicipioUseCase;
-    private final GetDashboardSaludEstadoUseCase getDashboardSaludEstadoUseCase;
-    private final GetDashboardSaludMunicipioUseCase getDashboardSaludMunicipioUseCase;
+    private final GetStateDashboardUseCase getStateDashboardUseCase;
+    private final GetMunicipalityDashboardUseCase getMunicipalityDashboardUseCase;
+    private final GetStateHealthDashboardUseCase getStateHealthDashboardUseCase;
+    private final GetMunicipalityHealthDashboardUseCase getMunicipalityHealthDashboardUseCase;
 
     @Inject
     public DashboardResource(
-            GetDashboardEstadoUseCase getDashboardEstadoUseCase,
-            GetDashboardMunicipioUseCase getDashboardMunicipioUseCase,
-            GetDashboardSaludEstadoUseCase getDashboardSaludEstadoUseCase,
-            GetDashboardSaludMunicipioUseCase getDashboardSaludMunicipioUseCase
+            GetStateDashboardUseCase getStateDashboardUseCase,
+            GetMunicipalityDashboardUseCase getMunicipalityDashboardUseCase,
+            GetStateHealthDashboardUseCase getStateHealthDashboardUseCase,
+            GetMunicipalityHealthDashboardUseCase getMunicipalityHealthDashboardUseCase
     ) {
-        this.getDashboardEstadoUseCase = getDashboardEstadoUseCase;
-        this.getDashboardMunicipioUseCase = getDashboardMunicipioUseCase;
-        this.getDashboardSaludEstadoUseCase = getDashboardSaludEstadoUseCase;
-        this.getDashboardSaludMunicipioUseCase = getDashboardSaludMunicipioUseCase;
+        this.getStateDashboardUseCase = getStateDashboardUseCase;
+        this.getMunicipalityDashboardUseCase = getMunicipalityDashboardUseCase;
+        this.getStateHealthDashboardUseCase = getStateHealthDashboardUseCase;
+        this.getMunicipalityHealthDashboardUseCase = getMunicipalityHealthDashboardUseCase;
     }
 
     @GET
-    @Path("/estados/{idEstado}")
-    public Response getDashboardEstado(
-            @PathParam("idEstado") Integer idEstado,
-            @QueryParam("periodoId") Integer periodoId
+    @Path("/states/{stateId}/indicators")
+    public Response getStateIndicatorsDashboard(
+            @PathParam("stateId") Integer stateId,
+            @QueryParam("periodId") Integer periodId
     ) {
-        return Response.ok(getDashboardEstadoUseCase.execute(idEstado, periodoId)).build();
+        IndicatorsResponseDto response = getStateDashboardUseCase.execute(stateId, periodId);
+        return Response.ok(response).build();
     }
 
     @GET
-    @Path("/municipios/{idMunicipio}")
-    public Response getDashboardMunicipio(
-            @PathParam("idMunicipio") Integer idMunicipio,
-            @QueryParam("periodoId") Integer periodoId
+    @Path("/municipalities/{municipalityId}/indicators")
+    public Response getMunicipalityIndicatorsDashboard(
+            @PathParam("municipalityId") Integer municipalityId,
+            @QueryParam("periodId") Integer periodId
     ) {
-        return Response.ok(getDashboardMunicipioUseCase.execute(idMunicipio, periodoId)).build();
+        IndicatorsResponseDto response = getMunicipalityDashboardUseCase.execute(municipalityId, periodId);
+        return Response.ok(response).build();
     }
 
     @GET
-    @Path("/estados/{idEstado}/salud")
-    public Response getDashboardSaludEstado(
-            @PathParam("idEstado") Integer idEstado,
-            @QueryParam("periodoId") Integer periodoId
+    @Path("/states/{stateId}/health")
+    public Response getStateHealthDashboard(
+            @PathParam("stateId") Integer stateId,
+            @QueryParam("periodId") Integer periodId
     ) {
-        return Response.ok(getDashboardSaludEstadoUseCase.execute(idEstado, periodoId)).build();
+        HealthDashboardResponseDto response = getStateHealthDashboardUseCase.execute(stateId, periodId);
+        return Response.ok(response).build();
     }
 
     @GET
-    @Path("/municipios/{idMunicipio}/salud")
-    public Response getDashboardSaludMunicipio(
-            @PathParam("idMunicipio") Integer idMunicipio,
-            @QueryParam("periodoId") Integer periodoId
+    @Path("/municipalities/{municipalityId}/health")
+    public Response getMunicipalityHealthDashboard(
+            @PathParam("municipalityId") Integer municipalityId,
+            @QueryParam("periodId") Integer periodId
     ) {
-        return Response.ok(getDashboardSaludMunicipioUseCase.execute(idMunicipio, periodoId)).build();
+        HealthDashboardResponseDto response = getMunicipalityHealthDashboardUseCase.execute(municipalityId, periodId);
+        return Response.ok(response).build();
     }
 }
