@@ -3,7 +3,7 @@ package com.itesm.application.dto.comparacion;
 import com.itesm.application.dto.dashboard.DashboardIndicadoresDto;
 import com.itesm.application.dto.dashboard.PeriodoDto;
 import com.itesm.application.dto.dashboard.SaludDashboardDto;
-
+// Compa
 public class ComparacionTerritorioDto {
 
     private Integer id;
