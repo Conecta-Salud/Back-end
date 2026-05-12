@@ -1,9 +1,9 @@
 package com.itesm.infrastructure.persistence.repository;
 
-import com.itesm.domain.models.usuario.User;
+import com.itesm.domain.models.user.User;
 import com.itesm.domain.repository.UserRepository;
 import com.itesm.infrastructure.mapper.UserMapper;
-import com.itesm.infrastructure.persistence.entity.DependenciaEntity;
+import com.itesm.infrastructure.persistence.entity.DepartmentEntity;
 import com.itesm.infrastructure.persistence.entity.UserEntity;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -15,6 +15,8 @@ import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
 @ApplicationScoped
 public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase<UserEntity, UUID> {
 
@@ -28,7 +30,7 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
 
     @Override
     public Optional<User> findByFirebaseUuid(String firebaseUuid) {
-        EntityGraph<?> graph = em.getEntityGraph("User.withDependencia");
+        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
 
         List<UserEntity> result = em.createQuery(
                         "SELECT u FROM UserEntity u WHERE u.firebaseUuid = :firebaseUuid",
@@ -48,20 +50,89 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
     @Override
     @Transactional
     public User create(User user) {
-        DependenciaEntity dependencia = em.find(DependenciaEntity.class, user.getIdDependencia());
+        DepartmentEntity department = em.find(DepartmentEntity.class, user.getDepartmentId());
 
-        if (dependencia == null) {
-            throw new IllegalArgumentException("Dependencia not found");
+        if (department == null) {
+            throw new IllegalArgumentException("Department not found");
         }
 
-        UserEntity userEntity = UserMapper.toEntity(user, dependencia);
+        UserEntity userEntity = UserMapper.toEntity(user, department);
 
         persist(userEntity);
 
         return UserMapper.toDomain(userEntity);
     }
 
-    private User mapToDomain(UserEntity userEntity) {
-        return UserMapper.toDomain(userEntity);
+    @Override
+    public User findUserById(UUID userId) {
+        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
+
+        List<UserEntity> result = em.createQuery(
+                        "SELECT u FROM UserEntity u WHERE u.id = :userId",
+                        UserEntity.class
+                )
+                .setParameter("userId", userId)
+                .setHint("jakarta.persistence.loadgraph", graph)
+                .getResultList();
+
+        if (result.isEmpty()) {
+            return null;
+        }
+
+        return UserMapper.toDomain(result.get(0));
+    }
+
+    @Override
+    public List<User> findAllUsers() {
+        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
+
+        List<UserEntity> result = em.createQuery(
+                        "SELECT u FROM UserEntity u ORDER BY u.firstName ASC, u.lastName ASC",
+                        UserEntity.class
+                )
+                .setHint("jakarta.persistence.loadgraph", graph)
+                .getResultList();
+
+        return result.stream()
+                .map(UserMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public User updateUser(UUID userId, User user) {
+        UserEntity entity = findById(userId);
+
+        if (entity == null) {
+            throw new RuntimeException("User not found");
+        }
+
+        DepartmentEntity department = null;
+
+        if (user.getDepartmentId() != null) {
+            department = em.find(DepartmentEntity.class, user.getDepartmentId());
+
+            if (department == null) {
+                throw new RuntimeException("Department not found");
+            }
+        }
+
+        UserMapper.updateEntity(entity, user, department);
+
+        return UserMapper.toDomain(entity);
+    }
+
+    @Override
+    @Transactional
+    public User deleteUserById(UUID userId) {
+        UserEntity entity = findById(userId);
+
+        if (entity == null) {
+            throw new RuntimeException("User not found");
+        }
+
+        entity.setActive(false);
+
+        return UserMapper.toDomain(entity);
     }
 }

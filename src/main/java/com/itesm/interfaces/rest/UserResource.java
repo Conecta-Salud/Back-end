@@ -1,49 +1,145 @@
 package com.itesm.interfaces.rest;
 
 import com.google.firebase.auth.FirebaseAuthException;
-import com.itesm.application.dto.user.RegisterUserDto;
+import com.itesm.application.dto.user.CreateUserDto;
+import com.itesm.application.dto.user.UpdateUserDto;
 import com.itesm.application.dto.user.UserProfileResponseDto;
-import com.itesm.application.usecase.user.GetCurrentUserUseCase;
-import com.itesm.application.usecase.user.RegisterUserUseCase;
-import com.itesm.domain.models.usuario.User;
+import com.itesm.application.security.AuthenticatedUserContext;
+import com.itesm.application.security.CurrentUser;
+import com.itesm.application.usecase.user.*;
+import com.itesm.domain.models.user.User;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-@Path("/user")
+import java.util.List;
+import java.util.UUID;
+
+@Path("/users")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class UserResource {
 
-    private final RegisterUserUseCase registerUserUseCase;
+    private final CreateUserUseCase createUserUseCase;
     private final GetCurrentUserUseCase getCurrentUserUseCase;
+    private final FindUserByIdUseCase findUserByIdUseCase;
+    private final FindAllUsersUseCase findAllUsersUseCase;
+    private final UpdateUserUseCase updateUserUseCase;
+    private final DeleteUserByIdUseCase deleteUserByIdUseCase;
+    private final AuthenticatedUserContext authenticatedUserContext;
 
     @Inject
     public UserResource(
-            RegisterUserUseCase registerUserUseCase,
-            GetCurrentUserUseCase getCurrentUserUseCase
+            CreateUserUseCase createUserUseCase,
+            GetCurrentUserUseCase getCurrentUserUseCase,
+            FindUserByIdUseCase findUserByIdUseCase,
+            FindAllUsersUseCase findAllUsersUseCase,
+            UpdateUserUseCase updateUserUseCase,
+            DeleteUserByIdUseCase deleteUserByIdUseCase,
+            AuthenticatedUserContext authenticatedUserContext
+
     ) {
-        this.registerUserUseCase = registerUserUseCase;
+        this.createUserUseCase = createUserUseCase;
         this.getCurrentUserUseCase = getCurrentUserUseCase;
+        this.findUserByIdUseCase = findUserByIdUseCase;
+        this.findAllUsersUseCase = findAllUsersUseCase;
+        this.updateUserUseCase = updateUserUseCase;
+        this.deleteUserByIdUseCase = deleteUserByIdUseCase;
+        this.authenticatedUserContext = authenticatedUserContext;
+
     }
 
     @POST
-    public Response registerUser(@Valid RegisterUserDto registerUserDto) {
+    public Response createUser(@Valid CreateUserDto createUserDto) {
+        assertAdmin();
+
         try {
-            User user= registerUserUseCase.execute(registerUserDto);
-            return Response.status(Response.Status.CREATED).entity(user).build();
+            User user = createUserUseCase.execute(createUserDto);
+
+            return Response.status(Response.Status.CREATED)
+                    .entity(user)
+                    .build();
+
         } catch (FirebaseAuthException e) {
-            e.printStackTrace();
-            return Response.serverError().build();
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Error creating user in Firebase: " + e.getMessage())
+                    .build();
         }
     }
 
     @GET
-    @Path("/me")
-    public Response getCurrentUser(){
+    @Path("/profile")
+    public Response getCurrentUser() {
         UserProfileResponseDto user = getCurrentUserUseCase.execute();
         return Response.ok(user).build();
+    }
+
+    @GET
+    public Response findAllUsers() {
+        assertAdmin();
+
+        List<User> users = findAllUsersUseCase.execute();
+        return Response.ok(users).build();
+    }
+
+    @GET
+    @Path("/{userId}")
+    public Response findUserById(@PathParam("userId") UUID userId) {
+        assertAdmin();
+
+        User user = findUserByIdUseCase.execute(userId);
+
+        if (user == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("User not found")
+                    .build();
+        }
+
+        return Response.ok(user).build();
+    }
+
+    @PUT
+    @Path("/{userId}")
+    public Response updateUser(
+            @PathParam("userId") UUID userId,
+            UpdateUserDto updateUserDto
+    ) {
+        assertAdmin();
+
+        try {
+            User updatedUser = updateUserUseCase.execute(userId, updateUserDto);
+            return Response.ok(updatedUser).build();
+
+        } catch (RuntimeException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(e.getMessage())
+                    .build();
+        }
+    }
+
+    @DELETE
+    @Path("/{userId}")
+    public Response deleteUser(@PathParam("userId") UUID userId) {
+        assertAdmin();
+
+        try {
+            User deletedUser = deleteUserByIdUseCase.execute(userId);
+            return Response.ok(deletedUser).build();
+
+        } catch (RuntimeException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(e.getMessage())
+                    .build();
+        }
+    }
+
+    private void assertAdmin() {
+        CurrentUser currentUser = authenticatedUserContext.getCurrentUser();
+
+        if (!currentUser.isAdmin()) {
+            throw new ForbiddenException("Solo administradores pueden realizar esta acción");
+        }
     }
 }
