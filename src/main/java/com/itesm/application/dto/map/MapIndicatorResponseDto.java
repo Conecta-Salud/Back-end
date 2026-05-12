@@ -10,15 +10,15 @@ public class MapIndicatorResponseDto {
     private String code;
     private String name;
     private BigDecimal value;
-    private MapLevel level;
-    private ColorToken colorToken;
+    private String level;
+    private String colorToken;
 
     public MapIndicatorResponseDto(
             String code,
             String name,
             BigDecimal value,
-            MapLevel level,
-            ColorToken colorToken
+            String level,
+            String colorToken
     ) {
         this.code = code;
         this.name = name;
@@ -33,5 +33,37 @@ public class MapIndicatorResponseDto {
 
     public void setCode(String code) {
         this.code = code;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public BigDecimal getValue() {
+        return value;
+    }
+
+    public void setValue(BigDecimal value) {
+        this.value = value;
+    }
+
+    public String getLevel() {
+        return level;
+    }
+
+    public void setLevel(String level) {
+        this.level = level;
+    }
+
+    public String getColorToken() {
+        return colorToken;
+    }
+
+    public void setColorToken(String colorToken) {
+        this.colorToken = colorToken;
     }
 }

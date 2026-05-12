@@ -46,8 +46,8 @@ public class GetMunicipalityMapUseCase {
                         item.getCode(),
                         item.getName(),
                         item.getValue(),
-                        item.getLevel(),
-                        item.getColorToken()
+                        item.getLevel().name().toLowerCase(),
+                        item.getColorToken().name().toLowerCase()
                 ))
                 .collect(Collectors.toList());
     }

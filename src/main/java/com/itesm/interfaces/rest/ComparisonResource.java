@@ -3,6 +3,8 @@ package com.itesm.interfaces.rest;
 import com.itesm.application.dto.comparison.TerritoryComparisonDto;
 import com.itesm.application.usecase.comparison.CompareStatesUseCase;
 import com.itesm.application.usecase.comparison.CompareMunicipalitiesUseCase;
+import com.itesm.application.usecase.map.CompareMunicipalitiesByCodesUseCase;
+import com.itesm.application.usecase.map.CompareStatesByCodesUseCase;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -17,14 +19,20 @@ public class ComparisonResource {
 
     private final CompareStatesUseCase compareStatesUseCase;
     private final CompareMunicipalitiesUseCase compareMunicipalitiesUseCase;
+    private final CompareMunicipalitiesByCodesUseCase compareMunicipalitiesByCodesUseCase;
+    private final CompareStatesByCodesUseCase compareStatesByCodesUseCase;
 
     @Inject
     public ComparisonResource(
             CompareStatesUseCase compareStatesUseCase,
-            CompareMunicipalitiesUseCase compareMunicipalitiesUseCase
-    ) {
+            CompareMunicipalitiesUseCase compareMunicipalitiesUseCase,
+            CompareMunicipalitiesByCodesUseCase compareMunicipalitiesByCodesUseCase,
+            CompareStatesByCodesUseCase compareStatesByCodesUseCase
+            ) {
         this.compareStatesUseCase = compareStatesUseCase;
         this.compareMunicipalitiesUseCase = compareMunicipalitiesUseCase;
+        this.compareMunicipalitiesByCodesUseCase = compareMunicipalitiesByCodesUseCase;
+        this.compareStatesByCodesUseCase = compareStatesByCodesUseCase;
     }
 
     @GET
@@ -44,6 +52,26 @@ public class ComparisonResource {
             @QueryParam("municipalityIds") List<Integer> municipalityIds
     ) {
         List<TerritoryComparisonDto> response = compareMunicipalitiesUseCase.execute(periodId, municipalityIds);
+        return Response.ok(response).build();
+    }
+
+    @GET
+    @Path("/municipalities/by-codes")
+    public Response compareMunicipalitiesByCodes(
+            @QueryParam("periodId") Integer periodId,
+            @QueryParam("municipalityCodes") List<String> municipalityCodes
+    ) {
+        List<TerritoryComparisonDto> response = compareMunicipalitiesByCodesUseCase.execute(periodId, municipalityCodes);
+        return Response.ok(response).build();
+    }
+
+    @GET
+    @Path("/states/by-codes")
+    public Response compareStatesByCodes(
+            @QueryParam("periodId") Integer periodId,
+            @QueryParam("stateCodes") List<String> stateCodes
+    ) {
+        List<TerritoryComparisonDto> response = compareStatesByCodesUseCase.execute(periodId, stateCodes);
         return Response.ok(response).build();
     }
 }
