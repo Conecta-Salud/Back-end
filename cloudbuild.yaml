@@ -12,10 +12,10 @@
 
 substitutions:
   _REGION: us-central1
-  _REPOSITORY: todorepo
-  _IMAGE: backend
-  _SERVICE: backend
-  _PROJECT_ID: conecta-salud-123456
+  _REPOSITORY: backrepo
+  _IMAGE: backendN
+  _SERVICE: backendN
+  _PROJECT_ID: "conecta-salud-494022"
 
 options:
   logging: CLOUD_LOGGING_ONLY
