@@ -13,8 +13,8 @@
 substitutions:
   _REGION: us-central1
   _REPOSITORY: backrepo
-  _IMAGE: backendN
-  _SERVICE: backendN
+  _IMAGE: backendn
+  _SERVICE: backendn
   _PROJECT_ID: "conecta-salud-494022"
 
 options:
