@@ -2,10 +2,7 @@ package com.itesm.interfaces.rest;
 
 import com.itesm.application.dto.dashboard.HealthDashboardResponseDto;
 import com.itesm.application.dto.dashboard.IndicatorsResponseDto;
-import com.itesm.application.usecase.dashboard.GetStateDashboardUseCase;
-import com.itesm.application.usecase.dashboard.GetMunicipalityDashboardUseCase;
-import com.itesm.application.usecase.dashboard.GetStateHealthDashboardUseCase;
-import com.itesm.application.usecase.dashboard.GetMunicipalityHealthDashboardUseCase;
+import com.itesm.application.usecase.dashboard.*;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -20,18 +17,24 @@ public class DashboardResource {
     private final GetMunicipalityDashboardUseCase getMunicipalityDashboardUseCase;
     private final GetStateHealthDashboardUseCase getStateHealthDashboardUseCase;
     private final GetMunicipalityHealthDashboardUseCase getMunicipalityHealthDashboardUseCase;
+    private final GetCountryIndicatorsDashboardUseCase getCountryIndicatorsDashboardUseCase;
+    private final GetCountryHealthDashboardUseCase getCountryHealthDashboardUseCase;
 
     @Inject
     public DashboardResource(
             GetStateDashboardUseCase getStateDashboardUseCase,
             GetMunicipalityDashboardUseCase getMunicipalityDashboardUseCase,
             GetStateHealthDashboardUseCase getStateHealthDashboardUseCase,
-            GetMunicipalityHealthDashboardUseCase getMunicipalityHealthDashboardUseCase
+            GetMunicipalityHealthDashboardUseCase getMunicipalityHealthDashboardUseCase,
+            GetCountryIndicatorsDashboardUseCase getCountryIndicatorsDashboardUseCase,
+            GetCountryHealthDashboardUseCase getCountryHealthDashboardUseCase
     ) {
         this.getStateDashboardUseCase = getStateDashboardUseCase;
         this.getMunicipalityDashboardUseCase = getMunicipalityDashboardUseCase;
         this.getStateHealthDashboardUseCase = getStateHealthDashboardUseCase;
         this.getMunicipalityHealthDashboardUseCase = getMunicipalityHealthDashboardUseCase;
+        this.getCountryIndicatorsDashboardUseCase = getCountryIndicatorsDashboardUseCase;
+        this.getCountryHealthDashboardUseCase = getCountryHealthDashboardUseCase;
     }
 
     @GET
@@ -71,6 +74,24 @@ public class DashboardResource {
             @QueryParam("periodId") Integer periodId
     ) {
         HealthDashboardResponseDto response = getMunicipalityHealthDashboardUseCase.execute(municipalityId, periodId);
+        return Response.ok(response).build();
+    }
+
+    @GET
+    @Path("/country/indicators")
+    public Response getCountryIndicatorsDashboard(
+            @QueryParam("periodId") Integer periodId
+    ) {
+        IndicatorsResponseDto response = getCountryIndicatorsDashboardUseCase.execute(periodId);
+        return Response.ok(response).build();
+    }
+
+    @GET
+    @Path("/country/health")
+    public Response getCountryHealthDashboard(
+            @QueryParam("periodId") Integer periodId
+    ) {
+        HealthDashboardResponseDto response = getCountryHealthDashboardUseCase.execute(periodId);
         return Response.ok(response).build();
     }
 }
