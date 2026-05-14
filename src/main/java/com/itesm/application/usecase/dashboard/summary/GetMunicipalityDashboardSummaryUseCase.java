@@ -76,7 +76,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 .findMunicipalityHealthcareAccessDeficiencyMainChart(municipalityId, periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findMunicipalityHealthcareAccessDeficiencySecondaryChart(municipalityId, periodId);
+                .findMunicipalityHealthcareAccessDistribution(municipalityId, periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 metrics.getTerritory(),
@@ -159,7 +159,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
     private DashboardChart buildHealthcareAccessDeficiencySecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
                 "pie",
-                "Health units by care level",
+                "Healthcare access distribution",
                 null,
                 null,
                 null,
@@ -184,7 +184,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 .findMunicipalityHospitalBedsMainChart(municipalityId, periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findMunicipalityHospitalBedsSecondaryChart(municipalityId, periodId);
+                .findMunicipalityInfrastructureDistribution(municipalityId, periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 metrics.getTerritory(),
@@ -291,7 +291,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 .findMunicipalityMedicalCoverageMainChart(municipalityId, periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findMunicipalityMedicalCoverageSecondaryChart(municipalityId, periodId);
+                .findMunicipalitySpecialtiesDistribution(municipalityId, periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 metrics.getTerritory(),
@@ -372,7 +372,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
     private DashboardChart buildMedicalCoverageSecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
                 "pie",
-                "Health units by care level",
+                "Distribution of specialties",
                 null,
                 null,
                 null,

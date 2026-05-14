@@ -51,6 +51,7 @@ public class GetCountryDashboardSummaryUseCase {
         throw new BadRequestException("Unsupported category in this block: " + category.getValue());
     }
 
+    // ============================ Poblacion Vulnerable ============================
     private DashboardSummaryDto buildCountryHealthcareAccessDeficiencySummary(
             Integer periodId,
             DashboardCategory category
@@ -66,7 +67,7 @@ public class GetCountryDashboardSummaryUseCase {
                 .findCountryHealthcareAccessDeficiencyMainChart(periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findCountryHealthcareAccessDeficiencySecondaryChart(periodId);
+                .findCountryHealthcareAccessDistribution(periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 new DashboardTerritory(null, null, "MÉXICO", "country"),
@@ -81,7 +82,6 @@ public class GetCountryDashboardSummaryUseCase {
         return toDto(summary);
     }
 
-    // ============================ Poblacion Vulnerable ============================
     private List<DashboardKpi> buildHealthcareAccessDeficiencyKpis(
             CountryHealthcareAccessDeficiencyMetrics metrics
     ) {
@@ -149,8 +149,8 @@ public class GetCountryDashboardSummaryUseCase {
 
     private DashboardChart buildHealthcareAccessDeficiencySecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
-                "bar",
-                "States with highest vulnerable population",
+                "pie",
+                "Healthcare access distribution",
                 null,
                 null,
                 null,
@@ -174,7 +174,7 @@ public class GetCountryDashboardSummaryUseCase {
                 .findCountryHospitalBedsMainChart(periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findCountryHospitalBedsSecondaryChart(periodId);
+                .findCountryInfrastructureDistribution(periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 new DashboardTerritory(null, null, "MÉXICO", "country"),
@@ -257,7 +257,7 @@ public class GetCountryDashboardSummaryUseCase {
     private DashboardChart buildHospitalBedsSecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
                 "pie",
-                "Health units by establishment type",
+                "Infrastructure distribution",
                 null,
                 null,
                 null,
@@ -299,7 +299,7 @@ public class GetCountryDashboardSummaryUseCase {
                 .findCountryMedicalCoverageMainChart(periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findCountryMedicalCoverageSecondaryChart(periodId);
+                .findCountrySpecialtiesDistribution(periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 new DashboardTerritory(null, null, "MÉXICO", "country"),
@@ -381,8 +381,8 @@ public class GetCountryDashboardSummaryUseCase {
 
     private DashboardChart buildMedicalCoverageSecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
-                "bar",
-                "Total doctors by state",
+                "pie",
+                "Distribution of specialties",
                 null,
                 null,
                 null,
