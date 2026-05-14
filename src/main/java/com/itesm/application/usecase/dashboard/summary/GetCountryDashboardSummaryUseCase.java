@@ -138,7 +138,7 @@ public class GetCountryDashboardSummaryUseCase {
 
     private DashboardChart buildHealthcareAccessDeficiencyMainChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
-                "scatter",
+                "bar",
                 "Population vs doctors",
                 "population",
                 "doctors",
