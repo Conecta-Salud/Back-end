@@ -76,7 +76,7 @@ public class GetStateDashboardSummaryUseCase {
                 .findStateHealthcareAccessDeficiencyMainChart(stateId, periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findStateHealthcareAccessDeficiencySecondaryChart(stateId, periodId);
+                .findStateHealthcareAccessDistribution(stateId, periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 metrics.getTerritory(),
@@ -147,7 +147,7 @@ public class GetStateDashboardSummaryUseCase {
 
     private DashboardChart buildHealthcareAccessDeficiencyMainChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
-                "scatter",
+                "bar",
                 "Population vs doctors",
                 "population",
                 "doctors",
@@ -158,8 +158,8 @@ public class GetStateDashboardSummaryUseCase {
 
     private DashboardChart buildHealthcareAccessDeficiencySecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
-                "bar",
-                "Municipalities with highest vulnerable population",
+                "pie",
+                "Healthcare access distribution",
                 null,
                 null,
                 null,
@@ -185,7 +185,7 @@ public class GetStateDashboardSummaryUseCase {
                 .findStateHospitalBedsMainChart(stateId, periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findStateHospitalBedsSecondaryChart(stateId, periodId);
+                .findStateInfrastructureDistribution(stateId, periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 metrics.getTerritory(),
@@ -268,7 +268,7 @@ public class GetStateDashboardSummaryUseCase {
     private DashboardChart buildHospitalBedsSecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
                 "pie",
-                "Health units by establishment type",
+                "Infrastructure distribution",
                 null,
                 null,
                 null,
@@ -311,7 +311,7 @@ public class GetStateDashboardSummaryUseCase {
                 .findStateMedicalCoverageMainChart(stateId, periodId);
 
         List<DashboardChartDataPoint> secondaryChartData = dashboardSummaryRepository
-                .findStateMedicalCoverageSecondaryChart(stateId, periodId);
+                .findStateSpecialtiesDistribution(stateId, periodId);
 
         DashboardSummary summary = new DashboardSummary(
                 metrics.getTerritory(),
@@ -393,8 +393,8 @@ public class GetStateDashboardSummaryUseCase {
 
     private DashboardChart buildMedicalCoverageSecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
-                "bar",
-                "Total doctors by municipality",
+                "pie",
+                "Distribution of specialties",
                 null,
                 null,
                 null,
