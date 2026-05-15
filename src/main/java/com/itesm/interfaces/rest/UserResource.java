@@ -70,7 +70,7 @@ public class UserResource {
     }
 
     @GET
-    @Path("/profile")
+    @Path("/profiles")
     public Response getCurrentUser() {
         UserProfileResponseDto user = getCurrentUserUseCase.execute();
         return Response.ok(user).build();
