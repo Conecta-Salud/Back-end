@@ -1,4 +1,4 @@
-package com.itesm.application.usecase.map;
+package com.itesm.application.usecase.comparison;
 
 import com.itesm.application.dto.comparison.TerritoryComparisonDto;
 import com.itesm.application.dto.dashboard.DashboardIndicatorsDto;
@@ -13,29 +13,29 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
-public class CompareStatesByCodesUseCase {
+public class CompareMunicipalitiesByCodesUseCase {
 
     private final ComparisonRepository comparisonRepository;
 
     @Inject
-    public CompareStatesByCodesUseCase(ComparisonRepository comparisonRepository) {
+    public CompareMunicipalitiesByCodesUseCase(ComparisonRepository comparisonRepository) {
         this.comparisonRepository = comparisonRepository;
     }
 
-    public List<TerritoryComparisonDto> execute(Integer periodId, List<String> stateCodes) {
+    public List<TerritoryComparisonDto> execute(Integer periodId, List<String> municipalityCodes) {
         if (periodId == null) {
             throw new BadRequestException("periodId is required");
         }
 
-        if (stateCodes == null || stateCodes.isEmpty()) {
-            throw new BadRequestException("At least one state code is required for comparison");
+        if (municipalityCodes == null || municipalityCodes.isEmpty()) {
+            throw new BadRequestException("At least one municipality code is required for comparison");
         }
 
-        if (stateCodes.size() > 5) {
-            throw new BadRequestException("You can compare up to 5 states");
+        if (municipalityCodes.size() > 5) {
+            throw new BadRequestException("You can compare up to 5 municipalities");
         }
 
-        return comparisonRepository.compareStatesByCodes(periodId, stateCodes)
+        return comparisonRepository.compareMunicipalitiesByCodes(periodId, municipalityCodes)
                 .stream()
                 .map(item -> new TerritoryComparisonDto(
                         item.getId(),
