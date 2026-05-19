@@ -1,6 +1,5 @@
 package com.itesm.interfaces.rest;
 
-import com.google.firebase.auth.FirebaseAuthException;
 import com.itesm.application.dto.user.CreateUserDto;
 import com.itesm.application.dto.user.UpdateUserDto;
 import com.itesm.application.dto.user.UserProfileResponseDto;
@@ -55,18 +54,11 @@ public class UserResource {
     public Response createUser(@Valid CreateUserDto createUserDto) {
         assertAdmin();
 
-        try {
-            User user = createUserUseCase.execute(createUserDto);
+        User user = createUserUseCase.execute(createUserDto);
 
-            return Response.status(Response.Status.CREATED)
-                    .entity(user)
-                    .build();
-
-        } catch (FirebaseAuthException e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error creating user in Firebase: " + e.getMessage())
-                    .build();
-        }
+        return Response.status(Response.Status.CREATED)
+                .entity(user)
+                .build();
     }
 
     @GET
@@ -108,15 +100,9 @@ public class UserResource {
     ) {
         assertAdmin();
 
-        try {
-            User updatedUser = updateUserUseCase.execute(userId, updateUserDto);
-            return Response.ok(updatedUser).build();
+        User updatedUser = updateUserUseCase.execute(userId, updateUserDto);
 
-        } catch (RuntimeException e) {
-            return Response.status(Response.Status.NOT_FOUND)
-                    .entity(e.getMessage())
-                    .build();
-        }
+        return Response.ok(updatedUser).build();
     }
 
     @DELETE
@@ -124,15 +110,9 @@ public class UserResource {
     public Response deleteUser(@PathParam("userId") UUID userId) {
         assertAdmin();
 
-        try {
-            User deletedUser = deleteUserByIdUseCase.execute(userId);
-            return Response.ok(deletedUser).build();
+        User deletedUser = deleteUserByIdUseCase.execute(userId);
 
-        } catch (RuntimeException e) {
-            return Response.status(Response.Status.NOT_FOUND)
-                    .entity(e.getMessage())
-                    .build();
-        }
+        return Response.ok(deletedUser).build();
     }
 
     private void assertAdmin() {

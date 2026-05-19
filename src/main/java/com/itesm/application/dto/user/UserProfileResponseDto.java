@@ -2,6 +2,7 @@ package com.itesm.application.dto.user;
 
 import com.itesm.domain.models.user.UserRole;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public class UserProfileResponseDto {
@@ -14,6 +15,8 @@ public class UserProfileResponseDto {
     private String email;
     private String firebaseUuid;
     private UserRole role;
+    private Boolean active;
+    private LocalDateTime lastLoginAt;
 
     public UserProfileResponseDto(
             UUID id,
@@ -23,7 +26,9 @@ public class UserProfileResponseDto {
             String lastName,
             String email,
             String firebaseUuid,
-            UserRole role
+            UserRole role,
+            Boolean active,
+            LocalDateTime lastLoginAt
     ) {
         this.id = id;
         this.departmentId = departmentId;
@@ -33,6 +38,8 @@ public class UserProfileResponseDto {
         this.email = email;
         this.firebaseUuid = firebaseUuid;
         this.role = role;
+        this.active = active;
+        this.lastLoginAt = lastLoginAt;
     }
 
     public UUID getId() {
@@ -97,5 +104,21 @@ public class UserProfileResponseDto {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
+    public LocalDateTime getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public void setLastLoginAt(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
     }
 }

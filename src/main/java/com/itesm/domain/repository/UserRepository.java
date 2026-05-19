@@ -9,10 +9,13 @@ import java.util.UUID;
 
 public interface UserRepository {
     Optional<User> findByFirebaseUuid(String firebaseUuid);
-    // Estos tienen que estar PROTEGIDOS PARA EL ROL ADMIN
+    // PROTEGIDOS PARA EL ROL ADMIN
     User create(User user);
     User findUserById(UUID userId);
     List<User> findAllUsers();
     User updateUser(UUID userId, User user);
     User deleteUserById(UUID userId);
+    void updateLastLoginAt(UUID userId);
+    boolean existsByEmail(String email);
+    boolean existsByEmailAndIdNot(String email, UUID userId);
 }

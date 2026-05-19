@@ -1,5 +1,6 @@
 package com.itesm.application.dto.user;
 
+import com.itesm.domain.models.user.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,6 +21,8 @@ public class CreateUserDto {
 
     @NotBlank(message = "El password es obligatorio")
     private String password;
+
+    private UserRole role;
 
     public Integer getDepartmentId() {
         return departmentId;
@@ -53,11 +56,17 @@ public class CreateUserDto {
         this.email = email;
     }
 
-    public String getPassword() {
-        return password;
-    }
+    public String getPassword() { return password; }
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public void setRole(UserRole role) {
+        this.role = role;
     }
 }

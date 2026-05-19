@@ -12,6 +12,7 @@ import jakarta.persistence.EntityGraph;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -134,5 +135,56 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
         entity.setActive(false);
 
         return UserMapper.toDomain(entity);
+    }
+
+    @Override
+    @Transactional
+    public void updateLastLoginAt(UUID userId) {
+        UserEntity entity = findById(userId);
+
+        if (entity == null) {
+            throw new RuntimeException("User not found");
+        }
+
+        entity.setLastLoginAt(LocalDateTime.now());
+        em.flush();
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+
+        Long count = em.createQuery(
+                        "SELECT COUNT(u) FROM UserEntity u WHERE LOWER(u.email) = LOWER(:email)",
+                        Long.class
+                )
+                .setParameter("email", email.trim())
+                .getSingleResult();
+
+        return count > 0;
+    }
+
+    @Override
+    public boolean existsByEmailAndIdNot(String email, UUID userId) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+
+        Long count = em.createQuery(
+                        """
+                        SELECT COUNT(u)
+                        FROM UserEntity u
+                        WHERE LOWER(u.email) = LOWER(:email)
+                          AND u.id <> :userId
+                        """,
+                        Long.class
+                )
+                .setParameter("email", email.trim())
+                .setParameter("userId", userId)
+                .getSingleResult();
+
+        return count > 0;
     }
 }

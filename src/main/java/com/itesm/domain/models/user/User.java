@@ -1,4 +1,5 @@
 package com.itesm.domain.models.user;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public class User {
@@ -11,6 +12,7 @@ public class User {
     private String firebaseUuid;
     private UserRole role;
     private boolean isActive;
+    private LocalDateTime lastLoginAt;
 
     public User() {
     }
@@ -24,7 +26,8 @@ public class User {
             String email,
             String firebaseUuid,
             UserRole role,
-            boolean isActive
+            boolean isActive,
+            LocalDateTime lastLoginAt
     ) {
         this.id = id;
         this.departmentId = departmentId;
@@ -35,6 +38,7 @@ public class User {
         this.firebaseUuid = firebaseUuid;
         this.role = role;
         this.isActive = isActive;
+        this.lastLoginAt = lastLoginAt;
     }
 
     public UUID getId() {
@@ -107,5 +111,13 @@ public class User {
 
     public void setActive(boolean active) {
         isActive = active;
+    }
+
+    public LocalDateTime getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public void setLastLoginAt(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
     }
 }

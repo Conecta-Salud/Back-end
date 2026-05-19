@@ -1,47 +1,66 @@
 package com.itesm.application.usecase.user;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
-import com.google.firebase.auth.UserRecord;
 import com.itesm.application.dto.user.CreateUserDto;
+import com.itesm.application.port.identity.IdentityProviderGateway;
+import com.itesm.application.port.identity.IdentityUser;
 import com.itesm.domain.models.user.User;
 import com.itesm.domain.models.user.UserRole;
 import com.itesm.domain.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
 
 import java.util.UUID;
 
 @ApplicationScoped
 public class CreateUserUseCase {
 
-    @Inject
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final IdentityProviderGateway identityProviderGateway;
 
-    public CreateUserUseCase(UserRepository userRepository) {
+    @Inject
+    public CreateUserUseCase(
+            UserRepository userRepository,
+            IdentityProviderGateway identityProviderGateway
+    ) {
         this.userRepository = userRepository;
+        this.identityProviderGateway = identityProviderGateway;
     }
 
-    public User execute(CreateUserDto createUserDto) throws FirebaseAuthException {
-        User user = new User();
+    public User execute(CreateUserDto createUserDto) {
+        if (userRepository.existsByEmail(createUserDto.getEmail())) {
+            throw new BadRequestException("A user with this email already exists");
+        }
 
-        user.setId(UUID.randomUUID());
-        user.setDepartmentId(createUserDto.getDepartmentId());
-        user.setFirstName(createUserDto.getFirstName());
-        user.setLastName(createUserDto.getLastName());
-        user.setEmail(createUserDto.getEmail());
-        user.setActive(true);
-        user.setRole(UserRole.strategic);
+        UserRole role = createUserDto.getRole() != null
+                ? createUserDto.getRole()
+                : UserRole.strategic;
 
-        UserRecord.CreateRequest createRequest = new UserRecord.CreateRequest()
-                .setEmail(user.getEmail())
-                .setPassword(createUserDto.getPassword())
-                .setDisplayName(user.getFirstName() + " " + user.getLastName());
+        String displayName = createUserDto.getFirstName() + " " + createUserDto.getLastName();
 
-        UserRecord userRecord = FirebaseAuth.getInstance().createUser(createRequest);
+        IdentityUser identityUser = identityProviderGateway.createUser(
+                createUserDto.getEmail(),
+                createUserDto.getPassword(),
+                displayName
+        );
 
-        user.setFirebaseUuid(userRecord.getUid());
+        try {
+            User user = new User();
 
-        return userRepository.create(user);
+            user.setId(UUID.randomUUID());
+            user.setDepartmentId(createUserDto.getDepartmentId());
+            user.setFirstName(createUserDto.getFirstName());
+            user.setLastName(createUserDto.getLastName());
+            user.setEmail(createUserDto.getEmail());
+            user.setFirebaseUuid(identityUser.getUid());
+            user.setActive(true);
+            user.setRole(role);
+
+            return userRepository.create(user);
+
+        } catch (RuntimeException e) {
+            identityProviderGateway.deleteUser(identityUser.getUid());
+            throw e;
+        }
     }
 }
