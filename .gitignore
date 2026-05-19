@@ -43,3 +43,8 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+
+#Credenciales de firebase
+src/main/resources/todolistgrupo1-204f7-firebase-adminsdk-fbsvc-aa30f25d35.json
+
+#
