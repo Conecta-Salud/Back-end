@@ -1,11 +1,15 @@
 package com.itesm.application.usecase.user;
 
+import com.itesm.application.dto.common.PageResponseDto;
+import com.itesm.application.dto.user.UserListResponseDto;
+import com.itesm.domain.models.common.PageResult;
 import com.itesm.domain.models.user.User;
+import com.itesm.domain.models.user.UserRole;
 import com.itesm.domain.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.List;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class FindAllUsersUseCase {
@@ -17,7 +21,47 @@ public class FindAllUsersUseCase {
         this.userRepository = userRepository;
     }
 
-    public List<User> execute() {
-        return userRepository.findAllUsers();
+    public PageResponseDto<UserListResponseDto> execute(
+            String search,
+            Integer departmentId,
+            UserRole role,
+            Boolean active,
+            int page,
+            int size
+    ) {
+        PageResult<User> users = userRepository.findUsers(
+                search,
+                departmentId,
+                role,
+                active,
+                page,
+                size
+        );
+
+        return new PageResponseDto<>(
+                users.getItems()
+                        .stream()
+                        .map(this::toDto)
+                        .collect(Collectors.toList()),
+                users.getTotalItems(),
+                users.getPage(),
+                users.getSize(),
+                users.getTotalPages()
+        );
+    }
+
+    private UserListResponseDto toDto(User user) {
+        return new UserListResponseDto(
+                user.getId(),
+                user.getDepartmentId(),
+                user.getDepartmentName(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getFirstName() + " " + user.getLastName(),
+                user.getEmail(),
+                user.getRole(),
+                user.isActive(),
+                user.getLastLoginAt()
+        );
     }
 }

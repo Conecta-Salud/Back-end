@@ -1,6 +1,8 @@
 package com.itesm.infrastructure.persistence.repository;
 
+import com.itesm.domain.models.common.PageResult;
 import com.itesm.domain.models.user.User;
+import com.itesm.domain.models.user.UserRole;
 import com.itesm.domain.repository.UserRepository;
 import com.itesm.infrastructure.mapper.UserMapper;
 import com.itesm.infrastructure.persistence.entity.DepartmentEntity;
@@ -10,14 +12,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityGraph;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -99,6 +100,72 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
         return result.stream()
                 .map(UserMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public PageResult<User> findUsers(
+            String search,
+            Integer departmentId,
+            UserRole role,
+            Boolean active,
+            int page,
+            int size
+    ) {
+        int safePage = Math.max(page, 0);
+        int safeSize = normalizePageSize(size);
+
+        Map<String, Object> params = new HashMap<>();
+
+        String whereClause = buildUsersWhereClause(
+                search,
+                departmentId,
+                role,
+                active,
+                params
+        );
+
+        String selectJpql = """
+            SELECT u
+            FROM UserEntity u
+            JOIN u.department d
+            """ + whereClause + """
+            ORDER BY u.firstName ASC, u.lastName ASC
+            """;
+
+        String countJpql = """
+            SELECT COUNT(u)
+            FROM UserEntity u
+            JOIN u.department d
+            """ + whereClause;
+
+        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
+
+        TypedQuery<UserEntity> dataQuery = em.createQuery(selectJpql, UserEntity.class)
+                .setHint("jakarta.persistence.loadgraph", graph);
+
+        TypedQuery<Long> countQuery = em.createQuery(countJpql, Long.class);
+
+        params.forEach((key, value) -> {
+            dataQuery.setParameter(key, value);
+            countQuery.setParameter(key, value);
+        });
+
+        List<User> items = dataQuery
+                .setFirstResult(safePage * safeSize)
+                .setMaxResults(safeSize)
+                .getResultList()
+                .stream()
+                .map(UserMapper::toDomain)
+                .collect(Collectors.toList());
+
+        Long totalItems = countQuery.getSingleResult();
+
+        return new PageResult<>(
+                items,
+                totalItems,
+                safePage,
+                safeSize
+        );
     }
 
     @Override
@@ -207,5 +274,53 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
                 .getSingleResult();
 
         return count > 0;
+    }
+
+    private String buildUsersWhereClause(
+            String search,
+            Integer departmentId,
+            UserRole role,
+            Boolean active,
+            Map<String, Object> params
+    ) {
+        StringBuilder where = new StringBuilder(" WHERE 1 = 1 ");
+
+        if (search != null && !search.isBlank()) {
+            where.append("""
+                AND (
+                    LOWER(u.email) LIKE :search
+                    OR LOWER(u.firstName) LIKE :search
+                    OR LOWER(u.lastName) LIKE :search
+                    OR LOWER(CONCAT(CONCAT(u.firstName, ' '), u.lastName)) LIKE :search
+                )
+                """);
+
+            params.put("search", "%" + search.trim().toLowerCase() + "%");
+        }
+
+        if (departmentId != null) {
+            where.append(" AND d.id = :departmentId ");
+            params.put("departmentId", departmentId);
+        }
+
+        if (role != null) {
+            where.append(" AND u.role = :role ");
+            params.put("role", role);
+        }
+
+        if (active != null) {
+            where.append(" AND u.isActive = :active ");
+            params.put("active", active);
+        }
+
+        return where.toString();
+    }
+
+    private int normalizePageSize(int size) {
+        if (size <= 0) {
+            return 20;
+        }
+
+        return Math.min(size, 100);
     }
 }

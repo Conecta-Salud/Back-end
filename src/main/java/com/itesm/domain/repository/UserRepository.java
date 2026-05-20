@@ -1,7 +1,9 @@
 package com.itesm.domain.repository;
 
 
+import com.itesm.domain.models.common.PageResult;
 import com.itesm.domain.models.user.User;
+import com.itesm.domain.models.user.UserRole;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +15,14 @@ public interface UserRepository {
     User create(User user);
     User findUserById(UUID userId);
     List<User> findAllUsers();
+    PageResult<User> findUsers(
+            String search,
+            Integer departmentId,
+            UserRole role,
+            Boolean active,
+            int page,
+            int size
+    );
     User updateUser(UUID userId, User user);
     User deleteUserById(UUID userId);
     void updateLastLoginAt(UUID userId);
