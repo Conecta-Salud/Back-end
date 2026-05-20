@@ -1,12 +1,15 @@
 package com.itesm.interfaces.rest;
 
+import com.itesm.application.dto.common.PageResponseDto;
 import com.itesm.application.dto.user.CreateUserDto;
 import com.itesm.application.dto.user.UpdateUserDto;
+import com.itesm.application.dto.user.UserListResponseDto;
 import com.itesm.application.dto.user.UserProfileResponseDto;
 import com.itesm.application.security.AuthenticatedUserContext;
 import com.itesm.application.security.CurrentUser;
 import com.itesm.application.usecase.user.*;
 import com.itesm.domain.models.user.User;
+import com.itesm.domain.models.user.UserRole;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -69,10 +72,25 @@ public class UserResource {
     }
 
     @GET
-    public Response findAllUsers() {
+    public Response findAllUsers(
+            @QueryParam("search") String search,
+            @QueryParam("departmentId") Integer departmentId,
+            @QueryParam("role") UserRole role,
+            @QueryParam("active") Boolean active,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size
+    ) {
         assertAdmin();
 
-        List<User> users = findAllUsersUseCase.execute();
+        PageResponseDto<UserListResponseDto> users = findAllUsersUseCase.execute(
+                search,
+                departmentId,
+                role,
+                active,
+                page,
+                size
+        );
+
         return Response.ok(users).build();
     }
 
