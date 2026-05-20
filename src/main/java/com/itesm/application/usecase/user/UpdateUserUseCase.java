@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -33,35 +34,51 @@ public class UpdateUserUseCase {
             throw new NotFoundException("User not found");
         }
 
-        if (
-                updateUserDto.getEmail() != null
-                        && userRepository.existsByEmailAndIdNot(updateUserDto.getEmail(), userId)
-        ) {
-            throw new BadRequestException("A user with this email already exists");
-        }
+        validateEmailUniquenessIfNeeded(userId, updateUserDto, existingUser);
 
-        String nextFirstName = updateUserDto.getFirstName() != null
-                ? updateUserDto.getFirstName()
-                : existingUser.getFirstName();
-
-        String nextLastName = updateUserDto.getLastName() != null
-                ? updateUserDto.getLastName()
-                : existingUser.getLastName();
-
-        String nextEmail = updateUserDto.getEmail() != null
-                ? updateUserDto.getEmail()
-                : existingUser.getEmail();
-
-        Boolean nextDisabled = updateUserDto.getActive() != null
-                ? !updateUserDto.getActive()
-                : null;
-
-        identityProviderGateway.updateUser(
-                existingUser.getFirebaseUuid(),
-                nextEmail,
-                nextFirstName + " " + nextLastName,
-                nextDisabled
+        String finalFirstName = valueOrCurrent(
+                updateUserDto.getFirstName(),
+                existingUser.getFirstName()
         );
+
+        String finalLastName = valueOrCurrent(
+                updateUserDto.getLastName(),
+                existingUser.getLastName()
+        );
+
+        String finalEmail = valueOrCurrent(
+                updateUserDto.getEmail(),
+                existingUser.getEmail()
+        );
+
+        boolean finalActive = updateUserDto.getActive() != null
+                ? updateUserDto.getActive()
+                : existingUser.isActive();
+
+        String currentDisplayName = buildDisplayName(
+                existingUser.getFirstName(),
+                existingUser.getLastName()
+        );
+
+        String finalDisplayName = buildDisplayName(
+                finalFirstName,
+                finalLastName
+        );
+
+        boolean emailChanged = !sameText(existingUser.getEmail(), finalEmail);
+        boolean displayNameChanged = !sameText(currentDisplayName, finalDisplayName);
+        boolean activeChanged = existingUser.isActive() != finalActive;
+
+        boolean requiresFirebaseUpdate = emailChanged || displayNameChanged || activeChanged;
+
+        if (requiresFirebaseUpdate) {
+            identityProviderGateway.updateUser(
+                    existingUser.getFirebaseUuid(),
+                    emailChanged ? finalEmail : null,
+                    displayNameChanged ? finalDisplayName : null,
+                    activeChanged ? !finalActive : null
+            );
+        }
 
         User user = new User();
 
@@ -70,13 +87,56 @@ public class UpdateUserUseCase {
         user.setLastName(updateUserDto.getLastName());
         user.setEmail(updateUserDto.getEmail());
         user.setRole(updateUserDto.getRole());
-
-        if (updateUserDto.getActive() != null) {
-            user.setActive(updateUserDto.getActive());
-        } else {
-            user.setActive(existingUser.isActive());
-        }
+        user.setActive(finalActive);
 
         return userRepository.updateUser(userId, user);
+    }
+
+    private void validateEmailUniquenessIfNeeded(
+            UUID userId,
+            UpdateUserDto updateUserDto,
+            User existingUser
+    ) {
+        if (updateUserDto.getEmail() == null || updateUserDto.getEmail().isBlank()) {
+            return;
+        }
+
+        if (sameText(updateUserDto.getEmail(), existingUser.getEmail())) {
+            return;
+        }
+
+        if (userRepository.existsByEmailAndIdNot(updateUserDto.getEmail(), userId)) {
+            throw new BadRequestException("A user with this email already exists");
+        }
+    }
+
+    private String valueOrCurrent(String nextValue, String currentValue) {
+        if (nextValue == null) {
+            return currentValue;
+        }
+
+        return nextValue.trim();
+    }
+
+    private String buildDisplayName(String firstName, String lastName) {
+        String safeFirstName = firstName != null ? firstName.trim() : "";
+        String safeLastName = lastName != null ? lastName.trim() : "";
+
+        return (safeFirstName + " " + safeLastName).trim();
+    }
+
+    private boolean sameText(String a, String b) {
+        if (a == null && b == null) {
+            return true;
+        }
+
+        if (a == null || b == null) {
+            return false;
+        }
+
+        return Objects.equals(
+                a.trim().toLowerCase(),
+                b.trim().toLowerCase()
+        );
     }
 }

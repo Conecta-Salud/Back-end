@@ -11,6 +11,8 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityGraph;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -105,20 +107,39 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
         UserEntity entity = findById(userId);
 
         if (entity == null) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("User not found");
         }
-
-        DepartmentEntity department = null;
 
         if (user.getDepartmentId() != null) {
-            department = em.find(DepartmentEntity.class, user.getDepartmentId());
+            DepartmentEntity department = em.find(
+                    DepartmentEntity.class,
+                    user.getDepartmentId()
+            );
 
             if (department == null) {
-                throw new RuntimeException("Department not found");
+                throw new BadRequestException("Department not found");
             }
+
+            entity.setDepartment(department);
         }
 
-        UserMapper.updateEntity(entity, user, department);
+        if (user.getFirstName() != null) {
+            entity.setFirstName(user.getFirstName());
+        }
+
+        if (user.getLastName() != null) {
+            entity.setLastName(user.getLastName());
+        }
+
+        if (user.getEmail() != null) {
+            entity.setEmail(user.getEmail());
+        }
+
+        if (user.getRole() != null) {
+            entity.setRole(user.getRole());
+        }
+
+        entity.setActive(user.isActive());
 
         return UserMapper.toDomain(entity);
     }
@@ -129,7 +150,7 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
         UserEntity entity = findById(userId);
 
         if (entity == null) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("User not found");
         }
 
         entity.setActive(false);
@@ -143,7 +164,7 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
         UserEntity entity = findById(userId);
 
         if (entity == null) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("User not found");
         }
 
         entity.setLastLoginAt(LocalDateTime.now());
