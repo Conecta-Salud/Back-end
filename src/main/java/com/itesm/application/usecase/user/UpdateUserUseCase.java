@@ -2,6 +2,11 @@ package com.itesm.application.usecase.user;
 
 import com.itesm.application.dto.user.UpdateUserDto;
 import com.itesm.application.port.identity.IdentityProviderGateway;
+import com.itesm.application.security.AuthenticatedUserContext;
+import com.itesm.application.security.CurrentUser;
+import com.itesm.application.service.activity.ActivityActions;
+import com.itesm.application.service.activity.ActivityLoggerService;
+import com.itesm.application.service.activity.ActivityModules;
 import com.itesm.domain.models.user.User;
 import com.itesm.domain.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,14 +22,20 @@ public class UpdateUserUseCase {
 
     private final UserRepository userRepository;
     private final IdentityProviderGateway identityProviderGateway;
+    private final AuthenticatedUserContext authenticatedUserContext;
+    private final ActivityLoggerService activityLoggerService;
 
     @Inject
     public UpdateUserUseCase(
             UserRepository userRepository,
-            IdentityProviderGateway identityProviderGateway
+            IdentityProviderGateway identityProviderGateway,
+            AuthenticatedUserContext authenticatedUserContext,
+            ActivityLoggerService activityLoggerService
     ) {
         this.userRepository = userRepository;
         this.identityProviderGateway = identityProviderGateway;
+        this.authenticatedUserContext = authenticatedUserContext;
+        this.activityLoggerService = activityLoggerService;
     }
 
     public User execute(UUID userId, UpdateUserDto updateUserDto) {
@@ -89,7 +100,18 @@ public class UpdateUserUseCase {
         user.setRole(updateUserDto.getRole());
         user.setActive(finalActive);
 
-        return userRepository.updateUser(userId, user);
+        User updatedUser = userRepository.updateUser(userId, user);
+
+        CurrentUser adminUser = authenticatedUserContext.getCurrentUser();
+
+        activityLoggerService.logSuccess(
+                adminUser.getUserId(),
+                ActivityActions.UPDATE_USER,
+                ActivityModules.USERS,
+                "Updated user " + updatedUser.getEmail()
+        );
+
+        return updatedUser;
     }
 
     private void validateEmailUniquenessIfNeeded(

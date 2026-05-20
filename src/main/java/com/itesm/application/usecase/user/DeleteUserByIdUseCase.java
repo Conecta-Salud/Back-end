@@ -1,6 +1,11 @@
 package com.itesm.application.usecase.user;
 
 import com.itesm.application.port.identity.IdentityProviderGateway;
+import com.itesm.application.security.AuthenticatedUserContext;
+import com.itesm.application.security.CurrentUser;
+import com.itesm.application.service.activity.ActivityActions;
+import com.itesm.application.service.activity.ActivityLoggerService;
+import com.itesm.application.service.activity.ActivityModules;
 import com.itesm.domain.models.user.User;
 import com.itesm.domain.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -14,14 +19,20 @@ public class DeleteUserByIdUseCase {
 
     private final UserRepository userRepository;
     private final IdentityProviderGateway identityProviderGateway;
+    private final AuthenticatedUserContext authenticatedUserContext;
+    private final ActivityLoggerService activityLoggerService;
 
     @Inject
     public DeleteUserByIdUseCase(
             UserRepository userRepository,
-            IdentityProviderGateway identityProviderGateway
+            IdentityProviderGateway identityProviderGateway,
+            AuthenticatedUserContext authenticatedUserContext,
+            ActivityLoggerService activityLoggerService
     ) {
         this.userRepository = userRepository;
         this.identityProviderGateway = identityProviderGateway;
+        this.authenticatedUserContext = authenticatedUserContext;
+        this.activityLoggerService = activityLoggerService;
     }
 
     public User execute(UUID userId) {
@@ -33,6 +44,17 @@ public class DeleteUserByIdUseCase {
 
         identityProviderGateway.disableUser(existingUser.getFirebaseUuid());
 
-        return userRepository.deleteUserById(userId);
+        User deactivatedUser = userRepository.deleteUserById(userId);
+
+        CurrentUser adminUser = authenticatedUserContext.getCurrentUser();
+
+        activityLoggerService.logSuccess(
+                adminUser.getUserId(),
+                ActivityActions.DEACTIVATE_USER,
+                ActivityModules.USERS,
+                "Deactivated user " + deactivatedUser.getEmail()
+        );
+
+        return deactivatedUser;
     }
 }
