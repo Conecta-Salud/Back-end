@@ -1,6 +1,11 @@
 package com.itesm.application.usecase.comparison.summary;
 
 import com.itesm.application.dto.comparison.summary.*;
+import com.itesm.application.security.AuthenticatedUserContext;
+import com.itesm.application.security.CurrentUser;
+import com.itesm.application.service.activity.ActivityActions;
+import com.itesm.application.service.activity.ActivityLoggerService;
+import com.itesm.application.service.activity.ActivityModules;
 import com.itesm.domain.models.comparison.summary.*;
 import com.itesm.domain.repository.ComparisonSummaryRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -23,10 +28,18 @@ public class GetComparisonSummaryUseCase {
     private static final BigDecimal OLDER_ADULTS_REFERENCE_PERCENTAGE = BigDecimal.valueOf(20.0);
 
     private final ComparisonSummaryRepository comparisonSummaryRepository;
+    private final AuthenticatedUserContext authenticatedUserContext;
+    private final ActivityLoggerService activityLoggerService;
 
     @Inject
-    public GetComparisonSummaryUseCase(ComparisonSummaryRepository comparisonSummaryRepository) {
+    public GetComparisonSummaryUseCase(
+            ComparisonSummaryRepository comparisonSummaryRepository,
+            AuthenticatedUserContext authenticatedUserContext,
+            ActivityLoggerService activityLoggerService
+    ) {
         this.comparisonSummaryRepository = comparisonSummaryRepository;
+        this.authenticatedUserContext = authenticatedUserContext;
+        this.activityLoggerService = activityLoggerService;
     }
 
     public ComparisonSummaryDto executeStates(Integer periodId, List<String> stateCodes) {
@@ -42,7 +55,14 @@ public class GetComparisonSummaryUseCase {
                 items
         );
 
-        return toDto(summary);
+        ComparisonSummaryDto response = toDto(summary);
+
+        logComparisonActivity(
+                ActivityActions.COMPARE_STATES,
+                "Compared states " + String.join(", ", stateCodes)
+        );
+
+        return response;
     }
 
     public ComparisonSummaryDto executeMunicipalities(Integer periodId, List<String> municipalityCodes) {
@@ -58,7 +78,25 @@ public class GetComparisonSummaryUseCase {
                 items
         );
 
-        return toDto(summary);
+        ComparisonSummaryDto response = toDto(summary);
+
+        logComparisonActivity(
+                ActivityActions.COMPARE_MUNICIPALITIES,
+                "Compared municipalities " + String.join(", ", municipalityCodes)
+        );
+
+        return response;
+    }
+
+    private void logComparisonActivity(String action, String detail) {
+        CurrentUser currentUser = authenticatedUserContext.getCurrentUser();
+
+        activityLoggerService.logSuccess(
+                currentUser.getUserId(),
+                action,
+                ActivityModules.COMPARISON,
+                detail
+        );
     }
 
     private void validateCommon(Integer periodId, List<String> codes, String paramName) {

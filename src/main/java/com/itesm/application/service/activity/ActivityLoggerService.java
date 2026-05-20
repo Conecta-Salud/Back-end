@@ -1,4 +1,4 @@
-package com.itesm.application.service;
+package com.itesm.application.service.activity;
 
 import com.itesm.domain.repository.SystemActivityLogRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -24,7 +24,7 @@ public class ActivityLoggerService {
                 userId,
                 action,
                 module,
-                "success",
+                ActivityResults.SUCCESS,
                 detail
         );
     }
@@ -39,7 +39,7 @@ public class ActivityLoggerService {
                 userId,
                 action,
                 module,
-                "warning",
+                ActivityResults.WARNING,
                 detail
         );
     }
@@ -54,7 +54,7 @@ public class ActivityLoggerService {
                 userId,
                 action,
                 module,
-                "error",
+                ActivityResults.ERROR,
                 detail
         );
     }

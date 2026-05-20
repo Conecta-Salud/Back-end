@@ -3,6 +3,11 @@ package com.itesm.application.usecase.user;
 import com.itesm.application.dto.user.CreateUserDto;
 import com.itesm.application.port.identity.IdentityProviderGateway;
 import com.itesm.application.port.identity.IdentityUser;
+import com.itesm.application.security.AuthenticatedUserContext;
+import com.itesm.application.security.CurrentUser;
+import com.itesm.application.service.activity.ActivityActions;
+import com.itesm.application.service.activity.ActivityLoggerService;
+import com.itesm.application.service.activity.ActivityModules;
 import com.itesm.domain.models.user.User;
 import com.itesm.domain.models.user.UserRole;
 import com.itesm.domain.repository.UserRepository;
@@ -17,14 +22,20 @@ public class CreateUserUseCase {
 
     private final UserRepository userRepository;
     private final IdentityProviderGateway identityProviderGateway;
+    private final AuthenticatedUserContext authenticatedUserContext;
+    private final ActivityLoggerService activityLoggerService;
 
     @Inject
     public CreateUserUseCase(
             UserRepository userRepository,
-            IdentityProviderGateway identityProviderGateway
+            IdentityProviderGateway identityProviderGateway,
+            AuthenticatedUserContext authenticatedUserContext,
+            ActivityLoggerService activityLoggerService
     ) {
         this.userRepository = userRepository;
         this.identityProviderGateway = identityProviderGateway;
+        this.authenticatedUserContext = authenticatedUserContext;
+        this.activityLoggerService = activityLoggerService;
     }
 
     public User execute(CreateUserDto createUserDto) {
@@ -56,7 +67,18 @@ public class CreateUserUseCase {
             user.setActive(true);
             user.setRole(role);
 
-            return userRepository.create(user);
+            User createdUser = userRepository.create(user);
+
+            CurrentUser adminUser = authenticatedUserContext.getCurrentUser();
+
+            activityLoggerService.logSuccess(
+                    adminUser.getUserId(),
+                    ActivityActions.CREATE_USER,
+                    ActivityModules.USERS,
+                    "Created user " + createdUser.getEmail() + " with role " + createdUser.getRole()
+            );
+
+            return createdUser;
 
         } catch (RuntimeException e) {
             identityProviderGateway.deleteUser(identityUser.getUid());
