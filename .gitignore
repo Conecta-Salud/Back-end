@@ -45,6 +45,6 @@ nb-configuration.xml
 .certs/
 
 #Credenciales de firebase
-src/main/resources/todolistgrupo1-204f7-firebase-adminsdk-fbsvc-aa30f25d35.json
-
-#
+src/main/resources/conectasalud-eq3-firebase-adminsdk-fbsvc-51e2bf541c.json
+*-firebase-adminsdk-*.json
+src/main/resources/*.json
