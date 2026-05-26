@@ -227,6 +227,20 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
 
     @Override
     @Transactional
+    public User reactivateUserById(UUID userId) {
+        UserEntity entity = findById(userId);
+
+        if (entity == null) {
+            throw new NotFoundException("User not found");
+        }
+
+        entity.setActive(true);
+
+        return UserMapper.toDomain(entity);
+    }
+
+    @Override
+    @Transactional
     public void updateLastLoginAt(UUID userId) {
         UserEntity entity = findById(userId);
 
