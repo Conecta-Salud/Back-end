@@ -30,6 +30,7 @@ public class UserResource {
     private final FindAllUsersUseCase findAllUsersUseCase;
     private final UpdateUserUseCase updateUserUseCase;
     private final DeleteUserByIdUseCase deleteUserByIdUseCase;
+    private final ReactivateUserByIdUseCase reactivateUserByIdUseCase;
     private final AuthenticatedUserContext authenticatedUserContext;
 
     @Inject
@@ -40,7 +41,8 @@ public class UserResource {
             FindAllUsersUseCase findAllUsersUseCase,
             UpdateUserUseCase updateUserUseCase,
             DeleteUserByIdUseCase deleteUserByIdUseCase,
-            AuthenticatedUserContext authenticatedUserContext
+            AuthenticatedUserContext authenticatedUserContext,
+            ReactivateUserByIdUseCase reactivateUserByIdUseCase
 
     ) {
         this.createUserUseCase = createUserUseCase;
@@ -50,6 +52,7 @@ public class UserResource {
         this.updateUserUseCase = updateUserUseCase;
         this.deleteUserByIdUseCase = deleteUserByIdUseCase;
         this.authenticatedUserContext = authenticatedUserContext;
+        this.reactivateUserByIdUseCase = reactivateUserByIdUseCase;
 
     }
 
@@ -132,6 +135,17 @@ public class UserResource {
 
         return Response.ok(deletedUser).build();
     }
+
+    @PUT
+    @Path("/reactivate/{userId}")
+    public Response reactivateUser(@PathParam("userId") UUID userId) {
+        assertAdmin();
+
+        User reactivatedUser = reactivateUserByIdUseCase.execute(userId);
+
+        return Response.ok(reactivatedUser).build();
+    }
+
 
     private void assertAdmin() {
         CurrentUser currentUser = authenticatedUserContext.getCurrentUser();

@@ -25,6 +25,7 @@ public interface UserRepository {
     );
     User updateUser(UUID userId, User user);
     User deleteUserById(UUID userId);
+    User reactivateUserById(UUID userId);
     void updateLastLoginAt(UUID userId);
     boolean existsByEmail(String email);
     boolean existsByEmailAndIdNot(String email, UUID userId);

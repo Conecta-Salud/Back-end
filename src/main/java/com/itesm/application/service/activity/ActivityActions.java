@@ -10,6 +10,7 @@ public final class ActivityActions {
     public static final String CREATE_USER = "CREATE_USER";
     public static final String UPDATE_USER = "UPDATE_USER";
     public static final String DEACTIVATE_USER = "DEACTIVATE_USER";
+    public static final String REACTIVATE_USER = "REACTIVATE_USER";
 
     public static final String COMPARE_STATES = "COMPARE_STATES";
     public static final String COMPARE_MUNICIPALITIES = "COMPARE_MUNICIPALITIES";
