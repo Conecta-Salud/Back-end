@@ -83,4 +83,27 @@ public class FirebaseIdentityProviderGateway implements IdentityProviderGateway 
             throw new BadRequestException("Error deleting user in Firebase: " + e.getMessage());
         }
     }
+
+    @Override
+    public void updatePassword(String firebaseUuid, String newPassword) {
+        try {
+            UserRecord.UpdateRequest request = new UserRecord.UpdateRequest(firebaseUuid)
+                    .setPassword(newPassword);
+
+            FirebaseAuth.getInstance().updateUser(request);
+
+        } catch (FirebaseAuthException e) {
+            throw new BadRequestException("Error updating user password in Firebase: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void revokeRefreshTokens(String firebaseUuid) {
+        try {
+            FirebaseAuth.getInstance().revokeRefreshTokens(firebaseUuid);
+
+        } catch (FirebaseAuthException e) {
+            throw new BadRequestException("Error revoking user sessions in Firebase: " + e.getMessage());
+        }
+    }
 }

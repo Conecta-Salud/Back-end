@@ -1,10 +1,7 @@
 package com.itesm.interfaces.rest;
 
 import com.itesm.application.dto.common.PageResponseDto;
-import com.itesm.application.dto.user.CreateUserDto;
-import com.itesm.application.dto.user.UpdateUserDto;
-import com.itesm.application.dto.user.UserListResponseDto;
-import com.itesm.application.dto.user.UserProfileResponseDto;
+import com.itesm.application.dto.user.*;
 import com.itesm.application.security.AuthenticatedUserContext;
 import com.itesm.application.security.CurrentUser;
 import com.itesm.application.usecase.user.*;
@@ -16,7 +13,6 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.util.List;
 import java.util.UUID;
 
 @Path("/users")
@@ -32,6 +28,7 @@ public class UserResource {
     private final DeleteUserByIdUseCase deleteUserByIdUseCase;
     private final ReactivateUserByIdUseCase reactivateUserByIdUseCase;
     private final AuthenticatedUserContext authenticatedUserContext;
+    private final ChangeUserPasswordUseCase changeUserPasswordUseCase;
 
     @Inject
     public UserResource(
@@ -42,7 +39,8 @@ public class UserResource {
             UpdateUserUseCase updateUserUseCase,
             DeleteUserByIdUseCase deleteUserByIdUseCase,
             AuthenticatedUserContext authenticatedUserContext,
-            ReactivateUserByIdUseCase reactivateUserByIdUseCase
+            ReactivateUserByIdUseCase reactivateUserByIdUseCase,
+            ChangeUserPasswordUseCase changeUserPasswordUseCase
 
     ) {
         this.createUserUseCase = createUserUseCase;
@@ -53,7 +51,7 @@ public class UserResource {
         this.deleteUserByIdUseCase = deleteUserByIdUseCase;
         this.authenticatedUserContext = authenticatedUserContext;
         this.reactivateUserByIdUseCase = reactivateUserByIdUseCase;
-
+        this.changeUserPasswordUseCase = changeUserPasswordUseCase;
     }
 
     @POST
@@ -153,5 +151,18 @@ public class UserResource {
         if (!currentUser.isAdmin()) {
             throw new ForbiddenException("Solo administradores pueden realizar esta acción");
         }
+    }
+
+    @PATCH
+    @Path("/{userId}/password")
+    public Response changePassword(
+            @PathParam("userId") UUID userId,
+            @Valid ChangeUserPasswordDto dto
+    ) {
+        assertAdmin();
+
+        changeUserPasswordUseCase.execute(userId, dto);
+
+        return Response.noContent().build();
     }
 }
