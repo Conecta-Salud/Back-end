@@ -30,6 +30,7 @@ public class UserMapper {
         entity.setFirebaseUuid(user.getFirebaseUuid());
         entity.setRole(user.getRole());
         entity.setActive(user.isActive());
+        entity.setLastLoginAt(user.getLastLoginAt());
 
         return entity;
     }
@@ -56,7 +57,8 @@ public class UserMapper {
                 entity.getEmail(),
                 entity.getFirebaseUuid(),
                 entity.getRole(),
-                entity.isActive()
+                entity.isActive(),
+                entity.getLastLoginAt()
         );
     }
 
@@ -90,5 +92,9 @@ public class UserMapper {
         }
 
         entity.setActive(user.isActive());
+
+        if (user.getLastLoginAt() != null) {
+            entity.setLastLoginAt(user.getLastLoginAt());
+        }
     }
 }

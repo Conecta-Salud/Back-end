@@ -1,20 +1,18 @@
 package com.itesm.interfaces.rest;
 
-import com.google.firebase.auth.FirebaseAuthException;
-import com.itesm.application.dto.user.CreateUserDto;
-import com.itesm.application.dto.user.UpdateUserDto;
-import com.itesm.application.dto.user.UserProfileResponseDto;
+import com.itesm.application.dto.common.PageResponseDto;
+import com.itesm.application.dto.user.*;
 import com.itesm.application.security.AuthenticatedUserContext;
 import com.itesm.application.security.CurrentUser;
 import com.itesm.application.usecase.user.*;
 import com.itesm.domain.models.user.User;
+import com.itesm.domain.models.user.UserRole;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.util.List;
 import java.util.UUID;
 
 @Path("/users")
@@ -28,7 +26,9 @@ public class UserResource {
     private final FindAllUsersUseCase findAllUsersUseCase;
     private final UpdateUserUseCase updateUserUseCase;
     private final DeleteUserByIdUseCase deleteUserByIdUseCase;
+    private final ReactivateUserByIdUseCase reactivateUserByIdUseCase;
     private final AuthenticatedUserContext authenticatedUserContext;
+    private final ChangeUserPasswordUseCase changeUserPasswordUseCase;
 
     @Inject
     public UserResource(
@@ -38,7 +38,9 @@ public class UserResource {
             FindAllUsersUseCase findAllUsersUseCase,
             UpdateUserUseCase updateUserUseCase,
             DeleteUserByIdUseCase deleteUserByIdUseCase,
-            AuthenticatedUserContext authenticatedUserContext
+            AuthenticatedUserContext authenticatedUserContext,
+            ReactivateUserByIdUseCase reactivateUserByIdUseCase,
+            ChangeUserPasswordUseCase changeUserPasswordUseCase
 
     ) {
         this.createUserUseCase = createUserUseCase;
@@ -48,25 +50,19 @@ public class UserResource {
         this.updateUserUseCase = updateUserUseCase;
         this.deleteUserByIdUseCase = deleteUserByIdUseCase;
         this.authenticatedUserContext = authenticatedUserContext;
-
+        this.reactivateUserByIdUseCase = reactivateUserByIdUseCase;
+        this.changeUserPasswordUseCase = changeUserPasswordUseCase;
     }
 
     @POST
     public Response createUser(@Valid CreateUserDto createUserDto) {
         assertAdmin();
 
-        try {
-            User user = createUserUseCase.execute(createUserDto);
+        User user = createUserUseCase.execute(createUserDto);
 
-            return Response.status(Response.Status.CREATED)
-                    .entity(user)
-                    .build();
-
-        } catch (FirebaseAuthException e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error creating user in Firebase: " + e.getMessage())
-                    .build();
-        }
+        return Response.status(Response.Status.CREATED)
+                .entity(user)
+                .build();
     }
 
     @GET
@@ -77,10 +73,25 @@ public class UserResource {
     }
 
     @GET
-    public Response findAllUsers() {
+    public Response findAllUsers(
+            @QueryParam("search") String search,
+            @QueryParam("departmentId") Integer departmentId,
+            @QueryParam("role") UserRole role,
+            @QueryParam("active") Boolean active,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size
+    ) {
         assertAdmin();
 
-        List<User> users = findAllUsersUseCase.execute();
+        PageResponseDto<UserListResponseDto> users = findAllUsersUseCase.execute(
+                search,
+                departmentId,
+                role,
+                active,
+                page,
+                size
+        );
+
         return Response.ok(users).build();
     }
 
@@ -108,15 +119,9 @@ public class UserResource {
     ) {
         assertAdmin();
 
-        try {
-            User updatedUser = updateUserUseCase.execute(userId, updateUserDto);
-            return Response.ok(updatedUser).build();
+        User updatedUser = updateUserUseCase.execute(userId, updateUserDto);
 
-        } catch (RuntimeException e) {
-            return Response.status(Response.Status.NOT_FOUND)
-                    .entity(e.getMessage())
-                    .build();
-        }
+        return Response.ok(updatedUser).build();
     }
 
     @DELETE
@@ -124,16 +129,21 @@ public class UserResource {
     public Response deleteUser(@PathParam("userId") UUID userId) {
         assertAdmin();
 
-        try {
-            User deletedUser = deleteUserByIdUseCase.execute(userId);
-            return Response.ok(deletedUser).build();
+        User deletedUser = deleteUserByIdUseCase.execute(userId);
 
-        } catch (RuntimeException e) {
-            return Response.status(Response.Status.NOT_FOUND)
-                    .entity(e.getMessage())
-                    .build();
-        }
+        return Response.ok(deletedUser).build();
     }
+
+    @PUT
+    @Path("/reactivate/{userId}")
+    public Response reactivateUser(@PathParam("userId") UUID userId) {
+        assertAdmin();
+
+        User reactivatedUser = reactivateUserByIdUseCase.execute(userId);
+
+        return Response.ok(reactivatedUser).build();
+    }
+
 
     private void assertAdmin() {
         CurrentUser currentUser = authenticatedUserContext.getCurrentUser();
@@ -141,5 +151,18 @@ public class UserResource {
         if (!currentUser.isAdmin()) {
             throw new ForbiddenException("Solo administradores pueden realizar esta acción");
         }
+    }
+
+    @PATCH
+    @Path("/{userId}/password")
+    public Response changePassword(
+            @PathParam("userId") UUID userId,
+            @Valid ChangeUserPasswordDto dto
+    ) {
+        assertAdmin();
+
+        changeUserPasswordUseCase.execute(userId, dto);
+
+        return Response.noContent().build();
     }
 }

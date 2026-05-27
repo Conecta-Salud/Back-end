@@ -1,6 +1,8 @@
 package com.itesm.infrastructure.persistence.repository;
 
+import com.itesm.domain.models.common.PageResult;
 import com.itesm.domain.models.user.User;
+import com.itesm.domain.models.user.UserRole;
 import com.itesm.domain.repository.UserRepository;
 import com.itesm.infrastructure.mapper.UserMapper;
 import com.itesm.infrastructure.persistence.entity.DepartmentEntity;
@@ -10,11 +12,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityGraph;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -99,25 +103,110 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
     }
 
     @Override
+    public PageResult<User> findUsers(
+            String search,
+            Integer departmentId,
+            UserRole role,
+            Boolean active,
+            int page,
+            int size
+    ) {
+        int safePage = Math.max(page, 0);
+        int safeSize = normalizePageSize(size);
+
+        Map<String, Object> params = new HashMap<>();
+
+        String whereClause = buildUsersWhereClause(
+                search,
+                departmentId,
+                role,
+                active,
+                params
+        );
+
+        String selectJpql = """
+            SELECT u
+            FROM UserEntity u
+            JOIN u.department d
+            """ + whereClause + """
+            ORDER BY u.firstName ASC, u.lastName ASC
+            """;
+
+        String countJpql = """
+            SELECT COUNT(u)
+            FROM UserEntity u
+            JOIN u.department d
+            """ + whereClause;
+
+        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
+
+        TypedQuery<UserEntity> dataQuery = em.createQuery(selectJpql, UserEntity.class)
+                .setHint("jakarta.persistence.loadgraph", graph);
+
+        TypedQuery<Long> countQuery = em.createQuery(countJpql, Long.class);
+
+        params.forEach((key, value) -> {
+            dataQuery.setParameter(key, value);
+            countQuery.setParameter(key, value);
+        });
+
+        List<User> items = dataQuery
+                .setFirstResult(safePage * safeSize)
+                .setMaxResults(safeSize)
+                .getResultList()
+                .stream()
+                .map(UserMapper::toDomain)
+                .collect(Collectors.toList());
+
+        Long totalItems = countQuery.getSingleResult();
+
+        return new PageResult<>(
+                items,
+                totalItems,
+                safePage,
+                safeSize
+        );
+    }
+
+    @Override
     @Transactional
     public User updateUser(UUID userId, User user) {
         UserEntity entity = findById(userId);
 
         if (entity == null) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("User not found");
         }
-
-        DepartmentEntity department = null;
 
         if (user.getDepartmentId() != null) {
-            department = em.find(DepartmentEntity.class, user.getDepartmentId());
+            DepartmentEntity department = em.find(
+                    DepartmentEntity.class,
+                    user.getDepartmentId()
+            );
 
             if (department == null) {
-                throw new RuntimeException("Department not found");
+                throw new BadRequestException("Department not found");
             }
+
+            entity.setDepartment(department);
         }
 
-        UserMapper.updateEntity(entity, user, department);
+        if (user.getFirstName() != null) {
+            entity.setFirstName(user.getFirstName());
+        }
+
+        if (user.getLastName() != null) {
+            entity.setLastName(user.getLastName());
+        }
+
+        if (user.getEmail() != null) {
+            entity.setEmail(user.getEmail());
+        }
+
+        if (user.getRole() != null) {
+            entity.setRole(user.getRole());
+        }
+
+        entity.setActive(user.isActive());
 
         return UserMapper.toDomain(entity);
     }
@@ -128,11 +217,124 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
         UserEntity entity = findById(userId);
 
         if (entity == null) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("User not found");
         }
 
         entity.setActive(false);
 
         return UserMapper.toDomain(entity);
+    }
+
+    @Override
+    @Transactional
+    public User reactivateUserById(UUID userId) {
+        UserEntity entity = findById(userId);
+
+        if (entity == null) {
+            throw new NotFoundException("User not found");
+        }
+
+        entity.setActive(true);
+
+        return UserMapper.toDomain(entity);
+    }
+
+    @Override
+    @Transactional
+    public void updateLastLoginAt(UUID userId) {
+        UserEntity entity = findById(userId);
+
+        if (entity == null) {
+            throw new NotFoundException("User not found");
+        }
+
+        entity.setLastLoginAt(LocalDateTime.now());
+        em.flush();
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+
+        Long count = em.createQuery(
+                        "SELECT COUNT(u) FROM UserEntity u WHERE LOWER(u.email) = LOWER(:email)",
+                        Long.class
+                )
+                .setParameter("email", email.trim())
+                .getSingleResult();
+
+        return count > 0;
+    }
+
+    @Override
+    public boolean existsByEmailAndIdNot(String email, UUID userId) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+
+        Long count = em.createQuery(
+                        """
+                        SELECT COUNT(u)
+                        FROM UserEntity u
+                        WHERE LOWER(u.email) = LOWER(:email)
+                          AND u.id <> :userId
+                        """,
+                        Long.class
+                )
+                .setParameter("email", email.trim())
+                .setParameter("userId", userId)
+                .getSingleResult();
+
+        return count > 0;
+    }
+
+    private String buildUsersWhereClause(
+            String search,
+            Integer departmentId,
+            UserRole role,
+            Boolean active,
+            Map<String, Object> params
+    ) {
+        StringBuilder where = new StringBuilder(" WHERE 1 = 1 ");
+
+        if (search != null && !search.isBlank()) {
+            where.append("""
+                AND (
+                    LOWER(u.email) LIKE :search
+                    OR LOWER(u.firstName) LIKE :search
+                    OR LOWER(u.lastName) LIKE :search
+                    OR LOWER(CONCAT(CONCAT(u.firstName, ' '), u.lastName)) LIKE :search
+                )
+                """);
+
+            params.put("search", "%" + search.trim().toLowerCase() + "%");
+        }
+
+        if (departmentId != null) {
+            where.append(" AND d.id = :departmentId ");
+            params.put("departmentId", departmentId);
+        }
+
+        if (role != null) {
+            where.append(" AND u.role = :role ");
+            params.put("role", role);
+        }
+
+        if (active != null) {
+            where.append(" AND u.isActive = :active ");
+            params.put("active", active);
+        }
+
+        return where.toString();
+    }
+
+    private int normalizePageSize(int size) {
+        if (size <= 0) {
+            return 20;
+        }
+
+        return Math.min(size, 100);
     }
 }

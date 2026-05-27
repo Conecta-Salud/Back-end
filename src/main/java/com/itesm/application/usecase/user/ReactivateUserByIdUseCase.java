@@ -1,11 +1,11 @@
 package com.itesm.application.usecase.user;
 
-import com.itesm.application.port.identity.IdentityProviderGateway;
-import com.itesm.application.security.AuthenticatedUserContext;
-import com.itesm.application.security.CurrentUser;
 import com.itesm.application.service.activity.ActivityActions;
 import com.itesm.application.service.activity.ActivityLoggerService;
 import com.itesm.application.service.activity.ActivityModules;
+import com.itesm.application.port.identity.IdentityProviderGateway;
+import com.itesm.application.security.AuthenticatedUserContext;
+import com.itesm.application.security.CurrentUser;
 import com.itesm.domain.models.user.User;
 import com.itesm.domain.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -15,7 +15,7 @@ import jakarta.ws.rs.NotFoundException;
 import java.util.UUID;
 
 @ApplicationScoped
-public class DeleteUserByIdUseCase {
+public class ReactivateUserByIdUseCase {
 
     private final UserRepository userRepository;
     private final IdentityProviderGateway identityProviderGateway;
@@ -23,7 +23,7 @@ public class DeleteUserByIdUseCase {
     private final ActivityLoggerService activityLoggerService;
 
     @Inject
-    public DeleteUserByIdUseCase(
+    public ReactivateUserByIdUseCase(
             UserRepository userRepository,
             IdentityProviderGateway identityProviderGateway,
             AuthenticatedUserContext authenticatedUserContext,
@@ -42,19 +42,19 @@ public class DeleteUserByIdUseCase {
             throw new NotFoundException("User not found");
         }
 
-        identityProviderGateway.disableUser(existingUser.getFirebaseUuid());
+        identityProviderGateway.enableUser(existingUser.getFirebaseUuid());
 
-        User deactivatedUser = userRepository.deleteUserById(userId);
+        User reactivatedUser = userRepository.reactivateUserById(userId);
 
         CurrentUser adminUser = authenticatedUserContext.getCurrentUser();
 
         activityLoggerService.logSuccess(
                 adminUser.getUserId(),
-                ActivityActions.DEACTIVATE_USER,
+                ActivityActions.REACTIVATE_USER,
                 ActivityModules.USERS,
-                "Deactivated user " + deactivatedUser.getEmail()
+                "Reactivated user " + reactivatedUser.getEmail()
         );
 
-        return deactivatedUser;
+        return reactivatedUser;
     }
 }

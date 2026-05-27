@@ -5,29 +5,29 @@ import com.itesm.domain.models.user.UserRole;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public class UserProfileResponseDto {
+public class UserListResponseDto {
 
     private UUID id;
     private Integer departmentId;
     private String departmentName;
     private String firstName;
     private String lastName;
+    private String fullName;
     private String email;
-    private String firebaseUuid;
     private UserRole role;
-    private Boolean active;
+    private boolean active;
     private LocalDateTime lastLoginAt;
 
-    public UserProfileResponseDto(
+    public UserListResponseDto(
             UUID id,
             Integer departmentId,
             String departmentName,
             String firstName,
             String lastName,
+            String fullName,
             String email,
-            String firebaseUuid,
             UserRole role,
-            Boolean active,
+            boolean active,
             LocalDateTime lastLoginAt
     ) {
         this.id = id;
@@ -35,8 +35,8 @@ public class UserProfileResponseDto {
         this.departmentName = departmentName;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.fullName = fullName;
         this.email = email;
-        this.firebaseUuid = firebaseUuid;
         this.role = role;
         this.active = active;
         this.lastLoginAt = lastLoginAt;
@@ -82,20 +82,20 @@ public class UserProfileResponseDto {
         this.lastName = lastName;
     }
 
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
     public String getEmail() {
         return email;
     }
 
     public void setEmail(String email) {
         this.email = email;
-    }
-
-    public String getFirebaseUuid() {
-        return firebaseUuid;
-    }
-
-    public void setFirebaseUuid(String firebaseUuid) {
-        this.firebaseUuid = firebaseUuid;
     }
 
     public UserRole getRole() {
@@ -106,11 +106,11 @@ public class UserProfileResponseDto {
         this.role = role;
     }
 
-    public Boolean getActive() {
+    public boolean isActive() {
         return active;
     }
 
-    public void setActive(Boolean active) {
+    public void setActive(boolean active) {
         this.active = active;
     }
 

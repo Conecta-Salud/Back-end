@@ -1,5 +1,6 @@
 package com.itesm.application.usecase.user;
 
+import com.itesm.application.dto.user.ChangeUserPasswordDto;
 import com.itesm.application.port.identity.IdentityProviderGateway;
 import com.itesm.application.security.AuthenticatedUserContext;
 import com.itesm.application.security.CurrentUser;
@@ -15,7 +16,7 @@ import jakarta.ws.rs.NotFoundException;
 import java.util.UUID;
 
 @ApplicationScoped
-public class DeleteUserByIdUseCase {
+public class ChangeUserPasswordUseCase {
 
     private final UserRepository userRepository;
     private final IdentityProviderGateway identityProviderGateway;
@@ -23,7 +24,7 @@ public class DeleteUserByIdUseCase {
     private final ActivityLoggerService activityLoggerService;
 
     @Inject
-    public DeleteUserByIdUseCase(
+    public ChangeUserPasswordUseCase(
             UserRepository userRepository,
             IdentityProviderGateway identityProviderGateway,
             AuthenticatedUserContext authenticatedUserContext,
@@ -35,26 +36,29 @@ public class DeleteUserByIdUseCase {
         this.activityLoggerService = activityLoggerService;
     }
 
-    public User execute(UUID userId) {
-        User existingUser = userRepository.findUserById(userId);
+    public void execute(UUID targetUserId, ChangeUserPasswordDto dto) {
+        User targetUser = userRepository.findUserById(targetUserId);
 
-        if (existingUser == null) {
+        if (targetUser == null) {
             throw new NotFoundException("User not found");
         }
 
-        identityProviderGateway.disableUser(existingUser.getFirebaseUuid());
+        identityProviderGateway.updatePassword(
+                targetUser.getFirebaseUuid(),
+                dto.getNewPassword()
+        );
 
-        User deactivatedUser = userRepository.deleteUserById(userId);
+        if (Boolean.TRUE.equals(dto.getRevokeSessions())) {
+            identityProviderGateway.revokeRefreshTokens(targetUser.getFirebaseUuid());
+        }
 
         CurrentUser adminUser = authenticatedUserContext.getCurrentUser();
 
         activityLoggerService.logSuccess(
                 adminUser.getUserId(),
-                ActivityActions.DEACTIVATE_USER,
+                ActivityActions.CHANGE_USER_PASSWORD,
                 ActivityModules.USERS,
-                "Deactivated user " + deactivatedUser.getEmail()
+                "Changed password for user " + targetUser.getEmail()
         );
-
-        return deactivatedUser;
     }
 }
