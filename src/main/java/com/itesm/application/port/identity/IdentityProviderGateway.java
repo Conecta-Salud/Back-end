@@ -20,4 +20,8 @@ public interface IdentityProviderGateway {
     void enableUser(String firebaseUuid);
 
     void deleteUser(String firebaseUuid);
+
+    void updatePassword(String firebaseUuid, String newPassword);
+
+    void revokeRefreshTokens(String firebaseUuid);
 }
