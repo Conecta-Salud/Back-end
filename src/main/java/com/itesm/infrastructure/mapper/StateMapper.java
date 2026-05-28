@@ -15,9 +15,7 @@ public class StateMapper {
         return new State(
                 entity.getId(),
                 entity.getName(),
-                entity.getInegiCode(),
-                entity.getLatitude(),
-                entity.getLongitude()
+                entity.getInegiCode()
         );
     }
 }

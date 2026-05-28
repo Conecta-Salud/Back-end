@@ -25,9 +25,7 @@ public class FindAllMunicipalitiesUseCase {
                         municipality.getId(),
                         municipality.getStateId(),
                         municipality.getName(),
-                        municipality.getInegiCode(),
-                        municipality.getLatitude(),
-                        municipality.getLongitude()
+                        municipality.getInegiCode()
                 ))
                 .collect(Collectors.toList());
     }

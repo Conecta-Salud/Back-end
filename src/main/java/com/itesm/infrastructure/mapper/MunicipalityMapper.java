@@ -16,9 +16,7 @@ public class MunicipalityMapper {
                 entity.getId(),
                 entity.getState().getId(),
                 entity.getName(),
-                entity.getInegiCode(),
-                entity.getLatitude(),
-                entity.getLongitude()
+                entity.getInegiCode()
         );
     }
 }
