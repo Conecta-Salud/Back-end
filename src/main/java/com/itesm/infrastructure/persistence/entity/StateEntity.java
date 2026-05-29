@@ -18,12 +18,6 @@ public class StateEntity {
     @Column(name = "inegi_code", nullable = false, length = 10)
     private String inegiCode;
 
-    @Column(precision = 10, scale = 7)
-    private BigDecimal latitude;
-
-    @Column(precision = 10, scale = 7)
-    private BigDecimal  longitude;
-
     public Integer getId() {
         return id;
     }
@@ -46,21 +40,5 @@ public class StateEntity {
 
     public void setInegiCode(String inegiCode) {
         this.inegiCode = inegiCode;
-    }
-
-    public BigDecimal getLatitude() {
-        return latitude;
-    }
-
-    public void setLatitude(BigDecimal latitude) {
-        this.latitude = latitude;
-    }
-
-    public BigDecimal getLongitude() {
-        return longitude;
-    }
-
-    public void setLongitude(BigDecimal longitude) {
-        this.longitude = longitude;
     }
 }

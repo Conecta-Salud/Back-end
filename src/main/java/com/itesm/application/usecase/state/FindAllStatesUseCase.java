@@ -23,9 +23,7 @@ public class FindAllStatesUseCase {
                 .map(state -> new StateResponseDto(
                         state.getId(),
                         state.getName(),
-                        state.getInegiCode(),
-                        state.getLatitude(),
-                        state.getLongitude()
+                        state.getInegiCode()
                 ))
                 .collect(Collectors.toList());
     }

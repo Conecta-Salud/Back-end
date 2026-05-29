@@ -8,23 +8,17 @@ public class MunicipalityResponseDto {
     private Integer stateId;
     private String name;
     private String inegiCode;
-    private BigDecimal latitude;
-    private BigDecimal longitude;
 
     public MunicipalityResponseDto(
             Integer id,
             Integer stateId,
             String name,
-            String inegiCode,
-            BigDecimal latitude,
-            BigDecimal longitude
+            String inegiCode
     ) {
         this.id = id;
         this.stateId = stateId;
         this.name = name;
         this.inegiCode = inegiCode;
-        this.latitude = latitude;
-        this.longitude = longitude;
     }
 
     public Integer getId() {
@@ -57,21 +51,5 @@ public class MunicipalityResponseDto {
 
     public void setInegiCode(String inegiCode) {
         this.inegiCode = inegiCode;
-    }
-
-    public BigDecimal getLatitude() {
-        return latitude;
-    }
-
-    public void setLatitude(BigDecimal latitude) {
-        this.latitude = latitude;
-    }
-
-    public BigDecimal getLongitude() {
-        return longitude;
-    }
-
-    public void setLongitude(BigDecimal longitude) {
-        this.longitude = longitude;
     }
 }

@@ -30,9 +30,7 @@ public class FindMunicipalitiesByStateUseCase {
                         municipality.getId(),
                         municipality.getStateId(),
                         municipality.getName(),
-                        municipality.getInegiCode(),
-                        municipality.getLatitude(),
-                        municipality.getLongitude()
+                        municipality.getInegiCode()
                 ))
                 .collect(Collectors.toList());
     }
