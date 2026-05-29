@@ -29,6 +29,7 @@ public class UserResource {
     private final ReactivateUserByIdUseCase reactivateUserByIdUseCase;
     private final AuthenticatedUserContext authenticatedUserContext;
     private final ChangeUserPasswordUseCase changeUserPasswordUseCase;
+    private final GetAdminUserDetailUseCase getAdminUserDetailUseCase;
 
     @Inject
     public UserResource(
@@ -40,7 +41,8 @@ public class UserResource {
             DeleteUserByIdUseCase deleteUserByIdUseCase,
             AuthenticatedUserContext authenticatedUserContext,
             ReactivateUserByIdUseCase reactivateUserByIdUseCase,
-            ChangeUserPasswordUseCase changeUserPasswordUseCase
+            ChangeUserPasswordUseCase changeUserPasswordUseCase,
+            GetAdminUserDetailUseCase getAdminUserDetailUseCase
 
     ) {
         this.createUserUseCase = createUserUseCase;
@@ -52,6 +54,7 @@ public class UserResource {
         this.authenticatedUserContext = authenticatedUserContext;
         this.reactivateUserByIdUseCase = reactivateUserByIdUseCase;
         this.changeUserPasswordUseCase = changeUserPasswordUseCase;
+        this.getAdminUserDetailUseCase = getAdminUserDetailUseCase;
     }
 
     @POST
@@ -165,4 +168,18 @@ public class UserResource {
 
         return Response.noContent().build();
     }
+
+    @GET
+    @Path("/admin-detail/{userId}")
+    public Response getAdminUserDetail(
+            @PathParam("userId") UUID userId
+    ) {
+        assertAdmin();
+
+        AdminUserDetailResponseDto user =
+                getAdminUserDetailUseCase.execute(userId);
+
+        return Response.ok(user).build();
+    }
 }
+
