@@ -16,8 +16,6 @@ public final class ActivityActions {
     public static final String COMPARE_STATES = "COMPARE_STATES";
     public static final String COMPARE_MUNICIPALITIES = "COMPARE_MUNICIPALITIES";
 
-    public static final String EXPORT_REPORT = "EXPORT_REPORT";
-
     public static final String UPLOAD_BATCH_CREATED = "UPLOAD_BATCH_CREATED";
     public static final String UPLOAD_BATCH_COMPLETED = "UPLOAD_BATCH_COMPLETED";
     public static final String UPLOAD_BATCH_FAILED = "UPLOAD_BATCH_FAILED";
