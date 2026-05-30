@@ -55,14 +55,21 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
         try {
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken, true);
 
+            System.out.println("Firebase UID: " + decodedToken.getUid());
+            System.out.println("Firebase email: " + decodedToken.getEmail());
+
             Optional<User> userOptional = userRepository.findByFirebaseUuid(decodedToken.getUid());
 
             if (userOptional.isEmpty()) {
+                System.out.println("No DB user found for firebase_uuid: " + decodedToken.getUid());
                 abortUnauthorized(requestContext, "User not registered in database");
                 return;
             }
 
             User user = userOptional.get();
+
+            System.out.println("DB user found: " + user.getEmail() + " role=" + user.getRole() + " active=" + user.isActive());
+
 
             if (!user.isActive()) {
                 abortUnauthorized(requestContext, "User is inactive");
@@ -83,6 +90,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
             authenticatedUserContext.setCurrentUser(currentUser);
 
         } catch (FirebaseAuthException e) {
+            System.out.println("Firebase token verification failed: " + e.getMessage());
             abortUnauthorized(requestContext, "Invalid Firebase token");
         }
     }
