@@ -1,7 +1,7 @@
 package com.itesm.application.usecase.municipality;
 
 import com.itesm.application.dto.municipality.MunicipalityResponseDto;
-import com.itesm.domain.repository.MunicipalityRepository;
+import com.itesm.domain.repository.Upload.Establecimiento.MunicipalityRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
@@ -28,11 +28,8 @@ public class FindMunicipalitiesByStateUseCase {
                 .stream()
                 .map(municipality -> new MunicipalityResponseDto(
                         municipality.getId(),
-                        municipality.getStateId(),
                         municipality.getName(),
-                        municipality.getInegiCode(),
-                        municipality.getLatitude(),
-                        municipality.getLongitude()
+                        municipality.getInegiCode()
                 ))
                 .collect(Collectors.toList());
     }

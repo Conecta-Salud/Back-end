@@ -1,5 +1,6 @@
 package com.itesm.infrastructure.persistence.entity;
 
+import com.itesm.infrastructure.persistence.entity.Upload.Establecimientos.MunicipalityEntity;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;

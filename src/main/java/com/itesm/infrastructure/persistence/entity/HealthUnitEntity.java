@@ -1,6 +1,9 @@
 package com.itesm.infrastructure.persistence.entity;
 
 import com.itesm.domain.models.healthunit.CareLevel;
+import com.itesm.infrastructure.persistence.entity.Upload.Establecimientos.InstitutionEntity;
+import com.itesm.infrastructure.persistence.entity.Upload.Establecimientos.MedicalUnitTypeEntity;
+import com.itesm.infrastructure.persistence.entity.Upload.Establecimientos.MunicipalityEntity;
 import jakarta.persistence.*;
 
 @Entity

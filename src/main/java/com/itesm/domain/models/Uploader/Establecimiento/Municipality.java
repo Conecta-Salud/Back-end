@@ -1,14 +1,13 @@
-package com.itesm.application.dto.state;
+package com.itesm.domain.models.Uploader.Establecimiento;
 
 import java.math.BigDecimal;
 
-public class StateResponseDto {
-
+public class Municipality {
     private Integer id;
     private String name;
     private String inegiCode;
 
-    public StateResponseDto(
+    public Municipality(
             Integer id,
             String name,
             String inegiCode
@@ -17,6 +16,7 @@ public class StateResponseDto {
         this.name = name;
         this.inegiCode = inegiCode;
     }
+    public Municipality()   {}
 
     public Integer getId() {
         return id;
@@ -41,5 +41,4 @@ public class StateResponseDto {
     public void setInegiCode(String inegiCode) {
         this.inegiCode = inegiCode;
     }
-
 }

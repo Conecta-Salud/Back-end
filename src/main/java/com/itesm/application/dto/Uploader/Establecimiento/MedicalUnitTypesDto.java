@@ -1,30 +1,24 @@
-package com.itesm.infrastructure.persistence.entity;
+package com.itesm.application.dto.Uploader.Establecimiento;
 
-import jakarta.persistence.*;
-
-@Entity
-@Table(name = "medical_unit_types")
-public class MedicalUnitTypeEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class MedicalUnitTypesDto {
     private Integer id;
-
-    @Column(nullable = false, unique = true, length = 120)
     private String name;
+
+    public MedicalUnitTypesDto(Integer id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+    public MedicalUnitTypesDto() {}
 
     public Integer getId() {
         return id;
     }
-
     public void setId(Integer id) {
         this.id = id;
     }
-
     public String getName() {
         return name;
     }
-
     public void setName(String name) {
         this.name = name;
     }

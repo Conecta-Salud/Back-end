@@ -1,45 +1,35 @@
-package com.itesm.application.dto.state;
+package com.itesm.application.dto.Uploader.Establecimiento;
 
-import java.math.BigDecimal;
-
-public class StateResponseDto {
-
+public class MunicipalityDto {
     private Integer id;
     private String name;
     private String inegiCode;
 
-    public StateResponseDto(
-            Integer id,
-            String name,
-            String inegiCode
-    ) {
+    public MunicipalityDto(Integer id, String name, String inegiCode) {
         this.id = id;
         this.name = name;
         this.inegiCode = inegiCode;
     }
-
+    public MunicipalityDto() {}
     public Integer getId() {
         return id;
+    }
+    public String getName() {
+        return name;
+    }
+    public String getInegiCode() {
+        return inegiCode;
     }
 
     public void setId(Integer id) {
         this.id = id;
     }
 
-    public String getName() {
-        return name;
-    }
-
     public void setName(String name) {
         this.name = name;
-    }
-
-    public String getInegiCode() {
-        return inegiCode;
     }
 
     public void setInegiCode(String inegiCode) {
         this.inegiCode = inegiCode;
     }
-
 }

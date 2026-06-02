@@ -1,7 +1,7 @@
 package com.itesm.application.usecase.state;
 
 import com.itesm.application.dto.state.StateResponseDto;
-import com.itesm.domain.repository.StateRepository;
+import com.itesm.domain.repository.Upload.Establecimiento.StateRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -23,9 +23,7 @@ public class FindAllStatesUseCase {
                 .map(state -> new StateResponseDto(
                         state.getId(),
                         state.getName(),
-                        state.getInegiCode(),
-                        state.getLatitude(),
-                        state.getLongitude()
+                        state.getInegiCode()
                 ))
                 .collect(Collectors.toList());
     }

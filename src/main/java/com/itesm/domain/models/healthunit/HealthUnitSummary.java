@@ -40,6 +40,8 @@ public class HealthUnitSummary {
         this.careLevel = careLevel;
     }
 
+    public HealthUnitSummary() {}
+
     public Integer getId() {
         return id;
     }

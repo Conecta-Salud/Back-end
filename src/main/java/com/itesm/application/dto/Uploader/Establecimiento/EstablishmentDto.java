@@ -1,30 +1,24 @@
-package com.itesm.infrastructure.persistence.entity;
+package com.itesm.application.dto.Uploader.Establecimiento;
 
-import jakarta.persistence.*;
-
-@Entity
-@Table(name = "institutions")
-public class InstitutionEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class EstablishmentDto {
     private Integer id;
-
-    @Column(nullable = false, unique = true, length = 150)
     private String name;
+
+    public EstablishmentDto(Integer id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+    public EstablishmentDto() {}
 
     public Integer getId() {
         return id;
     }
-
     public void setId(Integer id) {
         this.id = id;
     }
-
     public String getName() {
         return name;
     }
-
     public void setName(String name) {
         this.name = name;
     }

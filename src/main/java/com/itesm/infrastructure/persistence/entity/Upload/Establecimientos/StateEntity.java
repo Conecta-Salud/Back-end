@@ -1,4 +1,4 @@
-package com.itesm.infrastructure.persistence.entity;
+package com.itesm.infrastructure.persistence.entity.Upload.Establecimientos;
 
 import jakarta.persistence.*;
 
@@ -15,7 +15,7 @@ public class StateEntity {
     @Column(nullable = false, length = 120)
     private String name;
 
-    @Column(name = "inegi_code", nullable = false, length = 10)
+    @Column(name = "inegi_code", length = 10)
     private String inegiCode;
 
     @Column(precision = 10, scale = 7)
@@ -48,19 +48,4 @@ public class StateEntity {
         this.inegiCode = inegiCode;
     }
 
-    public BigDecimal getLatitude() {
-        return latitude;
-    }
-
-    public void setLatitude(BigDecimal latitude) {
-        this.latitude = latitude;
-    }
-
-    public BigDecimal getLongitude() {
-        return longitude;
-    }
-
-    public void setLongitude(BigDecimal longitude) {
-        this.longitude = longitude;
-    }
 }

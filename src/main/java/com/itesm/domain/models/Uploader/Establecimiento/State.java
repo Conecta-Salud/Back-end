@@ -1,4 +1,4 @@
-package com.itesm.domain.models.state;
+package com.itesm.domain.models.Uploader.Establecimiento;
 
 import java.math.BigDecimal;
 
@@ -7,16 +7,13 @@ public class State {
     private Integer id;
     private String name;
     private String inegiCode;
-    private BigDecimal latitude;
-    private BigDecimal longitude;
 
-    public State(Integer id, String name, String inegiCode, BigDecimal latitude, BigDecimal longitude) {
+    public State(Integer id, String name, String inegiCode) {
         this.id = id;
         this.name = name;
         this.inegiCode = inegiCode;
-        this.latitude = latitude;
-        this.longitude = longitude;
     }
+    public State() {}
 
     public Integer getId() {
         return id;
@@ -40,21 +37,5 @@ public class State {
 
     public void setInegiCode(String inegiCode) {
         this.inegiCode = inegiCode;
-    }
-
-    public BigDecimal getLatitude() {
-        return latitude;
-    }
-
-    public void setLatitude(BigDecimal latitude) {
-        this.latitude = latitude;
-    }
-
-    public BigDecimal getLongitude() {
-        return longitude;
-    }
-
-    public void setLongitude(BigDecimal longitude) {
-        this.longitude = longitude;
     }
 }

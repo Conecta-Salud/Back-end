@@ -78,6 +78,15 @@
             <artifactId>firebase-admin</artifactId>
             <version>9.2.0</version> <!-- Use the latest version from Maven Central -->
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-resteasy-multipart</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.10.0</version>
+        </dependency>
     </dependencies>
 
     <build>

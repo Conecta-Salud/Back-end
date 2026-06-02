@@ -1,30 +1,32 @@
-package com.itesm.domain.models.municipality;
+package com.itesm.infrastructure.persistence.entity.Upload.Establecimientos;
+
+import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 
-public class Municipality {
-    private Integer id;
-    private Integer stateId;
-    private String name;
-    private String inegiCode;
-    private BigDecimal latitude;
-    private BigDecimal longitude;
+@Entity
+@Table(name = "municipalities")
+public class MunicipalityEntity {
 
-    public Municipality(
-            Integer id,
-            Integer stateId,
-            String name,
-            String inegiCode,
-            BigDecimal latitude,
-            BigDecimal longitude
-    ) {
-        this.id = id;
-        this.stateId = stateId;
-        this.name = name;
-        this.inegiCode = inegiCode;
-        this.latitude = latitude;
-        this.longitude = longitude;
-    }
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "state_id", nullable = false)
+    private StateEntity state;
+
+    @Column(nullable = false, length = 150)
+    private String name;
+
+    @Column(name = "inegi_code", nullable = false, length = 15)
+    private String inegiCode;
+
+    @Column(precision = 10, scale = 7)
+    private BigDecimal latitude;
+
+    @Column(precision = 10, scale = 7)
+    private BigDecimal  longitude;
 
     public Integer getId() {
         return id;
@@ -34,12 +36,12 @@ public class Municipality {
         this.id = id;
     }
 
-    public Integer getStateId() {
-        return stateId;
+    public StateEntity getState() {
+        return state;
     }
 
-    public void setStateId(Integer stateId) {
-        this.stateId = stateId;
+    public void setState(StateEntity state) {
+        this.state = state;
     }
 
     public String getName() {

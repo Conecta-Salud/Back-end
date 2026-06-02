@@ -1,12 +1,14 @@
 package com.itesm.infrastructure.persistence.repository;
 
-import com.itesm.domain.models.municipality.Municipality;
-import com.itesm.domain.repository.MunicipalityRepository;
-import com.itesm.infrastructure.mapper.MunicipalityMapper;
-import com.itesm.infrastructure.persistence.entity.MunicipalityEntity;
+import com.itesm.domain.models.Uploader.Establecimiento.Municipality;
+import com.itesm.domain.repository.Upload.Establecimiento.MunicipalityRepository;
+import com.itesm.infrastructure.mapper.Uploader.Establecimientos.MunicipalityMapper;
+import com.itesm.infrastructure.persistence.entity.Upload.Establecimientos.MunicipalityEntity;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.transaction.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,5 +30,22 @@ public class MunicipalityRepositoryImpl implements MunicipalityRepository, Panac
                 .stream()
                 .map(MunicipalityMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void save(List<Municipality> municipalities) {
+
+        for (Municipality municipality : municipalities) {
+
+            MunicipalityEntity entity = new MunicipalityEntity();
+
+            entity.setId(municipality.getId());
+            entity.setName(municipality.getName());
+            entity.setInegiCode(municipality.getInegiCode());
+
+            persist(entity);
+
+        }
     }
 }
