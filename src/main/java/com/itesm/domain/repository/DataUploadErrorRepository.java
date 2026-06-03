@@ -10,6 +10,8 @@ public interface DataUploadErrorRepository {
 
     void replaceErrors(Integer uploadId, List<UploadErrorDraft> errors);
 
+    void deleteByUploadId(Integer uploadId);
+
     PageResult<DataUploadErrorEntity> findByUploadId(Integer uploadId, int page, int size);
 
     long countByUploadId(Integer uploadId);

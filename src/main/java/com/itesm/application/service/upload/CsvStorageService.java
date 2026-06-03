@@ -99,6 +99,18 @@ public class CsvStorageService {
         }
     }
 
+    public void deleteQuietly(String storedFileName) {
+        if (storedFileName == null || storedFileName.isBlank()) {
+            return;
+        }
+
+        try {
+            Files.deleteIfExists(resolveStoredPath(storedFileName));
+        } catch (RuntimeException | IOException ignored) {
+            // Best-effort cleanup only; caller must preserve the original failure.
+        }
+    }
+
     private long writeWithLimit(InputStream inputStream, Path target, MessageDigest digest) throws IOException {
         long totalBytes = 0L;
         byte[] buffer = new byte[BUFFER_SIZE];

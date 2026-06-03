@@ -3,8 +3,6 @@ package com.itesm.interfaces.rest;
 import com.itesm.application.dto.admin.uploads.*;
 import com.itesm.application.dto.common.PageResponseDto;
 import com.itesm.application.security.AuthenticatedUserContext;
-import com.itesm.application.service.upload.CsvProcessingDispatcher;
-import com.itesm.application.service.upload.CsvValidationService;
 import com.itesm.application.service.upload.UploadBatchService;
 import com.itesm.domain.models.user.UserRole;
 import jakarta.ws.rs.*;
@@ -23,19 +21,13 @@ import java.util.Map;
 public class AdminUploadsResource {
 
     private final UploadBatchService uploadBatchService;
-    private final CsvValidationService csvValidationService;
-    private final CsvProcessingDispatcher csvProcessingDispatcher;
     private final AuthenticatedUserContext authenticatedUserContext;
 
     public AdminUploadsResource(
             UploadBatchService uploadBatchService,
-            CsvValidationService csvValidationService,
-            CsvProcessingDispatcher csvProcessingDispatcher,
             AuthenticatedUserContext authenticatedUserContext
     ) {
         this.uploadBatchService = uploadBatchService;
-        this.csvValidationService = csvValidationService;
-        this.csvProcessingDispatcher = csvProcessingDispatcher;
         this.authenticatedUserContext = authenticatedUserContext;
     }
 
@@ -91,7 +83,7 @@ public class AdminUploadsResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public ValidateUploadResponse validateUpload(@PathParam("uploadId") Integer uploadId) {
         assertAdmin();
-        return csvValidationService.validate(uploadId);
+        return uploadBatchService.validateUpload(uploadId);
     }
 
     @POST
@@ -102,7 +94,7 @@ public class AdminUploadsResource {
             ProcessUploadBatchRequest request
     ) {
         assertAdmin();
-        return csvProcessingDispatcher.process(batchId, request);
+        return uploadBatchService.processBatch(batchId, request);
     }
 
     @GET
@@ -138,7 +130,7 @@ public class AdminUploadsResource {
 
     private void assertAdmin() {
         if (authenticatedUserContext.getCurrentUser().getRole() != UserRole.admin) {
-            throw new ForbiddenException("Only administrators can access upload administration");
+            throw new ForbiddenException("USER_NOT_ADMIN: Only administrators can access upload administration");
         }
     }
 

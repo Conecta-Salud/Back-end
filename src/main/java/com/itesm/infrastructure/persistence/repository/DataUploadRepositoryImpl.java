@@ -1,5 +1,6 @@
 package com.itesm.infrastructure.persistence.repository;
 
+import com.itesm.domain.models.upload.CsvFileRole;
 import com.itesm.domain.models.upload.UploadStatus;
 import com.itesm.domain.repository.DataUploadRepository;
 import com.itesm.infrastructure.persistence.entity.DataUploadEntity;
@@ -72,6 +73,17 @@ public class DataUploadRepositoryImpl implements DataUploadRepository {
     }
 
     @Override
+    public long countByBatchId(Integer batchId) {
+        return em.createQuery("""
+                        SELECT COUNT(u)
+                        FROM DataUploadEntity u
+                        WHERE u.batch.id = :batchId
+                        """, Long.class)
+                .setParameter("batchId", batchId)
+                .getSingleResult();
+    }
+
+    @Override
     public boolean existsChecksumInBatch(Integer batchId, String checksum) {
         if (checksum == null || checksum.isBlank()) {
             return false;
@@ -85,6 +97,25 @@ public class DataUploadRepositoryImpl implements DataUploadRepository {
                         """, Long.class)
                 .setParameter("batchId", batchId)
                 .setParameter("checksum", checksum)
+                .getSingleResult();
+
+        return count > 0;
+    }
+
+    @Override
+    public boolean existsByBatchIdAndFileRole(Integer batchId, CsvFileRole fileRole) {
+        if (fileRole == null) {
+            return false;
+        }
+
+        Long count = em.createQuery("""
+                        SELECT COUNT(u)
+                        FROM DataUploadEntity u
+                        WHERE u.batch.id = :batchId
+                          AND u.fileRole = :fileRole
+                        """, Long.class)
+                .setParameter("batchId", batchId)
+                .setParameter("fileRole", fileRole)
                 .getSingleResult();
 
         return count > 0;

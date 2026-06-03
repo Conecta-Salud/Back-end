@@ -29,17 +29,26 @@ public class UploadBatchService {
     private final DataUploadRepository dataUploadRepository;
     private final DataUploadErrorRepository dataUploadErrorRepository;
     private final CsvStorageService csvStorageService;
+    private final CsvUploadContractRegistry csvUploadContractRegistry;
+    private final CsvValidationService csvValidationService;
+    private final CsvProcessingDispatcher csvProcessingDispatcher;
 
     public UploadBatchService(
             UploadBatchRepository uploadBatchRepository,
             DataUploadRepository dataUploadRepository,
             DataUploadErrorRepository dataUploadErrorRepository,
-            CsvStorageService csvStorageService
+            CsvStorageService csvStorageService,
+            CsvUploadContractRegistry csvUploadContractRegistry,
+            CsvValidationService csvValidationService,
+            CsvProcessingDispatcher csvProcessingDispatcher
     ) {
         this.uploadBatchRepository = uploadBatchRepository;
         this.dataUploadRepository = dataUploadRepository;
         this.dataUploadErrorRepository = dataUploadErrorRepository;
         this.csvStorageService = csvStorageService;
+        this.csvUploadContractRegistry = csvUploadContractRegistry;
+        this.csvValidationService = csvValidationService;
+        this.csvProcessingDispatcher = csvProcessingDispatcher;
     }
 
     public UploadBatchResponse createBatch(CreateUploadBatchRequest request, UUID userId) {
@@ -67,7 +76,7 @@ public class UploadBatchService {
         }
 
         DataSourceEntity dataSource = uploadBatchRepository.findDataSourceByCode(request.getDataSourceCode())
-                .orElseThrow(() -> new BadRequestException("UNKNOWN_DATA_SOURCE: dataSourceCode does not exist"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_DATA_SOURCE: dataSourceCode does not exist"));
 
         UploadBatchEntity batch = new UploadBatchEntity();
         batch.setSourceType(sourceType);
@@ -97,6 +106,11 @@ public class UploadBatchService {
         UploadBatchEntity batch = uploadBatchRepository.findById(batchId)
                 .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: Upload batch not found"));
         CsvFileRole parsedFileRole = parseFileRole(fileRole);
+        assertCanUploadFile(batch);
+        assertFileRoleAllowed(batch.getSourceType(), parsedFileRole);
+        assertExpectedFilesNotExceeded(batch);
+        assertFileRoleNotDuplicated(batch.getId(), parsedFileRole);
+
         StoredCsvFile storedFile = csvStorageService.store(batch.getId(), originalFileName, mimeType, inputStream);
 
         if (dataUploadRepository.existsChecksumInBatch(batch.getId(), storedFile.getChecksum())) {
@@ -114,10 +128,90 @@ public class UploadBatchService {
         upload.setChecksum(storedFile.getChecksum());
         upload.setStatus(UploadStatus.pending);
 
-        DataUploadEntity created = dataUploadRepository.create(upload, batch.getId());
-        uploadBatchRepository.recalculateCounters(batch.getId());
+        DataUploadEntity created;
+        try {
+            created = dataUploadRepository.create(upload, batch.getId());
+        } catch (RuntimeException e) {
+            csvStorageService.deleteQuietly(storedFile.getStoredFileName());
+            throw e;
+        }
 
+        uploadBatchRepository.recalculateCounters(batch.getId());
         return new UploadFileResponse(toFileSummaryResponse(created));
+    }
+
+    public ValidateUploadResponse validateUpload(Integer uploadId) {
+        DataUploadEntity upload = dataUploadRepository.findById(uploadId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_UPLOAD: Upload not found"));
+
+        assertCanValidateUpload(upload);
+        return csvValidationService.validate(upload);
+    }
+
+    public ProcessUploadBatchResponse processBatch(Integer batchId, ProcessUploadBatchRequest request) {
+        if (request == null) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: request body is required");
+        }
+
+        UploadBatchEntity batch = uploadBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: Upload batch not found"));
+        UploadProcessingMode mode = parseProcessingMode(request.getMode(), true);
+        boolean replaceExistingForYear = Boolean.TRUE.equals(request.getReplaceExistingForYear());
+        boolean failOnErrors = Boolean.TRUE.equals(request.getFailOnErrors());
+
+        assertCanProcessBatch(batch);
+
+        List<DataUploadEntity> uploads = dataUploadRepository.findByBatchId(batchId);
+        if (uploads.isEmpty()) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: Batch has no uploaded files");
+        }
+
+        uploadBatchRepository.recalculateCounters(batchId);
+        batch = uploadBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: Upload batch not found"));
+        boolean hasRegisteredErrors = uploads.stream()
+                .anyMatch(upload -> dataUploadErrorRepository.countByUploadId(upload.getId()) > 0);
+
+        if (failOnErrors && (hasRegisteredErrors || safeInteger(batch.getErrorRecords()) > 0)) {
+            throw new BadRequestException("BATCH_HAS_ERRORS: batchId=" + batchId + " has validation errors");
+        }
+
+        uploadBatchRepository.updateStatus(batchId, UploadStatus.processing, null, false);
+
+        try {
+            String message = csvProcessingDispatcher.dispatch(batch, mode, replaceExistingForYear);
+            uploadBatchRepository.recalculateCounters(batchId);
+            UploadBatchEntity updatedBatch = uploadBatchRepository.findById(batchId)
+                    .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: Upload batch not found"));
+            UploadStatus finalStatus = safeInteger(updatedBatch.getErrorRecords()) == 0
+                    ? UploadStatus.completed
+                    : UploadStatus.warning;
+
+            uploadBatchRepository.updateStatus(batchId, finalStatus, null, true);
+
+            return new ProcessUploadBatchResponse(
+                    batchId,
+                    finalStatus.name(),
+                    batch.getSourceType().name(),
+                    mode.name(),
+                    replaceExistingForYear,
+                    failOnErrors,
+                    message
+            );
+        } catch (RuntimeException e) {
+            String message = e.getMessage() == null ? "CSV batch processing failed" : e.getMessage();
+            uploadBatchRepository.updateStatus(batchId, UploadStatus.error, message, true);
+
+            return new ProcessUploadBatchResponse(
+                    batchId,
+                    UploadStatus.error.name(),
+                    batch.getSourceType().name(),
+                    mode.name(),
+                    replaceExistingForYear,
+                    failOnErrors,
+                    message
+            );
+        }
     }
 
     public PageResponseDto<UploadBatchResponse> findBatches(
@@ -173,6 +267,58 @@ public class UploadBatchService {
                 result.getSize(),
                 result.getTotalPages()
         );
+    }
+
+    private void assertCanUploadFile(UploadBatchEntity batch) {
+        UploadStatus status = batch.getStatus();
+
+        if (status != UploadStatus.pending && status != UploadStatus.warning) {
+            throw new BadRequestException("INVALID_BATCH_STATUS: Files can only be uploaded to pending or warning batches");
+        }
+    }
+
+    private void assertCanValidateUpload(DataUploadEntity upload) {
+        UploadStatus status = upload.getStatus();
+
+        if (status == UploadStatus.processing || status == UploadStatus.completed) {
+            throw new BadRequestException("INVALID_UPLOAD_STATUS: Upload can only be validated while pending, warning or error");
+        }
+    }
+
+    private void assertCanProcessBatch(UploadBatchEntity batch) {
+        UploadStatus status = batch.getStatus();
+
+        if (status != UploadStatus.pending && status != UploadStatus.warning) {
+            throw new BadRequestException("INVALID_BATCH_STATUS: Batch can only be processed while pending or warning");
+        }
+    }
+
+    private void assertFileRoleAllowed(UploadSourceType sourceType, CsvFileRole fileRole) {
+        if (!csvUploadContractRegistry.isFileRoleAllowed(sourceType, fileRole)) {
+            throw new BadRequestException(
+                    "INVALID_FILE_ROLE_FOR_SOURCE_TYPE: sourceType=" + sourceType + " no permite fileRole=" + fileRole
+            );
+        }
+    }
+
+    private void assertExpectedFilesNotExceeded(UploadBatchEntity batch) {
+        long currentFiles = dataUploadRepository.countByBatchId(batch.getId());
+
+        if (currentFiles >= safeInteger(batch.getExpectedFiles())) {
+            throw new BadRequestException(
+                    "EXPECTED_FILES_EXCEEDED: batchId=" + batch.getId()
+                            + ", expectedFiles=" + batch.getExpectedFiles()
+                            + ", currentFiles=" + currentFiles
+            );
+        }
+    }
+
+    private void assertFileRoleNotDuplicated(Integer batchId, CsvFileRole fileRole) {
+        if (dataUploadRepository.existsByBatchIdAndFileRole(batchId, fileRole)) {
+            throw new BadRequestException(
+                    "DUPLICATED_FILE_ROLE_IN_BATCH: batchId=" + batchId + ", fileRole=" + fileRole
+            );
+        }
     }
 
     private UploadBatchResponse toBatchResponse(UploadBatchEntity batch) {
@@ -301,6 +447,10 @@ public class UploadBatchService {
 
     private Integer toInteger(Short value) {
         return value == null ? null : value.intValue();
+    }
+
+    private int safeInteger(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private String enumName(Enum<?> value) {

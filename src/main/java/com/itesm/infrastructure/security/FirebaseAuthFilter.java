@@ -3,6 +3,8 @@ package com.itesm.infrastructure.security;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
+import com.itesm.application.dto.common.ApiErrorResponse;
+import com.itesm.application.dto.common.ApiErrorResponses;
 import com.itesm.application.security.AuthenticatedUserContext;
 import com.itesm.application.security.CurrentUser;
 import com.itesm.domain.models.user.User;
@@ -13,6 +15,7 @@ import jakarta.ws.rs.HttpMethod;
 import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
 import io.quarkus.arc.profile.UnlessBuildProfile;
@@ -41,14 +44,14 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
         String authHeader = requestContext.getHeaders().getFirst("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            abortUnauthorized(requestContext, "Missing or invalid Authorization header");
+            abortUnauthorized(requestContext, "UNAUTHENTICATED", "Missing or invalid Authorization header");
             return;
         }
 
         String idToken = authHeader.substring("Bearer ".length()).trim();
 
         if (idToken.isBlank()) {
-            abortUnauthorized(requestContext, "Empty Firebase token");
+            abortUnauthorized(requestContext, "UNAUTHENTICATED", "Empty Firebase token");
             return;
         }
 
@@ -62,7 +65,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
 
             if (userOptional.isEmpty()) {
                 System.out.println("No DB user found for firebase_uuid: " + decodedToken.getUid());
-                abortUnauthorized(requestContext, "User not registered in database");
+                abortUnauthorized(requestContext, "UNAUTHENTICATED", "User not registered in database");
                 return;
             }
 
@@ -72,7 +75,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
 
 
             if (!user.isActive()) {
-                abortUnauthorized(requestContext, "User is inactive");
+                abortUnauthorized(requestContext, "UNAUTHENTICATED", "User is inactive");
                 return;
             }
 
@@ -91,7 +94,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
 
         } catch (FirebaseAuthException e) {
             System.out.println("Firebase token verification failed: " + e.getMessage());
-            abortUnauthorized(requestContext, "Invalid Firebase token");
+            abortUnauthorized(requestContext, "INVALID_TOKEN", "Invalid Firebase token");
         }
     }
 
@@ -117,10 +120,17 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
         return normalized;
     }
 
-    private void abortUnauthorized(ContainerRequestContext requestContext, String message) {
+    private void abortUnauthorized(ContainerRequestContext requestContext, String code, String detail) {
+        ApiErrorResponse body = ApiErrorResponses.fromCode(
+                code,
+                detail,
+                requestContext.getUriInfo().getPath()
+        );
+
         requestContext.abortWith(
                 Response.status(Response.Status.UNAUTHORIZED)
-                        .entity(message)
+                        .type(MediaType.APPLICATION_JSON)
+                        .entity(body)
                         .build()
         );
     }

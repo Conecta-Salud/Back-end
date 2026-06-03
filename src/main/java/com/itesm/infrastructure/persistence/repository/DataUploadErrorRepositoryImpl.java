@@ -30,9 +30,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
             throw new NotFoundException("UNKNOWN_UPLOAD: Upload not found");
         }
 
-        em.createQuery("DELETE FROM DataUploadErrorEntity e WHERE e.dataUpload.id = :uploadId")
-                .setParameter("uploadId", uploadId)
-                .executeUpdate();
+        deleteByUploadId(uploadId);
 
         for (UploadErrorDraft draft : errors) {
             DataUploadErrorEntity entity = new DataUploadErrorEntity();
@@ -44,6 +42,14 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
             entity.setErrorMessage(draft.getErrorMessage());
             em.persist(entity);
         }
+    }
+
+    @Override
+    @Transactional
+    public void deleteByUploadId(Integer uploadId) {
+        em.createQuery("DELETE FROM DataUploadErrorEntity e WHERE e.dataUpload.id = :uploadId")
+                .setParameter("uploadId", uploadId)
+                .executeUpdate();
     }
 
     @Override

@@ -48,11 +48,20 @@ public class CsvValidationService {
         DataUploadEntity upload = dataUploadRepository.findById(uploadId)
                 .orElseThrow(() -> new NotFoundException("UNKNOWN_UPLOAD: Upload not found"));
 
+        return validate(upload);
+    }
+
+    public ValidateUploadResponse validate(DataUploadEntity upload) {
+        if (upload == null) {
+            throw new NotFoundException("UNKNOWN_UPLOAD: Upload not found");
+        }
+
         ValidationScan scan = scan(upload);
         UploadStatus status = scan.errors().isEmpty()
                 ? UploadStatus.completed
                 : UploadStatus.warning;
 
+        Integer uploadId = upload.getId();
         dataUploadErrorRepository.replaceErrors(uploadId, scan.errors());
         dataUploadRepository.updateValidationResult(
                 uploadId,
