@@ -1,15 +1,17 @@
 package com.itesm.application.service.upload.population;
 
 public record PopulationProcessingResult(
-        int records,
+        int dataRows,
+        int skippedRows,
         int valuesUpserted,
-        int errors
+        int errorRecords
 ) {
     public PopulationProcessingResult add(PopulationProcessingResult other) {
         return new PopulationProcessingResult(
-                records + other.records(),
+                dataRows + other.dataRows(),
+                skippedRows + other.skippedRows(),
                 valuesUpserted + other.valuesUpserted(),
-                errors + other.errors()
+                errorRecords + other.errorRecords()
         );
     }
 }

@@ -47,44 +47,6 @@ public class TerritoryIndicatorValueWriter {
         return result;
     }
 
-    public Map<String, Integer> findStateIdsByInegiCode() {
-        List<?> rows = em.createNativeQuery("""
-                        SELECT id, inegi_code
-                        FROM states
-                        """)
-                .getResultList();
-
-        Map<String, Integer> result = new HashMap<>();
-        for (Object row : rows) {
-            Object[] columns = (Object[]) row;
-            result.put(columns[1].toString(), toInteger(columns[0]));
-        }
-
-        return result;
-    }
-
-    public Map<String, MunicipalityMetadata> findMunicipalitiesByInegiCode() {
-        List<?> rows = em.createNativeQuery("""
-                        SELECT m.id, m.inegi_code, s.inegi_code AS state_inegi_code
-                        FROM municipalities m
-                        JOIN states s ON s.id = m.state_id
-                        """)
-                .getResultList();
-
-        Map<String, MunicipalityMetadata> result = new HashMap<>();
-        for (Object row : rows) {
-            Object[] columns = (Object[]) row;
-            String municipalityCode = columns[1].toString();
-            result.put(municipalityCode, new MunicipalityMetadata(
-                    toInteger(columns[0]),
-                    municipalityCode,
-                    columns[2].toString()
-            ));
-        }
-
-        return result;
-    }
-
     @Transactional
     public void deleteExistingPopulationValues(Integer dataSourceId, Set<Integer> indicatorIds, List<Short> analysisYears) {
         if (dataSourceId == null || indicatorIds == null || indicatorIds.isEmpty()
@@ -190,8 +152,5 @@ public class TerritoryIndicatorValueWriter {
     }
 
     public record IndicatorMetadata(Integer id, String code, Integer categoryId) {
-    }
-
-    public record MunicipalityMetadata(Integer id, String inegiCode, String stateInegiCode) {
     }
 }

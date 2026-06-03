@@ -179,15 +179,16 @@ public class UploadBatchService {
         uploadBatchRepository.updateStatus(batchId, UploadStatus.processing, null, false);
 
         try {
-            String message = csvProcessingDispatcher.dispatch(batch, mode, replaceExistingForYear);
+            CsvProcessingResult processingResult = csvProcessingDispatcher.dispatch(batch, mode, replaceExistingForYear);
             uploadBatchRepository.recalculateCounters(batchId);
-            UploadBatchEntity updatedBatch = uploadBatchRepository.findById(batchId)
-                    .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: Upload batch not found"));
-            UploadStatus finalStatus = safeInteger(updatedBatch.getErrorRecords()) == 0
-                    ? UploadStatus.completed
-                    : UploadStatus.warning;
+            UploadStatus finalStatus = processingResult.status();
 
-            uploadBatchRepository.updateStatus(batchId, finalStatus, null, true);
+            uploadBatchRepository.updateStatus(
+                    batchId,
+                    finalStatus,
+                    finalStatus == UploadStatus.completed ? null : processingResult.message(),
+                    true
+            );
 
             return new ProcessUploadBatchResponse(
                     batchId,
@@ -196,7 +197,7 @@ public class UploadBatchService {
                     mode.name(),
                     replaceExistingForYear,
                     failOnErrors,
-                    message
+                    processingResult.message()
             );
         } catch (RuntimeException e) {
             String message = e.getMessage() == null ? "CSV batch processing failed" : e.getMessage();

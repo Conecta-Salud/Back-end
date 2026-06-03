@@ -24,6 +24,7 @@ public class DataAvailabilityWriter {
 
         for (DataAvailabilityWriteDraft value : values) {
             String noteValue = value.note() == null ? "NULL" : ":note";
+            String sourceYearValue = value.sourceYear() == null ? "NULL" : ":sourceYear";
 
             var query = em.createNativeQuery("""
                             INSERT INTO data_availability (
@@ -41,7 +42,7 @@ public class DataAvailabilityWriter {
                                 :indicatorId,
                                 :territoryLevel,
                                 :analysisYear,
-                                :sourceYear,
+                                %s,
                                 :available,
                                 :availabilityStatus,
                                 %s
@@ -51,14 +52,17 @@ public class DataAvailabilityWriter {
                                 is_available = VALUES(is_available),
                                 availability_status = VALUES(availability_status),
                                 note = VALUES(note)
-                            """.formatted(noteValue))
+                            """.formatted(sourceYearValue, noteValue))
                     .setParameter("categoryId", value.categoryId())
                     .setParameter("indicatorId", value.indicatorId())
                     .setParameter("territoryLevel", value.territoryLevel())
                     .setParameter("analysisYear", value.analysisYear())
-                    .setParameter("sourceYear", value.sourceYear())
                     .setParameter("available", value.available())
                     .setParameter("availabilityStatus", value.availabilityStatus());
+
+            if (value.sourceYear() != null) {
+                query.setParameter("sourceYear", value.sourceYear());
+            }
 
             if (value.note() != null) {
                 query.setParameter("note", value.note());

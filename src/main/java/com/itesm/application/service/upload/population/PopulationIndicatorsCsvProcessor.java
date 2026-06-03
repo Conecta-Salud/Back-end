@@ -15,9 +15,10 @@ import com.itesm.domain.repository.UploadBatchRepository;
 import com.itesm.infrastructure.persistence.entity.DataUploadEntity;
 import com.itesm.infrastructure.persistence.entity.UploadBatchEntity;
 import com.itesm.infrastructure.persistence.repository.DataAvailabilityWriter;
+import com.itesm.infrastructure.persistence.repository.TerritoryCatalogWriter;
+import com.itesm.infrastructure.persistence.repository.TerritoryCatalogWriter.MunicipalityCatalogResult;
 import com.itesm.infrastructure.persistence.repository.TerritoryIndicatorValueWriter;
 import com.itesm.infrastructure.persistence.repository.TerritoryIndicatorValueWriter.IndicatorMetadata;
-import com.itesm.infrastructure.persistence.repository.TerritoryIndicatorValueWriter.MunicipalityMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
@@ -30,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,6 +62,7 @@ public class PopulationIndicatorsCsvProcessor {
     private final PopulationIndicatorsCsvAdapter csvAdapter;
     private final TerritoryIndicatorValueWriter territoryIndicatorValueWriter;
     private final DataAvailabilityWriter dataAvailabilityWriter;
+    private final TerritoryCatalogWriter territoryCatalogWriter;
 
     public PopulationIndicatorsCsvProcessor(
             CsvStorageService csvStorageService,
@@ -68,7 +71,8 @@ public class PopulationIndicatorsCsvProcessor {
             UploadBatchRepository uploadBatchRepository,
             PopulationIndicatorsCsvAdapter csvAdapter,
             TerritoryIndicatorValueWriter territoryIndicatorValueWriter,
-            DataAvailabilityWriter dataAvailabilityWriter
+            DataAvailabilityWriter dataAvailabilityWriter,
+            TerritoryCatalogWriter territoryCatalogWriter
     ) {
         this.csvStorageService = csvStorageService;
         this.dataUploadRepository = dataUploadRepository;
@@ -77,6 +81,7 @@ public class PopulationIndicatorsCsvProcessor {
         this.csvAdapter = csvAdapter;
         this.territoryIndicatorValueWriter = territoryIndicatorValueWriter;
         this.dataAvailabilityWriter = dataAvailabilityWriter;
+        this.territoryCatalogWriter = territoryCatalogWriter;
     }
 
     public PopulationProcessingResult process(
@@ -104,13 +109,13 @@ public class PopulationIndicatorsCsvProcessor {
             );
         }
 
-        PopulationProcessingResult result = new PopulationProcessingResult(0, 0, 0);
+        PopulationProcessingResult result = new PopulationProcessingResult(0, 0, 0, 0);
 
         for (DataUploadEntity upload : populationUploads) {
             result = result.add(processUpload(batch, upload, catalog, writeFinalData));
         }
 
-        if (writeFinalData && result.records() > 0) {
+        if (writeFinalData && result.dataRows() > 0) {
             dataAvailabilityWriter.upsert(buildAvailability(catalog.indicators()));
         }
 
@@ -128,7 +133,9 @@ public class PopulationIndicatorsCsvProcessor {
 
         Path path = csvStorageService.resolveStoredPath(upload.getStoredFileName());
         ChunkBuffer chunk = new ChunkBuffer();
-        int totalRecords = 0;
+        UploadProcessingContext context = new UploadProcessingContext();
+        int dataRows = 0;
+        int skippedRows = 0;
         int validRecords = 0;
         int errorRecords = 0;
         int valuesUpserted = 0;
@@ -139,8 +146,8 @@ public class PopulationIndicatorsCsvProcessor {
             if (headerLine == null || headerLine.isBlank()) {
                 UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "CSV file is empty or has no header row");
                 dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-                updateUpload(upload.getId(), UploadStatus.warning, 0, 0, 1, "CSV processing found 1 error(s)");
-                return new PopulationProcessingResult(0, 0, 1);
+                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, "CSV processing found 1 error(s)");
+                return new PopulationProcessingResult(0, 0, 0, 1);
             }
 
             PopulationIndicatorsCsvAdapter.PopulationIndicatorsColumns columns =
@@ -152,8 +159,8 @@ public class PopulationIndicatorsCsvProcessor {
                         .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Required CSV header is missing: " + header))
                         .toList();
                 dataUploadErrorRepository.appendErrors(upload.getId(), errors);
-                updateUpload(upload.getId(), UploadStatus.warning, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
-                return new PopulationProcessingResult(0, 0, errors.size());
+                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
+                return new PopulationProcessingResult(0, 0, 0, errors.size());
             }
 
             String line;
@@ -165,14 +172,19 @@ public class PopulationIndicatorsCsvProcessor {
                     continue;
                 }
 
-                totalRecords++;
                 PopulationIndicatorsCsvRow row = csvAdapter.toRow(
                         csvRowNumber,
                         csvAdapter.parseCsvLine(line),
                         columns
                 );
 
-                RowProcessingResult rowResult = processRow(batch, upload, row, catalog);
+                if (!isSupportedDataPeriod(row.getPeriodRaw()) && isMetadataRow(row)) {
+                    skippedRows++;
+                    continue;
+                }
+
+                dataRows++;
+                RowProcessingResult rowResult = processRow(batch, upload, row, catalog, context);
                 chunk.values().addAll(rowResult.values());
                 chunk.errors().addAll(rowResult.errors());
                 valuesUpserted += rowResult.values().size();
@@ -190,22 +202,23 @@ public class PopulationIndicatorsCsvProcessor {
 
             flushChunk(upload.getId(), chunk, writeFinalData);
 
-            UploadStatus status = errorRecords == 0 ? UploadStatus.completed : UploadStatus.warning;
+            int persistedValues = writeFinalData ? valuesUpserted : 0;
+            UploadStatus status = statusFor(errorRecords, persistedValues);
             updateUpload(
                     upload.getId(),
                     status,
-                    totalRecords,
+                    dataRows,
                     validRecords,
                     errorRecords,
                     errorRecords == 0 ? null : "CSV processing found " + errorRecords + " error(s)"
             );
 
-            return new PopulationProcessingResult(totalRecords, writeFinalData ? valuesUpserted : 0, errorRecords);
+            return new PopulationProcessingResult(dataRows, skippedRows, persistedValues, errorRecords);
         } catch (IOException e) {
             UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "Could not read stored CSV file");
             dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-            updateUpload(upload.getId(), UploadStatus.error, totalRecords, validRecords, errorRecords + 1, "Could not read stored CSV file");
-            return new PopulationProcessingResult(totalRecords, writeFinalData ? valuesUpserted : 0, errorRecords + 1);
+            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "Could not read stored CSV file");
+            return new PopulationProcessingResult(dataRows, skippedRows, writeFinalData ? valuesUpserted : 0, errorRecords + 1);
         }
     }
 
@@ -213,13 +226,14 @@ public class PopulationIndicatorsCsvProcessor {
             UploadBatchEntity batch,
             DataUploadEntity upload,
             PopulationIndicatorsCsvRow row,
-            ProcessingCatalog catalog
+            ProcessingCatalog catalog,
+            UploadProcessingContext context
     ) {
         List<UploadErrorDraft> errors = new ArrayList<>();
         List<TerritoryIndicatorValueWriteDraft> values = new ArrayList<>();
 
         Short period = parsePeriod(row, errors);
-        TerritoryReference territory = parseTerritory(row, catalog, errors);
+        TerritoryReference territory = parseTerritory(row, context, errors);
 
         if (period == null || territory == null) {
             return new RowProcessingResult(values, errors, false);
@@ -397,21 +411,22 @@ public class PopulationIndicatorsCsvProcessor {
 
     private TerritoryReference parseTerritory(
             PopulationIndicatorsCsvRow row,
-            ProcessingCatalog catalog,
+            UploadProcessingContext context,
             List<UploadErrorDraft> errors
     ) {
         String rawArea = row.getGeographicAreaRaw();
 
         if (!hasText(rawArea)) {
-            errors.add(error(row.getCsvRowNumber(), "Área geográfica", rawArea, "REQUIRED_FIELD_MISSING", "Área geográfica is required"));
+            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "Area geografica is required"));
             return null;
         }
 
         String[] tokens = rawArea.trim().split("\\s+", 2);
         String code = tokens[0].trim();
+        String name = tokens.length > 1 ? tokens[1].trim() : null;
 
         if (!code.matches("\\d{2}|\\d{5}")) {
-            errors.add(error(row.getCsvRowNumber(), "Área geográfica", rawArea, "INVALID_TERRITORY_CODE", "Territory code must have 2 or 5 digits"));
+            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "INVALID_TERRITORY_CODE", "Territory code must have 2 or 5 digits"));
             return null;
         }
 
@@ -420,10 +435,21 @@ public class PopulationIndicatorsCsvProcessor {
         }
 
         if (code.length() == 2) {
-            Integer stateId = catalog.stateIdsByInegiCode().get(code);
+            if (!hasText(name)) {
+                errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "State name is required"));
+                return null;
+            }
 
-            if (stateId == null) {
-                errors.add(error(row.getCsvRowNumber(), "Área geográfica", rawArea, "UNKNOWN_TERRITORY", "State does not exist for INEGI code " + code));
+            context.stateNamesByCode().put(code, name);
+            Integer stateId;
+
+            try {
+                stateId = context.stateIdsByCode().computeIfAbsent(
+                        code,
+                        stateCode -> territoryCatalogWriter.ensureState(stateCode, name)
+                );
+            } catch (RuntimeException e) {
+                errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "TERRITORY_CATALOG_ERROR", safeErrorMessage(e)));
                 return null;
             }
 
@@ -431,16 +457,31 @@ public class PopulationIndicatorsCsvProcessor {
         }
 
         String stateCode = code.substring(0, 2);
-        MunicipalityMetadata municipality = catalog.municipalitiesByInegiCode().get(code);
 
-        if (municipality == null || !stateCode.equals(municipality.stateInegiCode())) {
-            errors.add(error(row.getCsvRowNumber(), "Área geográfica", rawArea, "UNKNOWN_TERRITORY", "Municipality does not exist for INEGI code " + code));
+        if (!hasText(name)) {
+            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "Municipality name is required"));
             return null;
         }
 
-        return new TerritoryReference(TerritoryLevel.municipality, null, municipality.id(), code);
-    }
+        MunicipalityCatalogResult municipality;
 
+        try {
+            municipality = context.municipalitiesByCode().computeIfAbsent(
+                    code,
+                    municipalityCode -> territoryCatalogWriter.ensureMunicipality(
+                            stateCode,
+                            resolveStateName(stateCode, context),
+                            municipalityCode,
+                            name
+                    )
+            );
+        } catch (RuntimeException e) {
+            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "TERRITORY_CATALOG_ERROR", safeErrorMessage(e)));
+            return null;
+        }
+
+        return new TerritoryReference(TerritoryLevel.municipality, municipality.stateId(), municipality.municipalityId(), code);
+    }
     private BigDecimal parseRequiredDecimal(
             PopulationIndicatorsCsvRow row,
             String columnName,
@@ -535,7 +576,7 @@ public class PopulationIndicatorsCsvProcessor {
                     indicator.id(),
                     TerritoryLevel.municipality.name(),
                     analysisYear,
-                    analysisYear,
+                    null,
                     false,
                     AvailabilityStatus.not_available.name(),
                     MUNICIPAL_UNAVAILABLE_NOTE
@@ -577,9 +618,7 @@ public class PopulationIndicatorsCsvProcessor {
         }
 
         return new ProcessingCatalog(
-                indicators,
-                territoryIndicatorValueWriter.findStateIdsByInegiCode(),
-                territoryIndicatorValueWriter.findMunicipalitiesByInegiCode()
+                indicators
         );
     }
 
@@ -629,10 +668,80 @@ public class PopulationIndicatorsCsvProcessor {
         return value.stripTrailingZeros().scale() <= 0;
     }
 
+    private String safeErrorMessage(RuntimeException exception) {
+        if (exception.getMessage() == null || exception.getMessage().isBlank()) {
+            return "Territory catalog upsert failed";
+        }
+
+        return exception.getMessage();
+    }
+
+    private String resolveStateName(String stateCode, UploadProcessingContext context) {
+        String cachedName = context.stateNamesByCode().get(stateCode);
+
+        if (hasText(cachedName)) {
+            return cachedName;
+        }
+
+        String storedName = territoryCatalogWriter.findStateNameByCode(stateCode).orElse(null);
+
+        if (hasText(storedName)) {
+            context.stateNamesByCode().put(stateCode, storedName);
+            return storedName;
+        }
+
+        return "Estado " + stateCode;
+    }
+
+    private boolean isMetadataRow(PopulationIndicatorsCsvRow row) {
+        String period = normalize(row.getPeriodRaw());
+        String area = normalize(row.getGeographicAreaRaw());
+
+        return period.isBlank()
+                || period.startsWith("notas")
+                || period.startsWith("fuente")
+                || period.startsWith("/f")
+                || area.startsWith("notas")
+                || area.startsWith("fuente")
+                || area.startsWith("/f");
+    }
+
+    private boolean isSupportedDataPeriod(String rawPeriod) {
+        if (rawPeriod == null) {
+            return false;
+        }
+
+        String period = rawPeriod.trim();
+        return "2018".equals(period)
+                || "2020".equals(period)
+                || "2022".equals(period)
+                || "2024".equals(period);
+    }
+
+    private UploadStatus statusFor(int errorRecords, int valuesUpserted) {
+        if (errorRecords == 0) {
+            return UploadStatus.completed;
+        }
+
+        return valuesUpserted > 0 ? UploadStatus.warning : UploadStatus.error;
+    }
+
+    private String normalize(String value) {
+        return csvAdapter.normalize(value);
+    }
+
+    private record UploadProcessingContext(
+            Map<String, String> stateNamesByCode,
+            Map<String, Integer> stateIdsByCode,
+            Map<String, MunicipalityCatalogResult> municipalitiesByCode
+    ) {
+        UploadProcessingContext() {
+            this(new HashMap<>(), new HashMap<>(), new HashMap<>());
+        }
+    }
+
     private record ProcessingCatalog(
-            Map<String, IndicatorMetadata> indicators,
-            Map<String, Integer> stateIdsByInegiCode,
-            Map<String, MunicipalityMetadata> municipalitiesByInegiCode
+            Map<String, IndicatorMetadata> indicators
     ) {
         Set<Integer> indicatorIds() {
             Set<Integer> ids = new LinkedHashSet<>();
