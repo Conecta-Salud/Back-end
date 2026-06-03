@@ -3,6 +3,7 @@ package com.itesm.domain.repository.Upload.Indicadores;
 import com.itesm.domain.models.Uploader.Auxiliar.TerritoryLevel;
 import com.itesm.domain.models.Uploader.indicator.TerritoryIndicatorValues;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface TerritoryIndicatorValuesRepository {
@@ -11,4 +12,5 @@ public interface TerritoryIndicatorValuesRepository {
     Optional<TerritoryIndicatorValues> findCountryIndicator(Integer indicatorId, Short analysisYear);
     Optional<TerritoryIndicatorValues> findStateIndicatorByCode(String indicatorCode, Integer stateId, Short analysisYear);
     Optional<TerritoryIndicatorValues> findMunicipalityIndicatorByCode(String indicatorCode, Integer municipalityId, Short analysisYear);
+    void save(List<TerritoryIndicatorValues> territoryIndicatorValues);
 }

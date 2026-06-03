@@ -13,6 +13,9 @@ import org.apache.commons.csv.CSVRecord;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -33,7 +36,7 @@ public class CsvParserServiceImpl implements CsvParserService {
         List<HealthUnitSummary> healthUnitSummaries = new ArrayList<>();
 
         try (
-                BufferedReader reader = Files.newBufferedReader(Path.of(file));
+                Reader reader = createReader(file);
                 CSVParser csvParser = new CSVParser(
                         reader,
                         CSVFormat.DEFAULT
@@ -205,5 +208,14 @@ public class CsvParserServiceImpl implements CsvParserService {
 
             default -> CareLevel.not_specified;
         };
+    }
+
+    private Reader createReader(String fileOrContent) throws IOException {
+        Path candidatePath = Path.of(fileOrContent);
+        if (Files.exists(candidatePath)) {
+            return Files.newBufferedReader(candidatePath, StandardCharsets.UTF_8);
+        }
+
+        return new StringReader(fileOrContent);
     }
 }
