@@ -27,18 +27,20 @@ public class TerritoryCatalogWriter {
             throw new BadRequestException("INVALID_TERRITORY_CODE: Country code 00 must not be stored as state");
         }
 
-        em.createNativeQuery("""
-                        INSERT INTO states (name, inegi_code)
-                        VALUES (:name, :inegiCode)
-                        ON DUPLICATE KEY UPDATE
-                            name = VALUES(name)
-                        """)
-                .setParameter("name", safeName)
-                .setParameter("inegiCode", safeCode)
-                .executeUpdate();
+        Optional<StateCatalogRow> existing = findStateByCode(safeCode);
+        if (existing.isPresent()) {
+            StateCatalogRow state = existing.get();
 
+            if (!safeName.equals(state.name())) {
+                updateStateName(state.id(), safeName);
+            }
+
+            return state.id();
+        }
+
+        insertState(safeCode, safeName);
         return findStateIdByCode(safeCode)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_TERRITORY: State was not found after upsert"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_TERRITORY: State was not found after insert"));
     }
 
     @Transactional
@@ -52,20 +54,20 @@ public class TerritoryCatalogWriter {
         String safeMunicipalityCode = requireText(municipalityInegiCode, "municipalityInegiCode");
         String safeMunicipalityName = requireText(municipalityName, "municipalityName");
 
-        em.createNativeQuery("""
-                        INSERT INTO municipalities (state_id, name, inegi_code)
-                        VALUES (:stateId, :name, :inegiCode)
-                        ON DUPLICATE KEY UPDATE
-                            name = VALUES(name),
-                            state_id = VALUES(state_id)
-                        """)
-                .setParameter("stateId", stateId)
-                .setParameter("name", safeMunicipalityName)
-                .setParameter("inegiCode", safeMunicipalityCode)
-                .executeUpdate();
+        Optional<MunicipalityCatalogRow> existing = findMunicipalityByCode(safeMunicipalityCode);
+        if (existing.isPresent()) {
+            MunicipalityCatalogRow municipality = existing.get();
 
+            if (!safeMunicipalityName.equals(municipality.name()) || !stateId.equals(municipality.stateId())) {
+                updateMunicipality(municipality.id(), stateId, safeMunicipalityName);
+            }
+
+            return new MunicipalityCatalogResult(stateId, municipality.id());
+        }
+
+        insertMunicipality(stateId, safeMunicipalityCode, safeMunicipalityName);
         Integer municipalityId = findMunicipalityIdByCode(safeMunicipalityCode)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_TERRITORY: Municipality was not found after upsert"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_TERRITORY: Municipality was not found after insert"));
 
         return new MunicipalityCatalogResult(stateId, municipalityId);
     }
@@ -89,9 +91,47 @@ public class TerritoryCatalogWriter {
                 .map(Object::toString);
     }
 
-    private Optional<Integer> findStateIdByCode(String inegiCode) {
+    public Optional<Integer> findStateIdByCode(String inegiCode) {
+        if (inegiCode == null || inegiCode.isBlank()) {
+            return Optional.empty();
+        }
+
         List<?> rows = em.createNativeQuery("""
                         SELECT id
+                        FROM states
+                        WHERE inegi_code = :inegiCode
+                        """)
+                .setParameter("inegiCode", inegiCode.trim())
+                .setMaxResults(1)
+                .getResultList();
+
+        return rows.stream()
+                .findFirst()
+                .map(this::toInteger);
+    }
+
+    public Optional<Integer> findMunicipalityIdByCode(String inegiCode) {
+        if (inegiCode == null || inegiCode.isBlank()) {
+            return Optional.empty();
+        }
+
+        List<?> rows = em.createNativeQuery("""
+                        SELECT id
+                        FROM municipalities
+                        WHERE inegi_code = :inegiCode
+                        """)
+                .setParameter("inegiCode", inegiCode.trim())
+                .setMaxResults(1)
+                .getResultList();
+
+        return rows.stream()
+                .findFirst()
+                .map(this::toInteger);
+    }
+
+    private Optional<StateCatalogRow> findStateByCode(String inegiCode) {
+        List<?> rows = em.createNativeQuery("""
+                        SELECT id, name
                         FROM states
                         WHERE inegi_code = :inegiCode
                         """)
@@ -101,12 +141,15 @@ public class TerritoryCatalogWriter {
 
         return rows.stream()
                 .findFirst()
-                .map(this::toInteger);
+                .map(row -> {
+                    Object[] columns = (Object[]) row;
+                    return new StateCatalogRow(toInteger(columns[0]), columns[1].toString());
+                });
     }
 
-    private Optional<Integer> findMunicipalityIdByCode(String inegiCode) {
+    private Optional<MunicipalityCatalogRow> findMunicipalityByCode(String inegiCode) {
         List<?> rows = em.createNativeQuery("""
-                        SELECT id
+                        SELECT id, state_id, name
                         FROM municipalities
                         WHERE inegi_code = :inegiCode
                         """)
@@ -116,7 +159,59 @@ public class TerritoryCatalogWriter {
 
         return rows.stream()
                 .findFirst()
-                .map(this::toInteger);
+                .map(row -> {
+                    Object[] columns = (Object[]) row;
+                    return new MunicipalityCatalogRow(
+                            toInteger(columns[0]),
+                            toInteger(columns[1]),
+                            columns[2].toString()
+                    );
+                });
+    }
+
+    private void insertState(String inegiCode, String name) {
+        em.createNativeQuery("""
+                        INSERT INTO states (name, inegi_code)
+                        VALUES (:name, :inegiCode)
+                        """)
+                .setParameter("name", name)
+                .setParameter("inegiCode", inegiCode)
+                .executeUpdate();
+    }
+
+    private void updateStateName(Integer stateId, String name) {
+        em.createNativeQuery("""
+                        UPDATE states
+                        SET name = :name
+                        WHERE id = :stateId
+                        """)
+                .setParameter("name", name)
+                .setParameter("stateId", stateId)
+                .executeUpdate();
+    }
+
+    private void insertMunicipality(Integer stateId, String inegiCode, String name) {
+        em.createNativeQuery("""
+                        INSERT INTO municipalities (state_id, name, inegi_code)
+                        VALUES (:stateId, :name, :inegiCode)
+                        """)
+                .setParameter("stateId", stateId)
+                .setParameter("name", name)
+                .setParameter("inegiCode", inegiCode)
+                .executeUpdate();
+    }
+
+    private void updateMunicipality(Integer municipalityId, Integer stateId, String name) {
+        em.createNativeQuery("""
+                        UPDATE municipalities
+                        SET state_id = :stateId,
+                            name = :name
+                        WHERE id = :municipalityId
+                        """)
+                .setParameter("stateId", stateId)
+                .setParameter("name", name)
+                .setParameter("municipalityId", municipalityId)
+                .executeUpdate();
     }
 
     private String requireText(String value, String fieldName) {
@@ -138,6 +233,19 @@ public class TerritoryCatalogWriter {
     public record MunicipalityCatalogResult(
             Integer stateId,
             Integer municipalityId
+    ) {
+    }
+
+    private record StateCatalogRow(
+            Integer id,
+            String name
+    ) {
+    }
+
+    private record MunicipalityCatalogRow(
+            Integer id,
+            Integer stateId,
+            String name
     ) {
     }
 }

@@ -58,9 +58,6 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
         try {
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken, true);
 
-            System.out.println("Firebase UID: " + decodedToken.getUid());
-            System.out.println("Firebase email: " + decodedToken.getEmail());
-
             Optional<User> userOptional = userRepository.findByFirebaseUuid(decodedToken.getUid());
 
             if (userOptional.isEmpty()) {

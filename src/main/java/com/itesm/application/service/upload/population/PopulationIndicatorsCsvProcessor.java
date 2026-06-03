@@ -178,7 +178,7 @@ public class PopulationIndicatorsCsvProcessor {
                         columns
                 );
 
-                if (!isSupportedDataPeriod(row.getPeriodRaw()) && isMetadataRow(row)) {
+                if (isMetadataRow(row)) {
                     skippedRows++;
                     continue;
                 }
@@ -697,13 +697,44 @@ public class PopulationIndicatorsCsvProcessor {
         String period = normalize(row.getPeriodRaw());
         String area = normalize(row.getGeographicAreaRaw());
 
-        return period.isBlank()
-                || period.startsWith("notas")
-                || period.startsWith("fuente")
-                || period.startsWith("/f")
-                || area.startsWith("notas")
-                || area.startsWith("fuente")
-                || area.startsWith("/f");
+        return startsAsMetadata(period)
+                || startsAsMetadata(area)
+                || (!isSupportedDataPeriod(period) && looksLikeMetadataText(period))
+                || (!isSupportedDataPeriod(period) && looksLikeMetadataText(area));
+    }
+
+    private boolean startsAsMetadata(String value) {
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+
+        String normalized = normalize(value);
+
+        return normalized.startsWith("notas")
+                || normalized.startsWith("nota")
+                || normalized.startsWith("fuente")
+                || normalized.startsWith("/f")
+                || normalized.startsWith("/a")
+                || normalized.startsWith("/b")
+                || normalized.startsWith("/c")
+                || normalized.startsWith("/d")
+                || normalized.startsWith("/e");
+    }
+
+    private boolean looksLikeMetadataText(String value) {
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+
+        String normalized = normalize(value);
+
+        return normalized.contains("informacion")
+                || normalized.contains("actualiza")
+                || normalized.contains("censos")
+                || normalized.contains("encuesta")
+                || normalized.contains("pobreza")
+                || normalized.contains("coneval")
+                || normalized.contains("inegi");
     }
 
     private boolean isSupportedDataPeriod(String rawPeriod) {
