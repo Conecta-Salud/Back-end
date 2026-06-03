@@ -60,6 +60,8 @@ public class CsvProcessingDispatcher {
         return new CsvProcessingResult(
                 statusFor(result),
                 "Population indicators processed: "
+                + result.filesProcessed()
+                + " files, "
                 + result.dataRows()
                 + " data rows, "
                 + result.skippedRows()

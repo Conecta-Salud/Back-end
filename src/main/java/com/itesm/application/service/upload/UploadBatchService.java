@@ -109,7 +109,9 @@ public class UploadBatchService {
         assertCanUploadFile(batch);
         assertFileRoleAllowed(batch.getSourceType(), parsedFileRole);
         assertExpectedFilesNotExceeded(batch);
-        assertFileRoleNotDuplicated(batch.getId(), parsedFileRole);
+        if (!allowsMultipleFiles(parsedFileRole)) {
+            assertFileRoleNotDuplicated(batch.getId(), parsedFileRole);
+        }
 
         StoredCsvFile storedFile = csvStorageService.store(batch.getId(), originalFileName, mimeType, inputStream);
 
@@ -320,6 +322,10 @@ public class UploadBatchService {
                     "DUPLICATED_FILE_ROLE_IN_BATCH: batchId=" + batchId + ", fileRole=" + fileRole
             );
         }
+    }
+
+    private boolean allowsMultipleFiles(CsvFileRole fileRole) {
+        return fileRole == CsvFileRole.population_indicators;
     }
 
     private UploadBatchResponse toBatchResponse(UploadBatchEntity batch) {

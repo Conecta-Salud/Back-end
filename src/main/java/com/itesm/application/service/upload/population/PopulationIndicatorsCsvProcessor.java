@@ -109,7 +109,7 @@ public class PopulationIndicatorsCsvProcessor {
             );
         }
 
-        PopulationProcessingResult result = new PopulationProcessingResult(0, 0, 0, 0);
+        PopulationProcessingResult result = new PopulationProcessingResult(0, 0, 0, 0, 0);
 
         for (DataUploadEntity upload : populationUploads) {
             result = result.add(processUpload(batch, upload, catalog, writeFinalData));
@@ -147,7 +147,7 @@ public class PopulationIndicatorsCsvProcessor {
                 UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "CSV file is empty or has no header row");
                 dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
                 updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, "CSV processing found 1 error(s)");
-                return new PopulationProcessingResult(0, 0, 0, 1);
+                return new PopulationProcessingResult(1, 0, 0, 0, 1);
             }
 
             PopulationIndicatorsCsvAdapter.PopulationIndicatorsColumns columns =
@@ -160,7 +160,7 @@ public class PopulationIndicatorsCsvProcessor {
                         .toList();
                 dataUploadErrorRepository.appendErrors(upload.getId(), errors);
                 updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
-                return new PopulationProcessingResult(0, 0, 0, errors.size());
+                return new PopulationProcessingResult(1, 0, 0, 0, errors.size());
             }
 
             String line;
@@ -213,12 +213,12 @@ public class PopulationIndicatorsCsvProcessor {
                     errorRecords == 0 ? null : "CSV processing found " + errorRecords + " error(s)"
             );
 
-            return new PopulationProcessingResult(dataRows, skippedRows, persistedValues, errorRecords);
+            return new PopulationProcessingResult(1, dataRows, skippedRows, persistedValues, errorRecords);
         } catch (IOException e) {
             UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "Could not read stored CSV file");
             dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
             updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "Could not read stored CSV file");
-            return new PopulationProcessingResult(dataRows, skippedRows, writeFinalData ? valuesUpserted : 0, errorRecords + 1);
+            return new PopulationProcessingResult(1, dataRows, skippedRows, writeFinalData ? valuesUpserted : 0, errorRecords + 1);
         }
     }
 

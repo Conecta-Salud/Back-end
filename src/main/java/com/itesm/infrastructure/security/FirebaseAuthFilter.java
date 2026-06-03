@@ -68,9 +68,6 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
 
             User user = userOptional.get();
 
-            System.out.println("DB user found: " + user.getEmail() + " role=" + user.getRole() + " active=" + user.isActive());
-
-
             if (!user.isActive()) {
                 abortUnauthorized(requestContext, "UNAUTHENTICATED", "User is inactive");
                 return;
