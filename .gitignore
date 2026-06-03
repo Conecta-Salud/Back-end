@@ -8,6 +8,7 @@ release.properties
 
 # Firebase Admin SDK credentials
 src/main/resources/*firebase-adminsdk*.json
+src/main/resources/*service-account*.json
 
 # Eclipse
 .project
@@ -39,8 +40,11 @@ nb-configuration.xml
 *.orig
 *.rej
 
-# Local environment
 .env
+.env.*
+!.env_example
+
+*.class
 
 # Plugin directory
 /.quarkus/cli/plugins/
