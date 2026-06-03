@@ -14,6 +14,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
@@ -141,11 +142,30 @@ public class GetComparisonSummaryUseCase {
         }
     }
 
+    private boolean hasPovertyData(List<ComparisonRawItem> items) {
+        return items.stream()
+                .allMatch(item ->
+                        item.getTotalPovertyPopulation() != null
+                                && item.getTotalPopulation() != null
+                                && item.getTotalPopulation().compareTo(BigInteger.ZERO) > 0
+                );
+    }
+
     private ComparisonSummary buildSummary(
             ComparisonLevel level,
             List<ComparisonRawItem> items
     ) {
         ComparisonPeriod period = items.get(0).getPeriod();
+
+        List<ComparisonChart> charts = new java.util.ArrayList<>();
+
+        charts.add(buildMedicalCoverageChart(items));
+        charts.add(buildDoctorDeficitChart(items));
+        charts.add(buildHospitalBedsChart(items));
+
+        if (level == ComparisonLevel.STATE && hasPovertyData(items)) {
+            charts.add(buildPovertyChart(items));
+        }
 
         return new ComparisonSummary(
                 period,
@@ -153,12 +173,7 @@ public class GetComparisonSummaryUseCase {
                 items.stream()
                         .map(ComparisonRawItem::getTerritory)
                         .collect(Collectors.toList()),
-                List.of(
-                        buildMedicalCoverageChart(items),
-                        buildDoctorDeficitChart(items),
-                        buildHospitalBedsChart(items),
-                        buildPovertyChart(items)
-                ),
+                charts,
                 items.stream()
                         .map(this::buildPriorityResult)
                         .collect(Collectors.toList())
@@ -338,6 +353,10 @@ public class GetComparisonSummaryUseCase {
     }
 
     private BigDecimal calculateMedicalCoverage(ComparisonRawItem item) {
+        if (item.getTotalPopulation() == null) {
+            return BigDecimal.ZERO;
+        }
+
         return divide(
                 BigDecimal.valueOf(item.getTotalDoctors()).multiply(BigDecimal.valueOf(1000)),
                 new BigDecimal(item.getTotalPopulation())
@@ -345,6 +364,10 @@ public class GetComparisonSummaryUseCase {
     }
 
     private BigDecimal calculateHospitalBedsPer1000(ComparisonRawItem item) {
+        if (item.getTotalPopulation() == null) {
+            return BigDecimal.ZERO;
+        }
+
         return divide(
                 BigDecimal.valueOf(item.getTotalHospitalBeds()).multiply(BigDecimal.valueOf(1000)),
                 new BigDecimal(item.getTotalPopulation())
@@ -352,6 +375,10 @@ public class GetComparisonSummaryUseCase {
     }
 
     private BigDecimal calculatePovertyRate(ComparisonRawItem item) {
+        if (item.getTotalPovertyPopulation() == null || item.getTotalPopulation() == null) {
+            return BigDecimal.ZERO;
+        }
+
         return divide(
                 new BigDecimal(item.getTotalPovertyPopulation()).multiply(BigDecimal.valueOf(100)),
                 new BigDecimal(item.getTotalPopulation())
@@ -359,6 +386,10 @@ public class GetComparisonSummaryUseCase {
     }
 
     private BigDecimal calculateHospitalsPer100k(ComparisonRawItem item) {
+        if (item.getTotalPopulation() == null) {
+            return BigDecimal.ZERO;
+        }
+
         return divide(
                 BigDecimal.valueOf(item.getTotalHospitals()).multiply(BigDecimal.valueOf(100000)),
                 new BigDecimal(item.getTotalPopulation())
@@ -366,6 +397,10 @@ public class GetComparisonSummaryUseCase {
     }
 
     private BigDecimal calculateEstimatedDoctorDeficit(ComparisonRawItem item) {
+        if (item.getTotalPopulation() == null) {
+            return BigDecimal.ZERO;
+        }
+
         BigDecimal requiredDoctors = new BigDecimal(item.getTotalPopulation())
                 .multiply(DOCTORS_REFERENCE_PER_1000)
                 .divide(BigDecimal.valueOf(1000), 2, RoundingMode.HALF_UP);
