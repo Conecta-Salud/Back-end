@@ -201,7 +201,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     @Override
     public List<DashboardRankingRow> findMunicipalityMedicalCoverageRanking(Integer municipalityId, Integer periodId, Integer limit) {
-        return municipalityRankingBySiblingState(municipalityId, periodId, MEDICAL_COVERAGE, limit, true);
+        return healthUnitDoctorRanking(municipalityId, periodId, limit);
     }
 
     @Override
@@ -320,7 +320,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     @Override
     public List<DashboardRankingRow> findMunicipalityHospitalBedsRanking(Integer municipalityId, Integer periodId, Integer limit) {
-        return municipalityRankingBySiblingState(municipalityId, periodId, HOSPITAL_BEDS, limit, true);
+        return healthUnitInfrastructureRanking(municipalityId, periodId, limit);
     }
 
     @Override
@@ -429,7 +429,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     @Override
     public List<DashboardRankingRow> findMunicipalityHealthcareAccessDeficiencyRanking(Integer municipalityId, Integer periodId, Integer limit) {
-        return municipalityRankingBySiblingState(municipalityId, periodId, HEALTHCARE_ACCESS_DEFICIENCY, limit, false);
+        return healthUnitDoctorRanking(municipalityId, periodId, limit);
     }
 
     @Override
@@ -456,6 +456,18 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
         Map<String, TerritoryIndicatorValueDto> population = indicatorRepository.findStateValues(TOTAL_POPULATION, year)
                 .stream()
                 .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left));
+        Map<String, TerritoryIndicatorValueDto> coverage = rankingNeedsCoverageIndex(indicatorCode)
+                ? indicatorRepository.findStateValues(MEDICAL_COVERAGE, year)
+                        .stream()
+                        .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left))
+                : Map.of();
+        Map<String, Long> doctors = rankingNeedsDoctors(indicatorCode) ? stateDoctorTotals(periodId) : Map.of();
+        Map<String, Long> hospitalBeds = rankingNeedsHospitalBeds(indicatorCode)
+                ? stateInfrastructureTotals(periodId, "total_camas_hospitalizacion")
+                : Map.of();
+        Map<String, Long> consultingRooms = rankingNeedsHospitalBeds(indicatorCode)
+                ? stateInfrastructureTotals(periodId, "total_consultorios")
+                : Map.of();
 
         AtomicInteger rank = new AtomicInteger(1);
         return indicatorRepository.findStateValues(indicatorCode, year)
@@ -463,7 +475,16 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 .filter(value -> value.getValue() != null)
                 .sorted((a, b) -> compareValues(a.getValue(), b.getValue(), higherIsBetter))
                 .limit(normalizeLimit(limit))
-                .map(value -> rankingRow(value, population.get(value.getTerritoryCode()), rank.getAndIncrement(), higherIsBetter))
+                .map(value -> rankingRow(
+                        value,
+                        population.get(value.getTerritoryCode()),
+                        doctors.get(value.getTerritoryCode()),
+                        hospitalBeds.get(value.getTerritoryCode()),
+                        consultingRooms.get(value.getTerritoryCode()),
+                        coverage.get(value.getTerritoryCode()),
+                        rank.getAndIncrement(),
+                        higherIsBetter
+                ))
                 .toList();
     }
 
@@ -488,6 +509,18 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
         Map<String, TerritoryIndicatorValueDto> population = indicatorRepository.findMunicipalityValuesByState(TOTAL_POPULATION, year, stateCode)
                 .stream()
                 .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left));
+        Map<String, TerritoryIndicatorValueDto> coverage = rankingNeedsCoverageIndex(indicatorCode)
+                ? indicatorRepository.findMunicipalityValuesByState(MEDICAL_COVERAGE, year, stateCode)
+                        .stream()
+                        .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left))
+                : Map.of();
+        Map<String, Long> doctors = rankingNeedsDoctors(indicatorCode) ? municipalityDoctorTotals(periodId, stateCode) : Map.of();
+        Map<String, Long> hospitalBeds = rankingNeedsHospitalBeds(indicatorCode)
+                ? municipalityInfrastructureTotals(periodId, stateCode, "total_camas_hospitalizacion")
+                : Map.of();
+        Map<String, Long> consultingRooms = rankingNeedsHospitalBeds(indicatorCode)
+                ? municipalityInfrastructureTotals(periodId, stateCode, "total_consultorios")
+                : Map.of();
 
         AtomicInteger rank = new AtomicInteger(1);
         return indicatorRepository.findMunicipalityValuesByState(indicatorCode, year, stateCode)
@@ -495,7 +528,128 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 .filter(value -> value.getValue() != null)
                 .sorted((a, b) -> compareValues(a.getValue(), b.getValue(), higherIsBetter))
                 .limit(normalizeLimit(limit))
-                .map(value -> rankingRow(value, population.get(value.getTerritoryCode()), rank.getAndIncrement(), higherIsBetter))
+                .map(value -> rankingRow(
+                        value,
+                        population.get(value.getTerritoryCode()),
+                        doctors.get(value.getTerritoryCode()),
+                        hospitalBeds.get(value.getTerritoryCode()),
+                        consultingRooms.get(value.getTerritoryCode()),
+                        coverage.get(value.getTerritoryCode()),
+                        rank.getAndIncrement(),
+                        higherIsBetter
+                ))
+                .toList();
+    }
+
+    private List<DashboardRankingRow> healthUnitDoctorRanking(Integer municipalityId, Integer periodId, Integer limit) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT
+                    hu.id,
+                    hu.clues,
+                    hu.name,
+                    COALESCE(hus.total_doctors, 0) AS total_doctors,
+                    mut.name AS unit_type,
+                    hu.care_level
+                FROM health_units hu
+                LEFT JOIN health_unit_staff hus
+                    ON hus.health_unit_id = hu.id
+                   AND hus.period_id = :periodId
+                LEFT JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
+                WHERE hu.municipality_id = :municipalityId
+                ORDER BY total_doctors DESC, hu.name ASC
+                """)
+                .setParameter("municipalityId", municipalityId)
+                .setParameter("periodId", periodId)
+                .setMaxResults((int) normalizeLimit(limit))
+                .getResultList();
+
+        AtomicInteger rank = new AtomicInteger(1);
+        return rows.stream()
+                .map(row -> {
+                    Object[] values = (Object[]) row;
+                    Long doctors = toLong(values[3]);
+                    String unitType = toString(values[4]);
+                    String careLevel = toString(values[5]);
+                    return new DashboardRankingRow(
+                            toString(values[0]),
+                            rank.getAndIncrement(),
+                            toString(values[1]),
+                            toString(values[2]),
+                            null,
+                            doctors,
+                            null,
+                            null,
+                            null,
+                            unitType,
+                            careLevel,
+                            BigDecimal.valueOf(doctors),
+                            null,
+                            "neutral",
+                            extra(
+                                    "unitType", unitType,
+                                    "careLevel", careLevel
+                            )
+                    );
+                })
+                .toList();
+    }
+
+    private List<DashboardRankingRow> healthUnitInfrastructureRanking(Integer municipalityId, Integer periodId, Integer limit) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT
+                    hu.id,
+                    hu.clues,
+                    hu.name,
+                    COALESCE(SUM(CASE WHEN it.code = 'total_camas_hospitalizacion' THEN huid.quantity ELSE 0 END), 0) AS hospital_beds,
+                    COALESCE(SUM(CASE WHEN it.code = 'total_consultorios' THEN huid.quantity ELSE 0 END), 0) AS consulting_rooms,
+                    mut.name AS unit_type,
+                    hu.care_level
+                FROM health_units hu
+                LEFT JOIN health_unit_infrastructure hui
+                    ON hui.health_unit_id = hu.id
+                   AND hui.period_id = :periodId
+                LEFT JOIN health_unit_infrastructure_details huid
+                    ON huid.health_unit_infrastructure_id = hui.id
+                LEFT JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
+                LEFT JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
+                WHERE hu.municipality_id = :municipalityId
+                GROUP BY hu.id, hu.clues, hu.name, mut.name, hu.care_level
+                ORDER BY hospital_beds DESC, consulting_rooms DESC, hu.name ASC
+                """)
+                .setParameter("municipalityId", municipalityId)
+                .setParameter("periodId", periodId)
+                .setMaxResults((int) normalizeLimit(limit))
+                .getResultList();
+
+        AtomicInteger rank = new AtomicInteger(1);
+        return rows.stream()
+                .map(row -> {
+                    Object[] values = (Object[]) row;
+                    Long hospitalBeds = toLong(values[3]);
+                    Long consultingRooms = toLong(values[4]);
+                    String unitType = toString(values[5]);
+                    String careLevel = toString(values[6]);
+                    return new DashboardRankingRow(
+                            toString(values[0]),
+                            rank.getAndIncrement(),
+                            toString(values[1]),
+                            toString(values[2]),
+                            null,
+                            null,
+                            hospitalBeds,
+                            consultingRooms,
+                            null,
+                            unitType,
+                            careLevel,
+                            BigDecimal.valueOf(hospitalBeds),
+                            null,
+                            "neutral",
+                            extra(
+                                    "unitType", unitType,
+                                    "careLevel", careLevel
+                            )
+                    );
+                })
                 .toList();
     }
 
@@ -538,16 +692,24 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
     private DashboardRankingRow rankingRow(
             TerritoryIndicatorValueDto value,
             TerritoryIndicatorValueDto population,
+            Long doctors,
+            Long hospitalBeds,
+            Long consultingRooms,
+            TerritoryIndicatorValueDto coverage,
             Integer rank,
             boolean higherIsBetter
     ) {
+        BigDecimal coverageIndex = coverage == null ? null : coverage.getValue();
         return new DashboardRankingRow(
                 String.valueOf(value.getTerritoryId()),
                 rank,
                 value.getTerritoryCode(),
                 value.getTerritoryName(),
                 population == null || population.getValue() == null ? null : population.getValue().toBigInteger(),
-                null,
+                doctors,
+                hospitalBeds,
+                consultingRooms,
+                coverageIndex,
                 null,
                 null,
                 value.getValue(),
@@ -555,6 +717,108 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 colorToken(value.getValue(), higherIsBetter),
                 metadata(value)
         );
+    }
+
+    private boolean rankingNeedsDoctors(String indicatorCode) {
+        return MEDICAL_COVERAGE.equals(indicatorCode) || HEALTHCARE_ACCESS_DEFICIENCY.equals(indicatorCode);
+    }
+
+    private boolean rankingNeedsHospitalBeds(String indicatorCode) {
+        return HOSPITAL_BEDS.equals(indicatorCode);
+    }
+
+    private boolean rankingNeedsCoverageIndex(String indicatorCode) {
+        return HEALTHCARE_ACCESS_DEFICIENCY.equals(indicatorCode);
+    }
+
+    private Map<String, Long> stateDoctorTotals(Integer periodId) {
+        return longTotalsByCode(em.createNativeQuery("""
+                SELECT
+                    s.inegi_code AS code,
+                    COALESCE(SUM(hus.total_doctors), 0) AS total
+                FROM states s
+                LEFT JOIN municipalities m ON m.state_id = s.id
+                LEFT JOIN health_units hu ON hu.municipality_id = m.id
+                LEFT JOIN health_unit_staff hus
+                    ON hus.health_unit_id = hu.id
+                   AND hus.period_id = :periodId
+                GROUP BY s.inegi_code
+                """)
+                .setParameter("periodId", periodId)
+                .getResultList());
+    }
+
+    private Map<String, Long> municipalityDoctorTotals(Integer periodId, String stateCode) {
+        return longTotalsByCode(em.createNativeQuery("""
+                SELECT
+                    m.inegi_code AS code,
+                    COALESCE(SUM(hus.total_doctors), 0) AS total
+                FROM municipalities m
+                JOIN states s ON s.id = m.state_id
+                LEFT JOIN health_units hu ON hu.municipality_id = m.id
+                LEFT JOIN health_unit_staff hus
+                    ON hus.health_unit_id = hu.id
+                   AND hus.period_id = :periodId
+                WHERE s.inegi_code = :stateCode
+                GROUP BY m.inegi_code
+                """)
+                .setParameter("periodId", periodId)
+                .setParameter("stateCode", stateCode)
+                .getResultList());
+    }
+
+    private Map<String, Long> stateInfrastructureTotals(Integer periodId, String infrastructureCode) {
+        return longTotalsByCode(em.createNativeQuery("""
+                SELECT
+                    s.inegi_code AS code,
+                    COALESCE(SUM(CASE WHEN it.code = :infrastructureCode THEN huid.quantity ELSE 0 END), 0) AS total
+                FROM states s
+                LEFT JOIN municipalities m ON m.state_id = s.id
+                LEFT JOIN health_units hu ON hu.municipality_id = m.id
+                LEFT JOIN health_unit_infrastructure hui
+                    ON hui.health_unit_id = hu.id
+                   AND hui.period_id = :periodId
+                LEFT JOIN health_unit_infrastructure_details huid
+                    ON huid.health_unit_infrastructure_id = hui.id
+                LEFT JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
+                GROUP BY s.inegi_code
+                """)
+                .setParameter("periodId", periodId)
+                .setParameter("infrastructureCode", infrastructureCode)
+                .getResultList());
+    }
+
+    private Map<String, Long> municipalityInfrastructureTotals(Integer periodId, String stateCode, String infrastructureCode) {
+        return longTotalsByCode(em.createNativeQuery("""
+                SELECT
+                    m.inegi_code AS code,
+                    COALESCE(SUM(CASE WHEN it.code = :infrastructureCode THEN huid.quantity ELSE 0 END), 0) AS total
+                FROM municipalities m
+                JOIN states s ON s.id = m.state_id
+                LEFT JOIN health_units hu ON hu.municipality_id = m.id
+                LEFT JOIN health_unit_infrastructure hui
+                    ON hui.health_unit_id = hu.id
+                   AND hui.period_id = :periodId
+                LEFT JOIN health_unit_infrastructure_details huid
+                    ON huid.health_unit_infrastructure_id = hui.id
+                LEFT JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
+                WHERE s.inegi_code = :stateCode
+                GROUP BY m.inegi_code
+                """)
+                .setParameter("periodId", periodId)
+                .setParameter("stateCode", stateCode)
+                .setParameter("infrastructureCode", infrastructureCode)
+                .getResultList());
+    }
+
+    private Map<String, Long> longTotalsByCode(List<?> rows) {
+        return rows.stream()
+                .map(row -> (Object[]) row)
+                .collect(Collectors.toMap(
+                        row -> toString(row[0]),
+                        row -> toLong(row[1]),
+                        (left, right) -> left
+                ));
     }
 
     private DashboardChartDataPoint chartPoint(TerritoryIndicatorValueDto value, boolean higherIsBetter) {
@@ -581,6 +845,21 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
         extra.put("methodologyNote", value.getMethodologyNote());
         extra.put("dataSourceName", value.getDataSourceName());
         return extra;
+    }
+
+    private Map<String, Object> extra(Object... keyValues) {
+        Map<String, Object> map = new java.util.LinkedHashMap<>();
+
+        for (int i = 0; i < keyValues.length; i += 2) {
+            String key = String.valueOf(keyValues[i]);
+            Object value = keyValues[i + 1];
+
+            if (value != null) {
+                map.put(key, value);
+            }
+        }
+
+        return map;
     }
 
     private Optional<DashboardPeriod> period(Integer periodId) {

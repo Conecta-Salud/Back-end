@@ -158,7 +158,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
 
     private DashboardChart buildHealthcareAccessDeficiencySecondaryChart(List<DashboardChartDataPoint> data) {
         return new DashboardChart(
-                "pie",
+                "bar",
                 "Healthcare access distribution",
                 null,
                 null,
@@ -461,6 +461,9 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 row.getDoctors(),
                 row.getHospitalBeds(),
                 row.getConsultingRooms(),
+                row.getCoverageIndex(),
+                row.getUnitType(),
+                row.getCareLevel(),
                 row.getValue(),
                 row.getLevel(),
                 row.getColorToken(),

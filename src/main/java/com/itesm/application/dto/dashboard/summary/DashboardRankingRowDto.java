@@ -14,6 +14,9 @@ public class DashboardRankingRowDto {
     private Long doctors;
     private Long hospitalBeds;
     private Long consultingRooms;
+    private BigDecimal coverageIndex;
+    private String unitType;
+    private String careLevel;
     private BigDecimal value;
     private String level;
     private String colorToken;
@@ -28,6 +31,9 @@ public class DashboardRankingRowDto {
             Long doctors,
             Long hospitalBeds,
             Long consultingRooms,
+            BigDecimal coverageIndex,
+            String unitType,
+            String careLevel,
             BigDecimal value,
             String level,
             String colorToken,
@@ -41,6 +47,9 @@ public class DashboardRankingRowDto {
         this.doctors = doctors;
         this.hospitalBeds = hospitalBeds;
         this.consultingRooms = consultingRooms;
+        this.coverageIndex = coverageIndex;
+        this.unitType = unitType;
+        this.careLevel = careLevel;
         this.value = value;
         this.level = level;
         this.colorToken = colorToken;
@@ -109,6 +118,30 @@ public class DashboardRankingRowDto {
 
     public void setConsultingRooms(Long consultingRooms) {
         this.consultingRooms = consultingRooms;
+    }
+
+    public BigDecimal getCoverageIndex() {
+        return coverageIndex;
+    }
+
+    public void setCoverageIndex(BigDecimal coverageIndex) {
+        this.coverageIndex = coverageIndex;
+    }
+
+    public String getUnitType() {
+        return unitType;
+    }
+
+    public void setUnitType(String unitType) {
+        this.unitType = unitType;
+    }
+
+    public String getCareLevel() {
+        return careLevel;
+    }
+
+    public void setCareLevel(String careLevel) {
+        this.careLevel = careLevel;
     }
 
     public BigDecimal getValue() {

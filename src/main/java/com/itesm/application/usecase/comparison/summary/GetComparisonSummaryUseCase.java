@@ -190,7 +190,7 @@ public class GetComparisonSummaryUseCase {
                             item.getTerritory().getParentName(),
                             medicalCoverage,
                             variantHigherIsBetter(medicalCoverage, DOCTORS_REFERENCE_PER_1000, BigDecimal.ONE),
-                            Map.of(
+                            extra(
                                     "totalDoctors", item.getTotalDoctors(),
                                     "totalPopulation", item.getTotalPopulation()
                             )
@@ -227,7 +227,7 @@ public class GetComparisonSummaryUseCase {
                             item.getTerritory().getParentName(),
                             deficitPer1000,
                             variantLowerIsBetter(deficitPer1000, BigDecimal.ONE, DOCTORS_REFERENCE_PER_1000),
-                            Map.of(
+                            extra(
                                     "estimatedDoctorDeficit", estimatedDoctorDeficit,
                                     "medicalCoverage", medicalCoverage,
                                     "reference", DOCTORS_REFERENCE_PER_1000
@@ -255,7 +255,7 @@ public class GetComparisonSummaryUseCase {
                             item.getTerritory().getParentName(),
                             hospitalBedsPer1000,
                             variantHigherIsBetter(hospitalBedsPer1000, HOSPITAL_BEDS_REFERENCE_PER_1000, BigDecimal.ONE),
-                            Map.of(
+                            extra(
                                     "totalHospitalBeds", item.getTotalHospitalBeds(),
                                     "totalPopulation", item.getTotalPopulation()
                             )
@@ -285,7 +285,7 @@ public class GetComparisonSummaryUseCase {
                             item.getTerritory().getParentName(),
                             povertyRate,
                             variantLowerIsBetter(povertyRate, BigDecimal.valueOf(20), BigDecimal.valueOf(40)),
-                            Map.of(
+                            extra(
                                     "totalPovertyPopulation", item.getTotalPovertyPopulation(),
                                     "totalPopulation", item.getTotalPopulation()
                             )
@@ -358,7 +358,7 @@ public class GetComparisonSummaryUseCase {
         }
 
         return divide(
-                BigDecimal.valueOf(item.getTotalDoctors()).multiply(BigDecimal.valueOf(1000)),
+                BigDecimal.valueOf(safeLong(item.getTotalDoctors())).multiply(BigDecimal.valueOf(1000)),
                 new BigDecimal(item.getTotalPopulation())
         );
     }
@@ -369,7 +369,7 @@ public class GetComparisonSummaryUseCase {
         }
 
         return divide(
-                BigDecimal.valueOf(item.getTotalHospitalBeds()).multiply(BigDecimal.valueOf(1000)),
+                BigDecimal.valueOf(safeLong(item.getTotalHospitalBeds())).multiply(BigDecimal.valueOf(1000)),
                 new BigDecimal(item.getTotalPopulation())
         );
     }
@@ -391,7 +391,7 @@ public class GetComparisonSummaryUseCase {
         }
 
         return divide(
-                BigDecimal.valueOf(item.getTotalHospitals()).multiply(BigDecimal.valueOf(100000)),
+                BigDecimal.valueOf(safeLong(item.getTotalHospitals())).multiply(BigDecimal.valueOf(100000)),
                 new BigDecimal(item.getTotalPopulation())
         );
     }
@@ -406,9 +406,28 @@ public class GetComparisonSummaryUseCase {
                 .divide(BigDecimal.valueOf(1000), 2, RoundingMode.HALF_UP);
 
         return requiredDoctors
-                .subtract(BigDecimal.valueOf(item.getTotalDoctors()))
+                .subtract(BigDecimal.valueOf(safeLong(item.getTotalDoctors())))
                 .max(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private Map<String, Object> extra(Object... keyValues) {
+        Map<String, Object> map = new java.util.LinkedHashMap<>();
+
+        for (int i = 0; i < keyValues.length; i += 2) {
+            String key = String.valueOf(keyValues[i]);
+            Object value = keyValues[i + 1];
+
+            if (value != null) {
+                map.put(key, value);
+            }
+        }
+
+        return map;
+    }
+
+    private long safeLong(Long value) {
+        return value == null ? 0L : value;
     }
 
     private BigDecimal calculateMedicalRisk(BigDecimal medicalCoverage) {
