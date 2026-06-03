@@ -5,7 +5,7 @@ import java.util.UUID;
 
 public class ActivityLogResponseDto {
 
-    private Integer id;
+    private Long id;
     private UUID userId;
     private String userEmail;
     private String userFullName;
@@ -16,7 +16,7 @@ public class ActivityLogResponseDto {
     private LocalDateTime createdAt;
 
     public ActivityLogResponseDto(
-            Integer id,
+            Long id,
             UUID userId,
             String userEmail,
             String userFullName,
@@ -37,11 +37,11 @@ public class ActivityLogResponseDto {
         this.createdAt = createdAt;
     }
 
-    public Integer getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(Long id) {
         this.id = id;
     }
 

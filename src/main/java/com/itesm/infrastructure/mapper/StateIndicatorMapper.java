@@ -17,7 +17,7 @@ public class StateIndicatorMapper {
                 entity.getState().getId(),
                 entity.getState().getName(),
                 entity.getPeriod().getId(),
-                entity.getPeriod().getPeriodYear(),
+                entity.getPeriod().getPeriodYear() == null ? null : entity.getPeriod().getPeriodYear().intValue(),
                 entity.getTotalPopulation(),
                 entity.getPercentageOver60(),
                 entity.getHealthcareAccessDeficiency(),

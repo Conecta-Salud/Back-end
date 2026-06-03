@@ -20,7 +20,7 @@ public class MunicipalityIndicatorMapper {
                 entity.getMunicipality().getState().getId(),
                 entity.getMunicipality().getState().getName(),
                 entity.getPeriod().getId(),
-                entity.getPeriod().getPeriodYear(),
+                entity.getPeriod().getPeriodYear() == null ? null : entity.getPeriod().getPeriodYear().intValue(),
                 entity.getTotalPopulation(),
                 entity.getPercentageOver60(),
                 entity.getHealthcareAccessDeficiency(),

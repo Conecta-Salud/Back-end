@@ -3,6 +3,7 @@ package com.itesm.infrastructure.persistence.entity;
 import com.itesm.domain.models.catalog.AvailabilityStatus;
 import com.itesm.domain.models.catalog.TerritoryLevel;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Formula;
 
 @Entity
 @Table(name = "data_availability")
@@ -39,6 +40,9 @@ public class DataAvailabilityEntity {
 
     @Column(length = 255)
     private String note;
+
+    @Formula("indicator_key")
+    private Integer indicatorKey;
 
     public Long getId() {
         return id;
@@ -110,5 +114,9 @@ public class DataAvailabilityEntity {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    public Integer getIndicatorKey() {
+        return indicatorKey;
     }
 }
