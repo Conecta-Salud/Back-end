@@ -96,7 +96,7 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     SELECT
                         m.state_id,
                         SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
+                            WHEN it.code = 'total_camas_hospitalizacion'
                             THEN huid.quantity ELSE 0 END
                         ) AS total_hospital_beds
                     FROM municipalities m
@@ -201,7 +201,7 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     SELECT
                         hu.municipality_id,
                         SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
+                            WHEN it.code = 'total_camas_hospitalizacion'
                             THEN huid.quantity ELSE 0 END
                         ) AS total_hospital_beds
                     FROM health_units hu

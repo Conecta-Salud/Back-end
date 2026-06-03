@@ -3,18 +3,24 @@ package com.itesm.domain.models.map;
 import jakarta.ws.rs.BadRequestException;
 
 public enum MapIndicatorType {
-    MEDICAL_COVERAGE("medical_coverage"),
-    HOSPITAL_BEDS("hospital_beds"),
-    HEALTHCARE_ACCESS_DEFICIENCY("healthcare_access_deficiency");
+    MEDICAL_COVERAGE("medical_coverage", "doctors_per_1000"),
+    HOSPITAL_BEDS("hospital_beds", "beds_per_1000"),
+    HEALTHCARE_ACCESS_DEFICIENCY("healthcare_access_deficiency", "healthcare_access_deficiency");
 
-    private final String value;
+    private final String apiValue;
+    private final String indicatorCode;
 
-    MapIndicatorType(String value) {
-        this.value = value;
+    MapIndicatorType(String apiValue, String indicatorCode) {
+        this.apiValue = apiValue;
+        this.indicatorCode = indicatorCode;
     }
 
     public String getValue() {
-        return value;
+        return apiValue;
+    }
+
+    public String getIndicatorCode() {
+        return indicatorCode;
     }
 
     public static MapIndicatorType fromString(String value) {
@@ -23,7 +29,8 @@ public enum MapIndicatorType {
         }
 
         for (MapIndicatorType type : values()) {
-            if (type.value.equalsIgnoreCase(value.trim())) {
+            if (type.apiValue.equalsIgnoreCase(value.trim())
+                    || type.indicatorCode.equalsIgnoreCase(value.trim())) {
                 return type;
             }
         }

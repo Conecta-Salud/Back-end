@@ -30,10 +30,10 @@ public class HealthDashboardRepositoryImpl implements HealthDashboardRepository 
                     COALESCE(SUM(hus.total_doctors), 0) AS total_doctors,
                     COALESCE(SUM(hus.total_nurses), 0) AS total_nurses,
                     COALESCE(SUM(CASE 
-                        WHEN it.name = 'total_consultorios' 
+                        WHEN it.code = 'total_consultorios' 
                         THEN huid.quantity ELSE 0 END), 0) AS total_consulting_rooms,
                     COALESCE(SUM(CASE 
-                        WHEN it.name = 'total_camas_hospitalizacion' 
+                        WHEN it.code = 'total_camas_hospitalizacion' 
                         THEN huid.quantity ELSE 0 END), 0) AS total_hospital_beds
                 FROM states s
                 JOIN municipalities m ON m.state_id = s.id
@@ -76,10 +76,10 @@ public class HealthDashboardRepositoryImpl implements HealthDashboardRepository 
                     COALESCE(SUM(hus.total_doctors), 0) AS total_doctors,
                     COALESCE(SUM(hus.total_nurses), 0) AS total_nurses,
                     COALESCE(SUM(CASE 
-                        WHEN it.name = 'total_consultorios' 
+                        WHEN it.code = 'total_consultorios' 
                         THEN huid.quantity ELSE 0 END), 0) AS total_consulting_rooms,
                     COALESCE(SUM(CASE 
-                        WHEN it.name = 'total_camas_hospitalizacion' 
+                        WHEN it.code = 'total_camas_hospitalizacion' 
                         THEN huid.quantity ELSE 0 END), 0) AS total_hospital_beds
                 FROM municipalities m
                 JOIN health_units hu ON hu.municipality_id = m.id

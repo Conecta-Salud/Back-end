@@ -33,8 +33,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     private static final String TOTAL_POPULATION = "total_population";
     private static final String PERCENTAGE_OVER_60 = "percentage_over_60";
-    private static final String MEDICAL_COVERAGE = "medical_coverage";
-    private static final String HOSPITAL_BEDS = "hospital_beds";
+    private static final String MEDICAL_COVERAGE = "doctors_per_1000";
+    private static final String HOSPITAL_BEDS = "beds_per_1000";
     private static final String HEALTHCARE_ACCESS_DEFICIENCY = "healthcare_access_deficiency";
     private static final String TOTAL_POVERTY_POPULATION = "total_poverty_population";
 
@@ -753,9 +753,9 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
         return singleLong(sql, periodId, stateId, municipalityId);
     }
 
-    private Long sumInfrastructure(Integer periodId, Integer stateId, Integer municipalityId, String infrastructureName) {
+    private Long sumInfrastructure(Integer periodId, Integer stateId, Integer municipalityId, String infrastructureCode) {
         String sql = healthUnitFilter("""
-                SELECT COALESCE(SUM(CASE WHEN it.name = :infrastructureName THEN huid.quantity ELSE 0 END), 0)
+                SELECT COALESCE(SUM(CASE WHEN it.code = :infrastructureCode THEN huid.quantity ELSE 0 END), 0)
                 FROM health_units hu
                 JOIN municipalities m ON m.id = hu.municipality_id
                 JOIN health_unit_infrastructure hui ON hui.health_unit_id = hu.id
@@ -766,7 +766,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
         return toLong(em.createNativeQuery(sql)
                 .setParameter("periodId", periodId)
-                .setParameter("infrastructureName", infrastructureName)
+                .setParameter("infrastructureCode", infrastructureCode)
                 .setParameter("stateId", stateId)
                 .setParameter("municipalityId", municipalityId)
                 .getSingleResult());

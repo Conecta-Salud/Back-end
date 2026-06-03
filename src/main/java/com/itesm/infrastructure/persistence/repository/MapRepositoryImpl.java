@@ -56,7 +56,7 @@ public class MapRepositoryImpl implements MapRepository {
 
     @Override
     public List<MapIndicator> findStateIndicators(MapIndicatorType indicatorType, Integer year) {
-        String indicatorCode = indicatorType.getValue();
+        String indicatorCode = indicatorType.getIndicatorCode();
 
         if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, "state", year)) {
             return List.of();
@@ -74,7 +74,7 @@ public class MapRepositoryImpl implements MapRepository {
             MapIndicatorType indicatorType,
             Integer year
     ) {
-        String indicatorCode = indicatorType.getValue();
+        String indicatorCode = indicatorType.getIndicatorCode();
 
         if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
             return List.of();

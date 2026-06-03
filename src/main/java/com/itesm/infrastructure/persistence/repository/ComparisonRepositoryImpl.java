@@ -107,8 +107,8 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
                 LEFT JOIN (
                     SELECT
                         m.state_id,
-                        SUM(CASE WHEN it.name = 'total_consultorios' THEN huid.quantity ELSE 0 END) AS total_consulting_rooms,
-                        SUM(CASE WHEN it.name = 'total_camas_hospitalizacion' THEN huid.quantity ELSE 0 END) AS total_hospital_beds
+                        SUM(CASE WHEN it.code = 'total_consultorios' THEN huid.quantity ELSE 0 END) AS total_consulting_rooms,
+                        SUM(CASE WHEN it.code = 'total_camas_hospitalizacion' THEN huid.quantity ELSE 0 END) AS total_hospital_beds
                     FROM municipalities m
                     JOIN health_units hu ON hu.municipality_id = m.id
                     JOIN health_unit_infrastructure hui ON hui.health_unit_id = hu.id
@@ -206,8 +206,8 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
                 LEFT JOIN (
                     SELECT
                         hu.municipality_id,
-                        SUM(CASE WHEN it.name = 'total_consultorios' THEN huid.quantity ELSE 0 END) AS total_consulting_rooms,
-                        SUM(CASE WHEN it.name = 'total_camas_hospitalizacion' THEN huid.quantity ELSE 0 END) AS total_hospital_beds
+                        SUM(CASE WHEN it.code = 'total_consultorios' THEN huid.quantity ELSE 0 END) AS total_consulting_rooms,
+                        SUM(CASE WHEN it.code = 'total_camas_hospitalizacion' THEN huid.quantity ELSE 0 END) AS total_hospital_beds
                     FROM health_units hu
                     JOIN health_unit_infrastructure hui ON hui.health_unit_id = hu.id
                     JOIN health_unit_infrastructure_details huid ON huid.health_unit_infrastructure_id = hui.id

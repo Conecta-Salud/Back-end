@@ -96,11 +96,11 @@ public class CountryDashboardRepositoryImpl implements CountryDashboardRepositor
                 LEFT JOIN (
                     SELECT
                         SUM(CASE
-                            WHEN it.name = 'total_consultorios'
+                            WHEN it.code = 'total_consultorios'
                             THEN huid.quantity ELSE 0 END
                         ) AS total_consulting_rooms,
                         SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
+                            WHEN it.code = 'total_camas_hospitalizacion'
                             THEN huid.quantity ELSE 0 END
                         ) AS total_hospital_beds
                     FROM health_unit_infrastructure hui
