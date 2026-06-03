@@ -8,6 +8,7 @@ import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -19,5 +20,11 @@ public class PeriodRepositoryImpl implements PeriodRepository, PanacheRepository
                 .stream()
                 .map(PeriodMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<Period> findPeriodById(Integer id) {
+        PeriodEntity entity = findById(id);
+        return entity == null ? Optional.empty() : Optional.of(PeriodMapper.toDomain(entity));
     }
 }

@@ -1,7 +1,8 @@
 package com.itesm.domain.models.Uploader.Auxiliar;
 
 public enum AvailabilityStatus {
-    country,
-    state,
-    municipality
+    available,
+    not_available,
+    not_applicable,
+    estimated
 }

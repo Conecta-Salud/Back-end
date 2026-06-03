@@ -11,6 +11,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -23,6 +24,13 @@ public class StateRepositoryImpl implements StateRepository, PanacheRepositoryBa
                 .map(StateMapper::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public Optional<State> findStateById(Integer stateId) {
+        StateEntity entity = findById(stateId);
+        return entity == null ? Optional.empty() : Optional.of(StateMapper.toDomain(entity));
+    }
+
     @Override
     @Transactional
     public void save(List<State> states) {

@@ -8,8 +8,8 @@ import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -30,6 +30,12 @@ public class MunicipalityRepositoryImpl implements MunicipalityRepository, Panac
                 .stream()
                 .map(MunicipalityMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<Municipality> findMunicipalityById(Integer municipalityId) {
+        MunicipalityEntity entity = findById(municipalityId);
+        return entity == null ? Optional.empty() : Optional.of(MunicipalityMapper.toDomain(entity));
     }
 
     @Override
