@@ -1,6 +1,6 @@
 package com.itesm.domain.models.Uploader.Establecimiento;
 
-import java.math.BigDecimal;
+
 
 public class State {
 

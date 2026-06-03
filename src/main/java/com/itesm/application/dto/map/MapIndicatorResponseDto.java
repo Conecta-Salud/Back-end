@@ -1,7 +1,5 @@
 package com.itesm.application.dto.map;
 
-import com.itesm.domain.models.map.ColorToken;
-import com.itesm.domain.models.map.MapLevel;
 
 import java.math.BigDecimal;
 

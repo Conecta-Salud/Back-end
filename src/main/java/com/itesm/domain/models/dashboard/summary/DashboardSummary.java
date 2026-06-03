@@ -1,7 +1,5 @@
 package com.itesm.domain.models.dashboard.summary;
 
-import com.itesm.application.dto.dashboard.PeriodDto;
-
 import java.util.List;
 
 public class DashboardSummary {

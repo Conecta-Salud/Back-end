@@ -1,6 +1,5 @@
 package com.itesm.domain.models.Uploader.Establecimiento;
 
-import java.math.BigDecimal;
 
 public class Municipality {
     private Integer id;

@@ -2,6 +2,7 @@ package com.itesm.interfaces.rest;
 
 import com.itesm.application.usecase.Upload.Establecimientos.EstablecimientoUseCase;
 import com.itesm.application.usecase.Upload.Indicadores.IndicadoresUseCase;
+import com.itesm.application.usecase.Upload.Sectoriales.SectorialesUseCase;
 import com.itesm.interfaces.tools.FileUploadForm;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -19,6 +20,9 @@ public class UploaderResource {
     @Inject
     IndicadoresUseCase indicadoresUseCase;
 
+    @Inject
+    SectorialesUseCase sectorialesUseCase;
+
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Path("/Establecimiento")
@@ -33,6 +37,15 @@ public class UploaderResource {
     @Path("/Indicadores")
     public Response uploadIndicators(@MultipartForm FileUploadForm form) {
         indicadoresUseCase.execute(form.fileContent);
+
+        return Response.ok().build();
+    }
+
+    @POST
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Path("/Sectoriales")
+    public Response uploadSectoriales(@MultipartForm FileUploadForm form) {
+        sectorialesUseCase.execute(form.fileContent);
 
         return Response.ok().build();
     }

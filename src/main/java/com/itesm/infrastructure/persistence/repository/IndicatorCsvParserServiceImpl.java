@@ -5,8 +5,6 @@ import com.itesm.domain.models.Uploader.Auxiliar.AvailabilityStatus;
 import com.itesm.domain.models.Uploader.Auxiliar.TerritoryLevel;
 import com.itesm.domain.models.Uploader.indicator.TerritoryIndicatorValues;
 import com.itesm.domain.repository.IndicatorCsvParserService;
-import com.itesm.infrastructure.persistence.entity.Upload.Indicadores.DataSourceEntity;
-import com.itesm.infrastructure.persistence.entity.Upload.Indicadores.IndicatorsEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;

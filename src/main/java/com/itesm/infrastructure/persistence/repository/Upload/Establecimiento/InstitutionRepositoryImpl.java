@@ -9,7 +9,7 @@ import jakarta.transaction.Transactional;
 
 import java.util.List;
 
-import static io.quarkus.hibernate.orm.panache.PanacheEntityBase.persist;
+
 
 @ApplicationScoped
 public class InstitutionRepositoryImpl implements InstitutionRepository, PanacheRepositoryBase<InstitutionEntity, Integer> {

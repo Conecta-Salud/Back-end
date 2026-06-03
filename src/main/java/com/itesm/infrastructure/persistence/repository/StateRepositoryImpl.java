@@ -1,10 +1,8 @@
 package com.itesm.infrastructure.persistence.repository;
 
-import com.itesm.domain.models.Uploader.Establecimiento.Municipality;
 import com.itesm.domain.models.Uploader.Establecimiento.State;
 import com.itesm.domain.repository.Upload.Establecimiento.StateRepository;
 import com.itesm.infrastructure.mapper.Uploader.Establecimientos.StateMapper;
-import com.itesm.infrastructure.persistence.entity.Upload.Establecimientos.MunicipalityEntity;
 import com.itesm.infrastructure.persistence.entity.Upload.Establecimientos.StateEntity;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
