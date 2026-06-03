@@ -5,8 +5,8 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-@Entity
-@Table(name = "municipality_indicators")
+//@Entity
+//@Table(name = "municipality_indicators")
 @NamedEntityGraph(
         name = "MunicipalityIndicator.withMunicipalityStateAndPeriod",
         attributeNodes = {
