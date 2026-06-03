@@ -1,6 +1,7 @@
 package com.itesm.infrastructure.persistence.entity;
 
 import com.itesm.domain.models.upload.UploadSourceType;
+import com.itesm.domain.models.upload.UploadProcessingMode;
 import com.itesm.domain.models.upload.UploadStatus;
 import jakarta.persistence.*;
 
@@ -34,6 +35,10 @@ public class UploadBatchEntity {
 
     @Column(name = "batch_version", nullable = false, length = 80)
     private String batchVersion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "processing_mode", nullable = false)
+    private UploadProcessingMode processingMode = UploadProcessingMode.validate_only;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -117,6 +122,14 @@ public class UploadBatchEntity {
 
     public void setBatchVersion(String batchVersion) {
         this.batchVersion = batchVersion;
+    }
+
+    public UploadProcessingMode getProcessingMode() {
+        return processingMode;
+    }
+
+    public void setProcessingMode(UploadProcessingMode processingMode) {
+        this.processingMode = processingMode;
     }
 
     public UploadStatus getStatus() {

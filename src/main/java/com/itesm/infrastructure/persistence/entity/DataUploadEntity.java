@@ -1,5 +1,6 @@
 package com.itesm.infrastructure.persistence.entity;
 
+import com.itesm.domain.models.upload.CsvFileRole;
 import com.itesm.domain.models.upload.UploadStatus;
 import jakarta.persistence.*;
 
@@ -25,6 +26,10 @@ public class DataUploadEntity {
 
     @Column(name = "file_version", length = 80)
     private String fileVersion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "file_role", length = 80)
+    private CsvFileRole fileRole;
 
     @Column(name = "file_size")
     private Long fileSize;
@@ -95,6 +100,14 @@ public class DataUploadEntity {
 
     public void setFileVersion(String fileVersion) {
         this.fileVersion = fileVersion;
+    }
+
+    public CsvFileRole getFileRole() {
+        return fileRole;
+    }
+
+    public void setFileRole(CsvFileRole fileRole) {
+        this.fileRole = fileRole;
     }
 
     public Long getFileSize() {
