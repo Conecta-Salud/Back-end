@@ -32,6 +32,22 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
 
         deleteByUploadId(uploadId);
 
+        appendErrors(uploadId, errors);
+    }
+
+    @Override
+    @Transactional
+    public void appendErrors(Integer uploadId, List<UploadErrorDraft> errors) {
+        if (errors == null || errors.isEmpty()) {
+            return;
+        }
+
+        DataUploadEntity upload = em.find(DataUploadEntity.class, uploadId);
+
+        if (upload == null) {
+            throw new NotFoundException("UNKNOWN_UPLOAD: Upload not found");
+        }
+
         for (UploadErrorDraft draft : errors) {
             DataUploadErrorEntity entity = new DataUploadErrorEntity();
             entity.setDataUpload(upload);

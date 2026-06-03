@@ -12,14 +12,10 @@ import jakarta.ws.rs.NotFoundException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 @ApplicationScoped
 public class CsvValidationService {
@@ -85,9 +81,8 @@ public class CsvValidationService {
     private ValidationScan scan(DataUploadEntity upload) {
         Path path = csvStorageService.resolveStoredPath(upload.getStoredFileName());
         List<UploadErrorDraft> errors = new ArrayList<>();
-        List<String> requiredHeaders = csvSchemaRegistry.requiredHeaders(upload.getFileRole());
 
-        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+        try (BufferedReader reader = Files.newBufferedReader(path, csvSchemaRegistry.charset(upload.getFileRole()))) {
             String headerLine = reader.readLine();
 
             if (headerLine == null || headerLine.isBlank()) {
@@ -101,17 +96,14 @@ public class CsvValidationService {
                 return new ValidationScan(0, 0, errors);
             }
 
-            Set<String> presentHeaders = normalizeHeaders(parseCsvLine(headerLine));
-            for (String requiredHeader : requiredHeaders) {
-                if (!presentHeaders.contains(requiredHeader)) {
-                    errors.add(new UploadErrorDraft(
-                            1,
-                            requiredHeader,
-                            null,
-                            "MISSING_REQUIRED_HEADER",
-                            "Required CSV header is missing: " + requiredHeader
-                    ));
-                }
+            for (String missingHeader : csvSchemaRegistry.missingRequiredHeaders(upload.getFileRole(), parseCsvLine(headerLine))) {
+                errors.add(new UploadErrorDraft(
+                        1,
+                        missingHeader,
+                        null,
+                        "MISSING_REQUIRED_HEADER",
+                        "Required CSV header is missing: " + missingHeader
+                ));
             }
 
             int totalRecords = 0;
@@ -134,22 +126,6 @@ public class CsvValidationService {
             ));
             return new ValidationScan(0, 0, errors);
         }
-    }
-
-    private Set<String> normalizeHeaders(List<String> headers) {
-        Set<String> normalized = new LinkedHashSet<>();
-
-        for (String header : headers) {
-            String value = header == null ? "" : header.trim();
-
-            if (!value.isEmpty() && value.charAt(0) == '\ufeff') {
-                value = value.substring(1);
-            }
-
-            normalized.add(value.toLowerCase(Locale.ROOT));
-        }
-
-        return normalized;
     }
 
     private List<String> parseCsvLine(String line) {

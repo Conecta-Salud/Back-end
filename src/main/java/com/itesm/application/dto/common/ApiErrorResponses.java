@@ -39,6 +39,7 @@ public final class ApiErrorResponses {
             "UNKNOWN_UPLOAD",
             "UNKNOWN_DATA_SOURCE",
             "UNKNOWN_USER",
+            "UNKNOWN_INDICATOR",
             "NOT_FOUND"
     );
 
@@ -73,6 +74,7 @@ public final class ApiErrorResponses {
             Map.entry("UNKNOWN_UPLOAD", "No se encontró el archivo de carga solicitado."),
             Map.entry("UNKNOWN_DATA_SOURCE", "No se encontró la fuente de datos solicitada."),
             Map.entry("UNKNOWN_USER", "No se encontró el usuario solicitado."),
+            Map.entry("UNKNOWN_INDICATOR", "No se encontró el indicador solicitado."),
             Map.entry("USER_NOT_ADMIN", "El usuario autenticado no tiene permisos de administrador."),
             Map.entry("ACCESS_DENIED", "Acceso denegado."),
             Map.entry("UNAUTHENTICATED", "No se encontró una sesión autenticada."),
