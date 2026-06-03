@@ -1,8 +1,8 @@
-package com.itesm.infrastructure.mapper;
+package com.itesm.infrastructure.mapper.Uploader.Indicadores;
 
 
-import com.itesm.domain.models.indicator.MunicipalityIndicator;
-import com.itesm.infrastructure.persistence.entity.MunicipalityIndicatorEntity;
+import com.itesm.domain.models.Uploader.indicator.MunicipalityIndicator;
+import com.itesm.infrastructure.persistence.entity.Upload.Indicadores.MunicipalityIndicatorEntity;
 
 public class MunicipalityIndicatorMapper {
 
@@ -16,15 +16,11 @@ public class MunicipalityIndicatorMapper {
         return new MunicipalityIndicator(
                 entity.getId(),
                 entity.getMunicipality().getId(),
-                entity.getMunicipality().getName(),
-                entity.getMunicipality().getState().getId(),
-                entity.getMunicipality().getState().getName(),
                 entity.getPeriod().getId(),
-                entity.getPeriod().getPeriodYear(),
                 entity.getTotalPopulation(),
                 entity.getPercentageOver60(),
                 entity.getHealthcareAccessDeficiency(),
-                entity.getTotalPovertyPopulation()
+                entity.getTotalPopulation()
         );
     }
 }

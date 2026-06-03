@@ -1,5 +1,6 @@
-package com.itesm.infrastructure.persistence.entity;
+package com.itesm.infrastructure.persistence.entity.Upload.Indicadores;
 
+import com.itesm.infrastructure.persistence.entity.PeriodEntity;
 import com.itesm.infrastructure.persistence.entity.Upload.Establecimientos.MunicipalityEntity;
 import jakarta.persistence.*;
 

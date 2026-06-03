@@ -1,6 +1,6 @@
-package com.itesm.domain.repository;
+package com.itesm.domain.repository.Upload.Indicadores;
 
-import com.itesm.domain.models.indicator.MunicipalityIndicator;
+import com.itesm.domain.models.Uploader.indicator.MunicipalityIndicator;
 
 import java.util.Optional;
 

@@ -1,9 +1,9 @@
-package com.itesm.infrastructure.persistence.repository;
+package com.itesm.infrastructure.persistence.repository.Upload.Indicator;
 
-import com.itesm.domain.models.indicator.MunicipalityIndicator;
-import com.itesm.domain.repository.MunicipalityIndicatorRepository;
-import com.itesm.infrastructure.mapper.MunicipalityIndicatorMapper;
-import com.itesm.infrastructure.persistence.entity.MunicipalityIndicatorEntity;
+import com.itesm.domain.models.Uploader.indicator.MunicipalityIndicator;
+import com.itesm.domain.repository.Upload.Indicadores.MunicipalityIndicatorRepository;
+import com.itesm.infrastructure.mapper.Uploader.Indicadores.MunicipalityIndicatorMapper;
+import com.itesm.infrastructure.persistence.entity.Upload.Indicadores.MunicipalityIndicatorEntity;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

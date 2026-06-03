@@ -1,4 +1,4 @@
-package com.itesm.domain.models.indicator;
+package com.itesm.domain.models.Uploader.indicator;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -6,9 +6,8 @@ import java.math.BigInteger;
 public class StateIndicator {
     private Integer id;
     private Integer stateId;
-    private String stateName;
     private Integer periodId;
-    private Integer periodYear;
+
     private BigInteger totalPopulation;
     private BigDecimal percentageOver60;
     private BigInteger healthcareAccessDeficiency;
@@ -17,9 +16,7 @@ public class StateIndicator {
     public StateIndicator(
             Integer id,
             Integer stateId,
-            String stateName,
             Integer periodId,
-            Integer periodYear,
             BigInteger totalPopulation,
             BigDecimal percentageOver60,
             BigInteger healthcareAccessDeficiency,
@@ -27,9 +24,8 @@ public class StateIndicator {
     ) {
         this.id = id;
         this.stateId = stateId;
-        this.stateName = stateName;
         this.periodId = periodId;
-        this.periodYear = periodYear;
+
         this.totalPopulation = totalPopulation;
         this.percentageOver60 = percentageOver60;
         this.healthcareAccessDeficiency = healthcareAccessDeficiency;
@@ -52,28 +48,12 @@ public class StateIndicator {
         this.stateId = stateId;
     }
 
-    public String getStateName() {
-        return stateName;
-    }
-
-    public void setStateName(String stateName) {
-        this.stateName = stateName;
-    }
-
     public Integer getPeriodId() {
         return periodId;
     }
 
     public void setPeriodId(Integer periodId) {
         this.periodId = periodId;
-    }
-
-    public Integer getPeriodYear() {
-        return periodYear;
-    }
-
-    public void setPeriodYear(Integer periodYear) {
-        this.periodYear = periodYear;
     }
 
     public BigInteger getTotalPopulation() {

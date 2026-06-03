@@ -1,9 +1,9 @@
-package com.itesm.infrastructure.persistence.repository;
+package com.itesm.infrastructure.persistence.repository.Upload.Indicator;
 
-import com.itesm.domain.models.indicator.StateIndicator;
-import com.itesm.domain.repository.StateIndicatorRepository;
-import com.itesm.infrastructure.mapper.StateIndicatorMapper;
-import com.itesm.infrastructure.persistence.entity.StateIndicatorEntity;
+import com.itesm.domain.models.Uploader.indicator.StateIndicator;
+import com.itesm.domain.repository.Upload.Indicadores.StateIndicatorRepository;
+import com.itesm.infrastructure.mapper.Uploader.Indicadores.StateIndicatorMapper;
+import com.itesm.infrastructure.persistence.entity.Upload.Indicadores.StateIndicatorEntity;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

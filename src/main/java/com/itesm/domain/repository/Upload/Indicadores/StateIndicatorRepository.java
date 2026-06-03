@@ -1,6 +1,6 @@
-package com.itesm.domain.repository;
+package com.itesm.domain.repository.Upload.Indicadores;
 
-import com.itesm.domain.models.indicator.StateIndicator;
+import com.itesm.domain.models.Uploader.indicator.StateIndicator;
 
 import java.util.Optional;
 

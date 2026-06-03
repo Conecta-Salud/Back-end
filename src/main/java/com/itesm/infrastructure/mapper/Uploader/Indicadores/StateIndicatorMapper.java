@@ -1,7 +1,7 @@
-package com.itesm.infrastructure.mapper;
+package com.itesm.infrastructure.mapper.Uploader.Indicadores;
 
-import com.itesm.domain.models.indicator.StateIndicator;
-import com.itesm.infrastructure.persistence.entity.StateIndicatorEntity;
+import com.itesm.domain.models.Uploader.indicator.StateIndicator;
+import com.itesm.infrastructure.persistence.entity.Upload.Indicadores.StateIndicatorEntity;
 
 public class StateIndicatorMapper {
 
