@@ -3,7 +3,6 @@ package com.itesm.infrastructure.persistence.entity;
 import com.itesm.domain.models.catalog.AvailabilityStatus;
 import com.itesm.domain.models.catalog.TerritoryLevel;
 import jakarta.persistence.*;
-import org.hibernate.annotations.Formula;
 
 import java.math.BigDecimal;
 
@@ -54,7 +53,7 @@ public class TerritoryIndicatorValueEntity {
     @Column(name = "methodology_note", columnDefinition = "TEXT")
     private String methodologyNote;
 
-    @Formula("territory_key")
+    @Column(name = "territory_key", insertable = false, updatable = false, length = 30)
     private String territoryKey;
 
     public Long getId() {

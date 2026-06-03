@@ -9,11 +9,35 @@ public class MapIndicator {
     private BigDecimal value;
     private MapLevel level;
     private ColorToken colorToken;
+    private Integer sourceYear;
+    private String unit;
+    private String availabilityStatus;
+    private String methodologyNote;
+    private String dataSourceName;
 
     public MapIndicator(String code, String name, BigDecimal value, MapIndicatorType indicatorType) {
+        this(code, name, value, indicatorType, null, null, null, null, null);
+    }
+
+    public MapIndicator(
+            String code,
+            String name,
+            BigDecimal value,
+            MapIndicatorType indicatorType,
+            Integer sourceYear,
+            String unit,
+            String availabilityStatus,
+            String methodologyNote,
+            String dataSourceName
+    ) {
         this.code = code;
         this.name = name;
         this.value = value;
+        this.sourceYear = sourceYear;
+        this.unit = unit;
+        this.availabilityStatus = availabilityStatus;
+        this.methodologyNote = methodologyNote;
+        this.dataSourceName = dataSourceName;
 
         classify(indicatorType);
     }
@@ -106,5 +130,45 @@ public class MapIndicator {
 
     public void setColorToken(ColorToken colorToken) {
         this.colorToken = colorToken;
+    }
+
+    public Integer getSourceYear() {
+        return sourceYear;
+    }
+
+    public void setSourceYear(Integer sourceYear) {
+        this.sourceYear = sourceYear;
+    }
+
+    public String getUnit() {
+        return unit;
+    }
+
+    public void setUnit(String unit) {
+        this.unit = unit;
+    }
+
+    public String getAvailabilityStatus() {
+        return availabilityStatus;
+    }
+
+    public void setAvailabilityStatus(String availabilityStatus) {
+        this.availabilityStatus = availabilityStatus;
+    }
+
+    public String getMethodologyNote() {
+        return methodologyNote;
+    }
+
+    public void setMethodologyNote(String methodologyNote) {
+        this.methodologyNote = methodologyNote;
+    }
+
+    public String getDataSourceName() {
+        return dataSourceName;
+    }
+
+    public void setDataSourceName(String dataSourceName) {
+        this.dataSourceName = dataSourceName;
     }
 }
