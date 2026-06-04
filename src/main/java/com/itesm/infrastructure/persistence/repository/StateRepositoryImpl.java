@@ -34,15 +34,27 @@ public class StateRepositoryImpl implements StateRepository, PanacheRepositoryBa
     public void save(List<State> states) {
 
         for (State state : states) {
+            if (state.getName() == null || state.getName().isBlank()) {
+                continue;
+            }
+
+            StateEntity existing = find(
+                    "inegiCode = ?1 or name = ?2",
+                    state.getInegiCode(),
+                    state.getName()
+            ).firstResult();
+            if (existing != null) {
+                existing.setName(state.getName());
+                existing.setInegiCode(state.getInegiCode());
+                persist(existing);
+                continue;
+            }
 
             StateEntity entity = new StateEntity();
-
-            entity.setId(entity.getId());
-            entity.setName(entity.getName());
-            entity.setInegiCode(entity.getInegiCode());
+            entity.setName(state.getName());
+            entity.setInegiCode(state.getInegiCode());
 
             persist(entity);
-
         }
     }
 

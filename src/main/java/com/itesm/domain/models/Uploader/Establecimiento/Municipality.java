@@ -5,6 +5,7 @@ public class Municipality {
     private Integer id;
     private String name;
     private String inegiCode;
+    private String stateInegiCode;
 
     public Municipality(
             Integer id,
@@ -39,5 +40,13 @@ public class Municipality {
 
     public void setInegiCode(String inegiCode) {
         this.inegiCode = inegiCode;
+    }
+
+    public String getStateInegiCode() {
+        return stateInegiCode;
+    }
+
+    public void setStateInegiCode(String stateInegiCode) {
+        this.stateInegiCode = stateInegiCode;
     }
 }

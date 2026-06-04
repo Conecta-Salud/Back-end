@@ -8,11 +8,7 @@ import java.io.InputStream;
 
 public class FileUploadForm {
 
-    @FormParam("file")
+    @FormParam("fileContent")
     @PartType(MediaType.APPLICATION_OCTET_STREAM)
-    public InputStream file;
-
-    @FormParam("file")
-    @PartType(MediaType.TEXT_PLAIN)
-    public String fileContent;
+    public InputStream fileContent;
 }

@@ -11,13 +11,13 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.InvalidPathException;
 
 import java.util.*;
 
@@ -43,16 +43,30 @@ public class CsvParserServiceImpl implements CsvParserService {
                                 .builder()
                                 .setHeader()
                                 .setSkipHeaderRecord(true)
+                                .setTrim(true)
+                                .setIgnoreSurroundingSpaces(true)
+                                .setIgnoreEmptyLines(true)
                                 .build()
                 )
         ) {
 
             for (CSVRecord record : csvParser) {
-
+                if (isEmptyRecord(record)) {
+                    continue;
+                }
                 // ===== STATE =====
 
                 String stateName = record.get("ENTIDAD").trim();
-                String stateCode = record.get("CLAVE DE LA ENTIDAD").trim();
+                String stateCode = normalizeNumericCode(
+                        record.get("CLAVE DE LA ENTIDAD"),
+                        2,
+                        "CLAVE DE LA ENTIDAD",
+                        record.getRecordNumber()
+                );
+
+                if (stateCode.isBlank()) {
+                    throw new IllegalArgumentException("CLAVE DE LA ENTIDAD está vacía en la fila " + record.getRecordNumber());
+                }
 
                 State state = statesMap.computeIfAbsent(
                         stateCode,
@@ -67,26 +81,35 @@ public class CsvParserServiceImpl implements CsvParserService {
                 // ===== MUNICIPALITY =====
 
                 String municipalityName = record.get("MUNICIPIO").trim();
-                String municipalityCode = record.get("CLAVE DEL MUNICIPIO").trim();
+                String municipalityCode = normalizeNumericCode(
+                        record.get("CLAVE DEL MUNICIPIO"),
+                        3,
+                        "CLAVE DEL MUNICIPIO",
+                        record.getRecordNumber()
+                );
+
+                if (municipalityCode.isBlank()) {
+                    throw new IllegalArgumentException("CLAVE DEL MUNICIPIO está vacía en la fila " + record.getRecordNumber());
+                }
+                String municipalityKey = stateCode + "-" + municipalityCode;
+                String municipalityNationalCode = stateCode + municipalityCode;
 
                 Municipality municipality = municipalitiesMap.computeIfAbsent(
-                        municipalityCode,
+                        municipalityKey,
                         key -> {
                             Municipality m = new Municipality();
                             m.setName(municipalityName);
-                            m.setInegiCode(municipalityCode);
-
-                            // relación
-                            m.setInegiCode(state.getInegiCode());
-
+                            m.setInegiCode(municipalityNationalCode);
+                            m.setStateInegiCode(stateCode);
                             return m;
                         }
                 );
 
+
                 // ===== INSTITUTION =====
 
                 String institutionName =
-                        record.get("NOMBRE DE LA INSTITUCIÓN").trim();
+                        record.get("NOMBRE DE LA INSTITUCION").trim();
 
                 Institution institution = institutionsMap.computeIfAbsent(
                         institutionName,
@@ -114,7 +137,7 @@ public class CsvParserServiceImpl implements CsvParserService {
                 // ===== MEDICAL UNIT TYPE =====
 
                 String medicalUnitTypeName =
-                        record.get("NOMBRE DE TIPOLOGÍA").trim();
+                        record.get("NOMBRE DE TIPOLOGIA").trim();
 
                 MedicalUnitTypes medicalUnitType =
                         medicalUnitTypesMap.computeIfAbsent(
@@ -140,14 +163,14 @@ public class CsvParserServiceImpl implements CsvParserService {
 
                 healthUnit.setCareLevel(
                         mapCareLevel(
-                                record.get("NIVEL ATENCIÓN")
+                                record.get("NIVEL ATENCION")
                         )
                 );
 
                 // relaciones
 
                 healthUnit.setMunicipalityId(
-                        Integer.valueOf(municipality.getInegiCode())
+                        Integer.valueOf(municipalityNationalCode)
                 );
 
                 healthUnit.setMunicipalityName(
@@ -155,7 +178,7 @@ public class CsvParserServiceImpl implements CsvParserService {
                 );
 
                 healthUnit.setStateId(
-                        Integer.valueOf(state.getInegiCode())
+                        Integer.valueOf(stateCode)
                 );
 
                 healthUnit.setStateName(
@@ -210,12 +233,59 @@ public class CsvParserServiceImpl implements CsvParserService {
         };
     }
 
-    private Reader createReader(String fileOrContent) throws IOException {
-        Path candidatePath = Path.of(fileOrContent);
-        if (Files.exists(candidatePath)) {
-            return Files.newBufferedReader(candidatePath, StandardCharsets.UTF_8);
+    private String removeBom(String content) {
+        if (content != null && content.startsWith("\uFEFF")) {
+            return content.substring(1);
         }
 
-        return new StringReader(fileOrContent);
+        return content;
+    }
+
+    private String normalizeNumericCode(String value, int length, String columnName, long recordNumber) {
+        if (value == null || value.trim().isBlank()) {
+            throw new IllegalArgumentException(columnName + " está vacía en la fila " + recordNumber);
+        }
+
+        String digits = value.trim().replaceAll("[^0-9]", "");
+        if (digits.isBlank()) {
+            throw new IllegalArgumentException(columnName + " no contiene dígitos válidos en la fila " + recordNumber);
+        }
+
+        if (digits.length() > length) {
+            return digits;
+        }
+
+        return String.format("%0" + length + "d", Integer.parseInt(digits));
+    }
+
+    private boolean isEmptyRecord(CSVRecord record) {
+        for (String value : record) {
+            if (value != null && !value.trim().isEmpty()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+    private Reader createReader(String fileOrContent) throws IOException {
+        if (fileOrContent == null || fileOrContent.isBlank()) {
+            throw new IllegalArgumentException("El contenido CSV está vacío.");
+        }
+
+        if (fileOrContent.contains("\n") || fileOrContent.contains(",") || fileOrContent.contains(";")) {
+            return new StringReader(removeBom(fileOrContent));
+        }
+
+        try {
+            Path candidatePath = Path.of(fileOrContent);
+
+            if (Files.exists(candidatePath)) {
+                return Files.newBufferedReader(candidatePath, StandardCharsets.UTF_8);
+            }
+        } catch (InvalidPathException ignored) {
+            return new StringReader(removeBom(fileOrContent));
+        }
+
+        return new StringReader(removeBom(fileOrContent));
     }
 }

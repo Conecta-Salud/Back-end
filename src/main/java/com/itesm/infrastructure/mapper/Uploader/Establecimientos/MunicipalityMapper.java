@@ -12,10 +12,15 @@ public class MunicipalityMapper {
             return null;
         }
 
-        return new Municipality(
+        Municipality municipality = new Municipality(
                 entity.getId(),
                 entity.getName(),
                 entity.getInegiCode()
         );
+        if (entity.getState() != null) {
+            municipality.setStateInegiCode(entity.getState().getInegiCode());
+        }
+
+        return municipality;
     }
 }
