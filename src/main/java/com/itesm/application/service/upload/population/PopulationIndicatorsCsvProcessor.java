@@ -53,7 +53,11 @@ public class PopulationIndicatorsCsvProcessor {
             "healthcare_access_deficiency",
             "total_poverty_population"
     );
-    private static final Set<CsvFileRole> SUPPORTED_ROLES = EnumSet.of(CsvFileRole.population_indicators);
+    private static final Set<CsvFileRole> SUPPORTED_ROLES = EnumSet.of(
+            CsvFileRole.population_indicators,
+            CsvFileRole.population_municipal_base,
+            CsvFileRole.population_state_national_indicators
+    );
 
     private final CsvStorageService csvStorageService;
     private final DataUploadRepository dataUploadRepository;
@@ -95,7 +99,7 @@ public class PopulationIndicatorsCsvProcessor {
                 .toList();
 
         if (populationUploads.isEmpty()) {
-            throw new BadRequestException("INVALID_FILE_ROLE: population processing requires fileRole=population_indicators");
+            throw new BadRequestException("INVALID_FILE_ROLE: population processing requires a population fileRole");
         }
 
         ProcessingCatalog catalog = loadCatalog(batch);
@@ -109,7 +113,7 @@ public class PopulationIndicatorsCsvProcessor {
             );
         }
 
-        PopulationProcessingResult result = new PopulationProcessingResult(0, 0, 0, 0, 0);
+        PopulationProcessingResult result = new PopulationProcessingResult(0, 0, 0, 0, 0, 0);
 
         for (DataUploadEntity upload : populationUploads) {
             result = result.add(processUpload(batch, upload, catalog, writeFinalData));
@@ -136,6 +140,7 @@ public class PopulationIndicatorsCsvProcessor {
         UploadProcessingContext context = new UploadProcessingContext();
         int dataRows = 0;
         int skippedRows = 0;
+        int unsupportedPeriodRows = 0;
         int validRecords = 0;
         int errorRecords = 0;
         int valuesUpserted = 0;
@@ -147,12 +152,12 @@ public class PopulationIndicatorsCsvProcessor {
                 UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "CSV file is empty or has no header row");
                 dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
                 updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, "CSV processing found 1 error(s)");
-                return new PopulationProcessingResult(1, 0, 0, 0, 1);
+                return new PopulationProcessingResult(1, 0, 0, 0, 0, 1);
             }
 
             PopulationIndicatorsCsvAdapter.PopulationIndicatorsColumns columns =
                     csvAdapter.detectColumns(csvAdapter.parseCsvLine(headerLine));
-            List<String> missingHeaders = csvAdapter.missingHeaders(columns);
+            List<String> missingHeaders = csvAdapter.missingHeaders(columns, upload.getFileRole());
 
             if (!missingHeaders.isEmpty()) {
                 List<UploadErrorDraft> errors = missingHeaders.stream()
@@ -160,7 +165,7 @@ public class PopulationIndicatorsCsvProcessor {
                         .toList();
                 dataUploadErrorRepository.appendErrors(upload.getId(), errors);
                 updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
-                return new PopulationProcessingResult(1, 0, 0, 0, errors.size());
+                return new PopulationProcessingResult(1, 0, 0, 0, 0, errors.size());
             }
 
             String line;
@@ -183,8 +188,13 @@ public class PopulationIndicatorsCsvProcessor {
                     continue;
                 }
 
+                if (isUnsupportedPeriodForRole(row.getPeriodRaw(), upload.getFileRole())) {
+                    unsupportedPeriodRows++;
+                    continue;
+                }
+
                 dataRows++;
-                RowProcessingResult rowResult = processRow(batch, upload, row, catalog, context);
+                RowProcessingResult rowResult = processRow(batch, upload, row, catalog, context, upload.getFileRole());
                 chunk.values().addAll(rowResult.values());
                 chunk.errors().addAll(rowResult.errors());
                 valuesUpserted += rowResult.values().size();
@@ -213,59 +223,66 @@ public class PopulationIndicatorsCsvProcessor {
                     errorRecords == 0 ? null : "CSV processing found " + errorRecords + " error(s)"
             );
 
-            return new PopulationProcessingResult(1, dataRows, skippedRows, persistedValues, errorRecords);
+            return new PopulationProcessingResult(1, dataRows, skippedRows, unsupportedPeriodRows, persistedValues, errorRecords);
         } catch (IOException e) {
             UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "Could not read stored CSV file");
             dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
             updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "Could not read stored CSV file");
-            return new PopulationProcessingResult(1, dataRows, skippedRows, writeFinalData ? valuesUpserted : 0, errorRecords + 1);
+            return new PopulationProcessingResult(1, dataRows, skippedRows, unsupportedPeriodRows, writeFinalData ? valuesUpserted : 0, errorRecords + 1);
         }
     }
-
     private RowProcessingResult processRow(
             UploadBatchEntity batch,
             DataUploadEntity upload,
             PopulationIndicatorsCsvRow row,
             ProcessingCatalog catalog,
-            UploadProcessingContext context
+            UploadProcessingContext context,
+            CsvFileRole fileRole
     ) {
         List<UploadErrorDraft> errors = new ArrayList<>();
         List<TerritoryIndicatorValueWriteDraft> values = new ArrayList<>();
 
         Short period = parsePeriod(row, errors);
-        TerritoryReference territory = parseTerritory(row, context, errors);
+        TerritoryReference territory = parseTerritory(row, context, errors, fileRole);
 
         if (period == null || territory == null) {
             return new RowProcessingResult(values, errors, false);
         }
 
+        if (!isTerritoryLevelSupported(fileRole, territory.level())) {
+            return new RowProcessingResult(values, errors, false);
+        }
+
         addPopulationBaseValues(batch, upload, row, territory, period, catalog, values, errors);
-        addThousandsIndicatorValue(
-                batch,
-                upload,
-                row,
-                territory,
-                period,
-                catalog,
-                "healthcare_access_deficiency",
-                "Carencia por acceso a los servicios de salud",
-                row.getHealthcareAccessDeficiencyRaw(),
-                values,
-                errors
-        );
-        addThousandsIndicatorValue(
-                batch,
-                upload,
-                row,
-                territory,
-                period,
-                catalog,
-                "total_poverty_population",
-                "Población en situación de pobreza",
-                row.getTotalPovertyPopulationRaw(),
-                values,
-                errors
-        );
+
+        if (processesCountryStateIndicators(fileRole)) {
+            addThousandsIndicatorValue(
+                    batch,
+                    upload,
+                    row,
+                    territory,
+                    period,
+                    catalog,
+                    "healthcare_access_deficiency",
+                    "Carencia por acceso a los servicios de salud",
+                    row.getHealthcareAccessDeficiencyRaw(),
+                    values,
+                    errors
+            );
+            addThousandsIndicatorValue(
+                    batch,
+                    upload,
+                    row,
+                    territory,
+                    period,
+                    catalog,
+                    "total_poverty_population",
+                    "Poblacion en situacion de pobreza",
+                    row.getTotalPovertyPopulationRaw(),
+                    values,
+                    errors
+            );
+        }
 
         return new RowProcessingResult(values, errors, true);
     }
@@ -408,11 +425,11 @@ public class PopulationIndicatorsCsvProcessor {
             return null;
         }
     }
-
     private TerritoryReference parseTerritory(
             PopulationIndicatorsCsvRow row,
             UploadProcessingContext context,
-            List<UploadErrorDraft> errors
+            List<UploadErrorDraft> errors,
+            CsvFileRole fileRole
     ) {
         String rawArea = row.getGeographicAreaRaw();
 
@@ -456,6 +473,10 @@ public class PopulationIndicatorsCsvProcessor {
             return new TerritoryReference(TerritoryLevel.state, stateId, null, code);
         }
 
+        if (!supportsMunicipality(fileRole)) {
+            return new TerritoryReference(TerritoryLevel.municipality, null, null, code);
+        }
+
         String stateCode = code.substring(0, 2);
 
         if (!hasText(name)) {
@@ -482,6 +503,7 @@ public class PopulationIndicatorsCsvProcessor {
 
         return new TerritoryReference(TerritoryLevel.municipality, municipality.stateId(), municipality.municipalityId(), code);
     }
+
     private BigDecimal parseRequiredDecimal(
             PopulationIndicatorsCsvRow row,
             String columnName,
@@ -749,6 +771,49 @@ public class PopulationIndicatorsCsvProcessor {
                 || "2024".equals(period);
     }
 
+    private boolean isUnsupportedPeriodForRole(String rawPeriod, CsvFileRole fileRole) {
+        if (rawPeriod == null || rawPeriod.isBlank()) {
+            return false;
+        }
+
+        String period = rawPeriod.trim();
+        if (!period.matches("\\d{4}")) {
+            return false;
+        }
+
+        return !isSupportedPeriodForRole(period, fileRole);
+    }
+
+    private boolean isSupportedPeriodForRole(String period, CsvFileRole fileRole) {
+        if (fileRole == CsvFileRole.population_municipal_base) {
+            return String.valueOf(POPULATION_SOURCE_YEAR).equals(period);
+        }
+
+        return isSupportedDataPeriod(period);
+    }
+
+    private boolean isTerritoryLevelSupported(CsvFileRole fileRole, TerritoryLevel territoryLevel) {
+        if (fileRole == CsvFileRole.population_municipal_base) {
+            return territoryLevel == TerritoryLevel.municipality;
+        }
+
+        if (fileRole == CsvFileRole.population_state_national_indicators) {
+            return territoryLevel == TerritoryLevel.country || territoryLevel == TerritoryLevel.state;
+        }
+
+        return true;
+    }
+
+    private boolean supportsMunicipality(CsvFileRole fileRole) {
+        return fileRole == CsvFileRole.population_indicators
+                || fileRole == CsvFileRole.population_municipal_base;
+    }
+
+    private boolean processesCountryStateIndicators(CsvFileRole fileRole) {
+        return fileRole == CsvFileRole.population_indicators
+                || fileRole == CsvFileRole.population_state_national_indicators;
+    }
+
     private UploadStatus statusFor(int errorRecords, int valuesUpserted) {
         if (errorRecords == 0) {
             return UploadStatus.completed;
@@ -814,3 +879,5 @@ public class PopulationIndicatorsCsvProcessor {
         }
     }
 }
+
+

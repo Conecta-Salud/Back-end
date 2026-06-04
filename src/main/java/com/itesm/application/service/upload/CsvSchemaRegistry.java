@@ -31,6 +31,24 @@ public class CsvSchemaRegistry {
         ));
         partialHeaderRoles.add(CsvFileRole.population_indicators);
 
+        requiredHeaders.put(CsvFileRole.population_municipal_base, List.of(
+                "periodos",
+                "area geografica",
+                "poblacion total",
+                "porcentaje de poblacion de 60"
+        ));
+        partialHeaderRoles.add(CsvFileRole.population_municipal_base);
+
+        requiredHeaders.put(CsvFileRole.population_state_national_indicators, List.of(
+                "periodos",
+                "area geografica",
+                "poblacion total",
+                "porcentaje de poblacion de 60",
+                "carencia por acceso",
+                "poblacion en situacion de pobreza"
+        ));
+        partialHeaderRoles.add(CsvFileRole.population_state_national_indicators);
+
         requiredHeaders.put(CsvFileRole.population_total, List.of(
                 "territory_level", "inegi_code", "state_inegi_code", "territory_name", "value"
         ));
@@ -88,7 +106,9 @@ public class CsvSchemaRegistry {
     }
 
     public Charset charset(CsvFileRole fileRole) {
-        if (fileRole == CsvFileRole.population_indicators) {
+        if (fileRole == CsvFileRole.population_indicators
+                || fileRole == CsvFileRole.population_municipal_base
+                || fileRole == CsvFileRole.population_state_national_indicators) {
             return StandardCharsets.UTF_16LE;
         }
 

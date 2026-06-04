@@ -325,7 +325,8 @@ public class UploadBatchService {
     }
 
     private boolean allowsMultipleFiles(CsvFileRole fileRole) {
-        return fileRole == CsvFileRole.population_indicators;
+        return fileRole == CsvFileRole.population_indicators
+                || fileRole == CsvFileRole.population_municipal_base;
     }
 
     private UploadBatchResponse toBatchResponse(UploadBatchEntity batch) {

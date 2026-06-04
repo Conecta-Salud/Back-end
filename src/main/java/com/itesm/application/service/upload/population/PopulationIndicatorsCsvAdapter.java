@@ -1,5 +1,6 @@
 package com.itesm.application.service.upload.population;
 
+import com.itesm.domain.models.upload.CsvFileRole;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.text.Normalizer;
@@ -22,25 +23,32 @@ public class PopulationIndicatorsCsvAdapter {
     }
 
     public List<String> missingHeaders(PopulationIndicatorsColumns columns) {
+        return missingHeaders(columns, CsvFileRole.population_indicators);
+    }
+
+    public List<String> missingHeaders(PopulationIndicatorsColumns columns, CsvFileRole fileRole) {
         List<String> missing = new ArrayList<>();
 
         if (columns.periodIndex() < 0) {
             missing.add("Periodos");
         }
         if (columns.geographicAreaIndex() < 0) {
-            missing.add("Área geográfica");
+            missing.add("Area geografica");
         }
         if (columns.totalPopulationIndex() < 0) {
-            missing.add("Población total");
+            missing.add("Poblacion total");
         }
         if (columns.percentageOver60Index() < 0) {
-            missing.add("Porcentaje de población de 60");
+            missing.add("Porcentaje de poblacion de 60");
         }
-        if (columns.healthcareAccessDeficiencyIndex() < 0) {
-            missing.add("Carencia por acceso");
-        }
-        if (columns.totalPovertyPopulationIndex() < 0) {
-            missing.add("Población en situación de pobreza");
+
+        if (requiresCountryStateIndicators(fileRole)) {
+            if (columns.healthcareAccessDeficiencyIndex() < 0) {
+                missing.add("Carencia por acceso");
+            }
+            if (columns.totalPovertyPopulationIndex() < 0) {
+                missing.add("Poblacion en situacion de pobreza");
+            }
         }
 
         return missing;
@@ -127,6 +135,11 @@ public class PopulationIndicatorsCsvAdapter {
 
         String value = values.get(index);
         return value == null ? null : value.trim();
+    }
+
+    private boolean requiresCountryStateIndicators(CsvFileRole fileRole) {
+        return fileRole == CsvFileRole.population_indicators
+                || fileRole == CsvFileRole.population_state_national_indicators;
     }
 
     public record PopulationIndicatorsColumns(

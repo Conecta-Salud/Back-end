@@ -66,6 +66,8 @@ public class CsvProcessingDispatcher {
                 + " data rows, "
                 + result.skippedRows()
                 + " metadata rows skipped, "
+                + result.unsupportedPeriodRows()
+                + " unsupported period rows skipped, "
                 + result.valuesUpserted()
                 + " values upserted, "
                 + result.errorRecords()

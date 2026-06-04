@@ -17,6 +17,8 @@ public class CsvUploadContractRegistry {
     public CsvUploadContractRegistry() {
         allowedRoles.put(UploadSourceType.population, EnumSet.of(
                 CsvFileRole.population_indicators,
+                CsvFileRole.population_municipal_base,
+                CsvFileRole.population_state_national_indicators,
                 CsvFileRole.population_total,
                 CsvFileRole.percentage_over_60,
                 CsvFileRole.healthcare_access_deficiency,
