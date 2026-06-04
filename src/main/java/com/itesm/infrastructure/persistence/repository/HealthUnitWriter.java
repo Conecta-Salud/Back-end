@@ -6,6 +6,7 @@ import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @ApplicationScoped
 public class HealthUnitWriter {
@@ -103,6 +104,91 @@ public class HealthUnitWriter {
         }
 
         return values.size();
+    }
+
+    public Optional<Integer> findIdByClues(String clues) {
+        if (clues == null || clues.isBlank()) {
+            return Optional.empty();
+        }
+
+        List<?> rows = em.createNativeQuery("""
+                        SELECT id
+                        FROM health_units
+                        WHERE clues = :clues
+                        """)
+                .setParameter("clues", clues.trim())
+                .setMaxResults(1)
+                .getResultList();
+
+        return rows.stream().findFirst().map(this::toInteger);
+    }
+
+    @Transactional
+    public Integer ensureMinimal(HealthUnitWriteDraft value) {
+        Optional<Integer> existing = findIdByClues(value.clues());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        em.createNativeQuery("""
+                        INSERT INTO health_units (
+                            clues,
+                            name,
+                            municipality_id,
+                            institution_id,
+                            establishment_type_id,
+                            medical_unit_type_id,
+                            care_level,
+                            source_year,
+                            operation_status,
+                            locality_name,
+                            address,
+                            latitude,
+                            longitude,
+                            is_active
+                        )
+                        VALUES (
+                            :clues,
+                            :name,
+                            :municipalityId,
+                            :institutionId,
+                            :establishmentTypeId,
+                            :medicalUnitTypeId,
+                            :careLevel,
+                            :sourceYear,
+                            :operationStatus,
+                            :localityName,
+                            NULL,
+                            :latitude,
+                            :longitude,
+                            :active
+                        )
+                        """)
+                .setParameter("clues", value.clues())
+                .setParameter("name", value.name())
+                .setParameter("municipalityId", value.municipalityId())
+                .setParameter("institutionId", value.institutionId())
+                .setParameter("establishmentTypeId", value.establishmentTypeId())
+                .setParameter("medicalUnitTypeId", value.medicalUnitTypeId())
+                .setParameter("careLevel", value.careLevel())
+                .setParameter("sourceYear", value.sourceYear())
+                .setParameter("operationStatus", value.operationStatus())
+                .setParameter("localityName", value.localityName())
+                .setParameter("latitude", value.latitude())
+                .setParameter("longitude", value.longitude())
+                .setParameter("active", value.active())
+                .executeUpdate();
+
+        return findIdByClues(value.clues())
+                .orElseThrow(() -> new jakarta.ws.rs.NotFoundException("UNKNOWN_HEALTH_UNIT: Health unit was not found after insert"));
+    }
+
+    private Integer toInteger(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+
+        return Integer.valueOf(value.toString());
     }
 
     public record HealthUnitWriteDraft(

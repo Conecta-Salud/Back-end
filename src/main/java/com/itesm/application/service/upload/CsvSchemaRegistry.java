@@ -76,9 +76,22 @@ public class CsvSchemaRegistry {
         ));
         partialHeaderRoles.add(CsvFileRole.establishments_catalog);
         requiredHeaders.put(CsvFileRole.sectorial_data, List.of(
-                "clues", "state_code", "state_name", "municipality_code", "municipality_name",
-                "total_doctors", "total_nurses", "total_camas_hospitalizacion", "total_consultorios"
+                "ano",
+                "clues",
+                "institucion",
+                "clave estado",
+                "nombre estado",
+                "clave municipio",
+                "nombre municipio",
+                "nombre de la unidad",
+                "tipo de establecimiento",
+                "tipologia",
+                "total de consultorios",
+                "total camas area hospitalizacion",
+                "total medicos generales especialistas",
+                "total enfermeras en contacto"
         ));
+        partialHeaderRoles.add(CsvFileRole.sectorial_data);
     }
 
     public List<String> requiredHeaders(CsvFileRole fileRole) {
@@ -125,6 +138,10 @@ public class CsvSchemaRegistry {
 
         if (fileRole == CsvFileRole.establishments_catalog) {
             return List.of(StandardCharsets.UTF_8);
+        }
+
+        if (fileRole == CsvFileRole.sectorial_data) {
+            return List.of(Charset.forName("windows-1252"));
         }
 
         return List.of(StandardCharsets.UTF_8);
