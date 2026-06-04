@@ -191,6 +191,7 @@ public class GetComparisonSummaryUseCase {
                             medicalCoverage,
                             variantHigherIsBetter(medicalCoverage, DOCTORS_REFERENCE_PER_1000, BigDecimal.ONE),
                             extra(
+                                    "availabilityStatus", availabilityStatus(medicalCoverage),
                                     "totalDoctors", item.getTotalDoctors(),
                                     "totalPopulation", item.getTotalPopulation()
                             )
@@ -214,10 +215,12 @@ public class GetComparisonSummaryUseCase {
         List<ComparisonChartDataPoint> data = items.stream()
                 .map(item -> {
                     BigDecimal medicalCoverage = calculateMedicalCoverage(item);
-                    BigDecimal deficitPer1000 = DOCTORS_REFERENCE_PER_1000
-                            .subtract(medicalCoverage)
-                            .max(BigDecimal.ZERO)
-                            .setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal deficitPer1000 = medicalCoverage == null
+                            ? null
+                            : DOCTORS_REFERENCE_PER_1000
+                                    .subtract(medicalCoverage)
+                                    .max(BigDecimal.ZERO)
+                                    .setScale(2, RoundingMode.HALF_UP);
 
                     BigDecimal estimatedDoctorDeficit = calculateEstimatedDoctorDeficit(item);
 
@@ -228,6 +231,7 @@ public class GetComparisonSummaryUseCase {
                             deficitPer1000,
                             variantLowerIsBetter(deficitPer1000, BigDecimal.ONE, DOCTORS_REFERENCE_PER_1000),
                             extra(
+                                    "availabilityStatus", availabilityStatus(deficitPer1000),
                                     "estimatedDoctorDeficit", estimatedDoctorDeficit,
                                     "medicalCoverage", medicalCoverage,
                                     "reference", DOCTORS_REFERENCE_PER_1000
@@ -256,6 +260,7 @@ public class GetComparisonSummaryUseCase {
                             hospitalBedsPer1000,
                             variantHigherIsBetter(hospitalBedsPer1000, HOSPITAL_BEDS_REFERENCE_PER_1000, BigDecimal.ONE),
                             extra(
+                                    "availabilityStatus", availabilityStatus(hospitalBedsPer1000),
                                     "totalHospitalBeds", item.getTotalHospitalBeds(),
                                     "totalPopulation", item.getTotalPopulation()
                             )
@@ -311,9 +316,9 @@ public class GetComparisonSummaryUseCase {
         BigDecimal hospitalRisk = calculateHospitalRisk(hospitalsPer100k);
         BigDecimal olderAdultRisk = calculateOlderAdultRisk(olderAdultsPercentage);
 
-        BigDecimal score = medicalRisk.multiply(BigDecimal.valueOf(0.45))
-                .add(hospitalRisk.multiply(BigDecimal.valueOf(0.35)))
-                .add(olderAdultRisk.multiply(BigDecimal.valueOf(0.20)))
+        BigDecimal score = safeRisk(medicalRisk).multiply(BigDecimal.valueOf(0.45))
+                .add(safeRisk(hospitalRisk).multiply(BigDecimal.valueOf(0.35)))
+                .add(safeRisk(olderAdultRisk).multiply(BigDecimal.valueOf(0.20)))
                 .setScale(2, RoundingMode.HALF_UP);
 
         PriorityClassification classification = classifyPriority(score);
@@ -353,30 +358,16 @@ public class GetComparisonSummaryUseCase {
     }
 
     private BigDecimal calculateMedicalCoverage(ComparisonRawItem item) {
-        if (item.getTotalPopulation() == null) {
-            return BigDecimal.ZERO;
-        }
-
-        return divide(
-                BigDecimal.valueOf(safeLong(item.getTotalDoctors())).multiply(BigDecimal.valueOf(1000)),
-                new BigDecimal(item.getTotalPopulation())
-        );
+        return item.getDoctorsPer1000();
     }
 
     private BigDecimal calculateHospitalBedsPer1000(ComparisonRawItem item) {
-        if (item.getTotalPopulation() == null) {
-            return BigDecimal.ZERO;
-        }
-
-        return divide(
-                BigDecimal.valueOf(safeLong(item.getTotalHospitalBeds())).multiply(BigDecimal.valueOf(1000)),
-                new BigDecimal(item.getTotalPopulation())
-        );
+        return item.getBedsPer1000();
     }
 
     private BigDecimal calculatePovertyRate(ComparisonRawItem item) {
         if (item.getTotalPovertyPopulation() == null || item.getTotalPopulation() == null) {
-            return BigDecimal.ZERO;
+            return null;
         }
 
         return divide(
@@ -387,7 +378,7 @@ public class GetComparisonSummaryUseCase {
 
     private BigDecimal calculateHospitalsPer100k(ComparisonRawItem item) {
         if (item.getTotalPopulation() == null) {
-            return BigDecimal.ZERO;
+            return null;
         }
 
         return divide(
@@ -397,8 +388,8 @@ public class GetComparisonSummaryUseCase {
     }
 
     private BigDecimal calculateEstimatedDoctorDeficit(ComparisonRawItem item) {
-        if (item.getTotalPopulation() == null) {
-            return BigDecimal.ZERO;
+        if (item.getTotalPopulation() == null || item.getTotalDoctors() == null) {
+            return null;
         }
 
         BigDecimal requiredDoctors = new BigDecimal(item.getTotalPopulation())
@@ -426,11 +417,19 @@ public class GetComparisonSummaryUseCase {
         return map;
     }
 
+    private String availabilityStatus(BigDecimal value) {
+        return value == null ? "not_available" : "available";
+    }
+
     private long safeLong(Long value) {
         return value == null ? 0L : value;
     }
 
     private BigDecimal calculateMedicalRisk(BigDecimal medicalCoverage) {
+        if (medicalCoverage == null) {
+            return null;
+        }
+
         return DOCTORS_REFERENCE_PER_1000
                 .subtract(medicalCoverage)
                 .max(BigDecimal.ZERO)
@@ -441,6 +440,10 @@ public class GetComparisonSummaryUseCase {
     }
 
     private BigDecimal calculateHospitalRisk(BigDecimal hospitalsPer100k) {
+        if (hospitalsPer100k == null) {
+            return null;
+        }
+
         return HOSPITALS_REFERENCE_PER_100K
                 .subtract(hospitalsPer100k)
                 .max(BigDecimal.ZERO)
@@ -448,6 +451,10 @@ public class GetComparisonSummaryUseCase {
                 .multiply(BigDecimal.valueOf(100))
                 .min(BigDecimal.valueOf(100))
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal safeRisk(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private BigDecimal calculateOlderAdultRisk(BigDecimal olderAdultsPercentage) {

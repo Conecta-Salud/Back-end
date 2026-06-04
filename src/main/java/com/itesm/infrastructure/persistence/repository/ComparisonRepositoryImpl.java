@@ -69,11 +69,11 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
                     %s AS percentage_over_60,
                     %s AS healthcare_access_deficiency,
                     %s AS total_poverty_population,
-                    COALESCE(units.total_health_units, 0) AS total_health_units,
-                    COALESCE(staff.total_doctors, 0) AS total_doctors,
-                    COALESCE(staff.total_nurses, 0) AS total_nurses,
-                    COALESCE(infra.total_consulting_rooms, 0) AS total_consulting_rooms,
-                    COALESCE(infra.total_hospital_beds, 0) AS total_hospital_beds
+                    %s AS total_health_units,
+                    %s AS total_doctors,
+                    %s AS total_nurses,
+                    %s AS total_consulting_rooms,
+                    %s AS total_hospital_beds
                 FROM states s
                 JOIN periods p ON p.id = :periodId
                 LEFT JOIN territory_indicator_values tiv
@@ -85,55 +85,23 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
                     ON da.indicator_id = i.id
                    AND da.territory_level = tiv.territory_level
                    AND da.analysis_year = tiv.analysis_year
-                LEFT JOIN (
-                    SELECT
-                        m.state_id,
-                        COUNT(DISTINCT hu.id) AS total_health_units
-                    FROM municipalities m
-                    JOIN health_units hu ON hu.municipality_id = m.id
-                    GROUP BY m.state_id
-                ) units ON units.state_id = s.id
-                LEFT JOIN (
-                    SELECT
-                        m.state_id,
-                        SUM(hus.total_doctors) AS total_doctors,
-                        SUM(hus.total_nurses) AS total_nurses
-                    FROM municipalities m
-                    JOIN health_units hu ON hu.municipality_id = m.id
-                    JOIN health_unit_staff hus ON hus.health_unit_id = hu.id
-                    WHERE hus.period_id = :periodId
-                    GROUP BY m.state_id
-                ) staff ON staff.state_id = s.id
-                LEFT JOIN (
-                    SELECT
-                        m.state_id,
-                        SUM(CASE WHEN it.code = 'total_consultorios' THEN huid.quantity ELSE 0 END) AS total_consulting_rooms,
-                        SUM(CASE WHEN it.code = 'total_camas_hospitalizacion' THEN huid.quantity ELSE 0 END) AS total_hospital_beds
-                    FROM municipalities m
-                    JOIN health_units hu ON hu.municipality_id = m.id
-                    JOIN health_unit_infrastructure hui ON hui.health_unit_id = hu.id
-                    JOIN health_unit_infrastructure_details huid ON huid.health_unit_infrastructure_id = hui.id
-                    JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
-                    WHERE hui.period_id = :periodId
-                    GROUP BY m.state_id
-                ) infra ON infra.state_id = s.id
                 WHERE %s
                 GROUP BY
                     s.id,
                     s.name,
                     p.id,
-                    p.period_year,
-                    units.total_health_units,
-                    staff.total_doctors,
-                    staff.total_nurses,
-                    infra.total_consulting_rooms,
-                    infra.total_hospital_beds
+                    p.period_year
                 ORDER BY s.name ASC
                 """.formatted(
                 indicatorValue("total_population"),
                 indicatorValue("percentage_over_60"),
                 indicatorValue("healthcare_access_deficiency"),
                 indicatorValue("total_poverty_population"),
+                indicatorValue("health_establishments"),
+                indicatorValue("total_doctors"),
+                indicatorValue("total_nurses"),
+                indicatorValue("consulting_rooms"),
+                indicatorValue("hospital_beds"),
                 filter
         );
 
@@ -170,11 +138,11 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
                     %s AS percentage_over_60,
                     %s AS healthcare_access_deficiency,
                     %s AS total_poverty_population,
-                    COALESCE(units.total_health_units, 0) AS total_health_units,
-                    COALESCE(staff.total_doctors, 0) AS total_doctors,
-                    COALESCE(staff.total_nurses, 0) AS total_nurses,
-                    COALESCE(infra.total_consulting_rooms, 0) AS total_consulting_rooms,
-                    COALESCE(infra.total_hospital_beds, 0) AS total_hospital_beds
+                    %s AS total_health_units,
+                    %s AS total_doctors,
+                    %s AS total_nurses,
+                    %s AS total_consulting_rooms,
+                    %s AS total_hospital_beds
                 FROM municipalities m
                 JOIN periods p ON p.id = :periodId
                 LEFT JOIN territory_indicator_values tiv
@@ -186,52 +154,23 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
                     ON da.indicator_id = i.id
                    AND da.territory_level = tiv.territory_level
                    AND da.analysis_year = tiv.analysis_year
-                LEFT JOIN (
-                    SELECT
-                        hu.municipality_id,
-                        COUNT(DISTINCT hu.id) AS total_health_units
-                    FROM health_units hu
-                    GROUP BY hu.municipality_id
-                ) units ON units.municipality_id = m.id
-                LEFT JOIN (
-                    SELECT
-                        hu.municipality_id,
-                        SUM(hus.total_doctors) AS total_doctors,
-                        SUM(hus.total_nurses) AS total_nurses
-                    FROM health_units hu
-                    JOIN health_unit_staff hus ON hus.health_unit_id = hu.id
-                    WHERE hus.period_id = :periodId
-                    GROUP BY hu.municipality_id
-                ) staff ON staff.municipality_id = m.id
-                LEFT JOIN (
-                    SELECT
-                        hu.municipality_id,
-                        SUM(CASE WHEN it.code = 'total_consultorios' THEN huid.quantity ELSE 0 END) AS total_consulting_rooms,
-                        SUM(CASE WHEN it.code = 'total_camas_hospitalizacion' THEN huid.quantity ELSE 0 END) AS total_hospital_beds
-                    FROM health_units hu
-                    JOIN health_unit_infrastructure hui ON hui.health_unit_id = hu.id
-                    JOIN health_unit_infrastructure_details huid ON huid.health_unit_infrastructure_id = hui.id
-                    JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
-                    WHERE hui.period_id = :periodId
-                    GROUP BY hu.municipality_id
-                ) infra ON infra.municipality_id = m.id
                 WHERE %s
                 GROUP BY
                     m.id,
                     m.name,
                     p.id,
-                    p.period_year,
-                    units.total_health_units,
-                    staff.total_doctors,
-                    staff.total_nurses,
-                    infra.total_consulting_rooms,
-                    infra.total_hospital_beds
+                    p.period_year
                 ORDER BY m.name ASC
                 """.formatted(
                 indicatorValue("total_population"),
                 indicatorValue("percentage_over_60"),
                 indicatorValue("healthcare_access_deficiency"),
                 indicatorValue("total_poverty_population"),
+                indicatorValue("health_establishments"),
+                indicatorValue("total_doctors"),
+                indicatorValue("total_nurses"),
+                indicatorValue("consulting_rooms"),
+                indicatorValue("hospital_beds"),
                 filter
         );
 
@@ -245,8 +184,8 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
     }
 
     private String indicatorValue(String indicatorCode) {
-        return "MAX(CASE WHEN i.code = '%s' AND da.is_available = 1 "
-                + "AND da.availability_status NOT IN ('not_available', 'not_applicable') "
+        return "MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
+                + "AND COALESCE(da.availability_status, tiv.availability_status) NOT IN ('not_available', 'not_applicable') "
                 + "THEN tiv.value END)".formatted(indicatorCode);
     }
 
@@ -281,7 +220,7 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
 
     private Long toLong(Object value) {
         if (value == null) {
-            return 0L;
+            return null;
         }
         if (value instanceof Number number) {
             return number.longValue();

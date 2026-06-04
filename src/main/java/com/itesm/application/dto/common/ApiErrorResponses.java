@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 public final class ApiErrorResponses {
 
     public static final String INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR";
+    public static final String AUTH_PROVIDER_CONFIGURATION_ERROR = "AUTH_PROVIDER_CONFIGURATION_ERROR";
 
     private static final Pattern CODE_PREFIX = Pattern.compile("^([A-Z][A-Z0-9_]*)(?:\\s*:\\s*(.*))?$");
 
@@ -58,6 +59,10 @@ public final class ApiErrorResponses {
             "INVALID_TOKEN"
     );
 
+    private static final Set<String> SERVICE_UNAVAILABLE_CODES = Set.of(
+            AUTH_PROVIDER_CONFIGURATION_ERROR
+    );
+
     private static final Map<String, String> MESSAGES = Map.ofEntries(
             Map.entry("INVALID_FILE_TYPE", "Solo se permiten archivos CSV."),
             Map.entry("FILE_TOO_LARGE", "El archivo excede el tamaÃ±o mÃ¡ximo permitido."),
@@ -89,12 +94,17 @@ public final class ApiErrorResponses {
             Map.entry("ACCESS_DENIED", "Acceso denegado."),
             Map.entry("UNAUTHENTICATED", "No se encontrÃ³ una sesiÃ³n autenticada."),
             Map.entry("INVALID_TOKEN", "El token de autenticaciÃ³n no es vÃ¡lido."),
+            Map.entry(AUTH_PROVIDER_CONFIGURATION_ERROR, "El servicio de autenticación no está configurado correctamente."),
             Map.entry("INVALID_FILE_NAME", "El nombre del archivo no es vÃ¡lido."),
             Map.entry("INVALID_STATUS", "El estado solicitado no es vÃ¡lido."),
             Map.entry("UPLOAD_STORAGE_ERROR", "No fue posible guardar o leer el archivo cargado."),
             Map.entry("BAD_REQUEST", "La solicitud no es vÃ¡lida."),
             Map.entry("NOT_FOUND", "No se encontrÃ³ el recurso solicitado."),
             Map.entry(INTERNAL_SERVER_ERROR, "OcurriÃ³ un error interno inesperado.")
+    );
+
+    private static final Map<String, String> DEFAULT_DETAILS = Map.of(
+            AUTH_PROVIDER_CONFIGURATION_ERROR, "Revise la configuración del proveedor de autenticación en el servidor."
     );
 
     private ApiErrorResponses() {
@@ -108,7 +118,7 @@ public final class ApiErrorResponses {
         return new ApiErrorResponse(
                 code,
                 message,
-                blankToNull(parts.detail()),
+                detailFor(code, parts.detail()),
                 normalizePath(rawPath)
         );
     }
@@ -119,7 +129,7 @@ public final class ApiErrorResponses {
         return new ApiErrorResponse(
                 effectiveCode,
                 messageFor(effectiveCode, INTERNAL_SERVER_ERROR),
-                blankToNull(detail),
+                detailFor(effectiveCode, detail),
                 normalizePath(rawPath)
         );
     }
@@ -143,6 +153,10 @@ public final class ApiErrorResponses {
 
         if (UNAUTHORIZED_CODES.contains(code)) {
             return 401;
+        }
+
+        if (SERVICE_UNAVAILABLE_CODES.contains(code)) {
+            return 503;
         }
 
         if (INTERNAL_SERVER_ERROR.equals(code)) {
@@ -190,6 +204,20 @@ public final class ApiErrorResponses {
 
     private static String blankToNull(String value) {
         return isBlank(value) ? null : value.trim();
+    }
+
+    private static String detailFor(String code, String detail) {
+        if (AUTH_PROVIDER_CONFIGURATION_ERROR.equals(code)) {
+            return DEFAULT_DETAILS.get(code);
+        }
+
+        String sanitizedDetail = blankToNull(detail);
+
+        if (sanitizedDetail != null) {
+            return sanitizedDetail;
+        }
+
+        return DEFAULT_DETAILS.get(code);
     }
 
     private static boolean isBlank(String value) {

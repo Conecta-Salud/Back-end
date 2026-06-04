@@ -37,6 +37,10 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
     private static final String HOSPITAL_BEDS = "beds_per_1000";
     private static final String HEALTHCARE_ACCESS_DEFICIENCY = "healthcare_access_deficiency";
     private static final String TOTAL_POVERTY_POPULATION = "total_poverty_population";
+    private static final String HEALTH_ESTABLISHMENTS = "health_establishments";
+    private static final String TOTAL_DOCTORS = "total_doctors";
+    private static final String HOSPITAL_BEDS_TOTAL = "hospital_beds";
+    private static final String CONSULTING_ROOMS = "consulting_rooms";
 
     private final EntityManager em;
     private final TerritoryIndicatorQueryRepository indicatorRepository;
@@ -88,7 +92,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return new CountryMedicalCoverageMetrics(
                     period,
                     bigIntegerValue("country", null, null, year, TOTAL_POPULATION),
-                    sumDoctors(periodId, null, null),
+                    longValue("country", null, null, year, TOTAL_DOCTORS),
                     decimalValue("country", null, null, year, MEDICAL_COVERAGE),
                     countStateValuesBelow(MEDICAL_COVERAGE, year, BigDecimal.ONE),
                     averageValue(indicatorRepository.findStateValues(MEDICAL_COVERAGE, year))
@@ -138,7 +142,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                     territory,
                     period,
                     bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
-                    sumDoctors(periodId, stateId, null),
+                    longValue("state", stateId, null, year, TOTAL_DOCTORS),
                     decimalValue("state", stateId, null, year, MEDICAL_COVERAGE),
                     countMunicipalityValuesBelow(MEDICAL_COVERAGE, year, stateCode, BigDecimal.ONE),
                     averageValue(indicatorRepository.findMunicipalityValuesByState(MEDICAL_COVERAGE, year, stateCode))
@@ -191,9 +195,9 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                     territory,
                     period,
                     bigIntegerValue("municipality", null, municipalityId, year, TOTAL_POPULATION),
-                    sumDoctors(periodId, null, municipalityId),
+                    longValue("municipality", null, municipalityId, year, TOTAL_DOCTORS),
                     decimalValue("municipality", null, municipalityId, year, MEDICAL_COVERAGE),
-                    sumInfrastructure(periodId, null, municipalityId, "total_consultorios"),
+                    longValue("municipality", null, municipalityId, year, CONSULTING_ROOMS),
                     countHospitals(null, municipalityId)
             );
         }));
@@ -240,7 +244,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
         return period(periodId).map(period -> {
             Integer year = period.getPeriodYear();
             Long hospitals = countHospitals(null, null);
-            Long beds = sumInfrastructure(periodId, null, null, "total_camas_hospitalizacion");
+            Long beds = longValue("country", null, null, year, HOSPITAL_BEDS_TOTAL);
             return new CountryHospitalBedsMetrics(
                     period,
                     bigIntegerValue("country", null, null, year, TOTAL_POPULATION),
@@ -277,11 +281,11 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                     territory,
                     period,
                     bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
-                    sumInfrastructure(periodId, stateId, null, "total_camas_hospitalizacion"),
+                    longValue("state", stateId, null, year, HOSPITAL_BEDS_TOTAL),
                     decimalValue("state", stateId, null, year, HOSPITAL_BEDS),
                     countMunicipalityValuesBelow(HOSPITAL_BEDS, year, stateCode, BigDecimal.ONE),
                     countHospitals(stateId, null),
-                    sumInfrastructure(periodId, stateId, null, "total_consultorios")
+                    longValue("state", stateId, null, year, CONSULTING_ROOMS)
             );
         }));
     }
@@ -312,8 +316,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 territory,
                 period,
                 countHospitals(null, municipalityId),
-                sumInfrastructure(periodId, null, municipalityId, "total_consultorios"),
-                sumInfrastructure(periodId, null, municipalityId, "total_camas_hospitalizacion"),
+                longValue("municipality", null, municipalityId, period.getPeriodYear(), CONSULTING_ROOMS),
+                longValue("municipality", null, municipalityId, period.getPeriodYear(), HOSPITAL_BEDS_TOTAL),
                 predominantCareLevel(municipalityId)
         )));
     }
@@ -387,7 +391,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                     bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
                     countMunicipalityValuesAbove(HEALTHCARE_ACCESS_DEFICIENCY, year, territory.getCode(), BigDecimal.ZERO),
                     decimalValue("state", stateId, null, year, MEDICAL_COVERAGE),
-                    countHealthUnits(stateId, null)
+                    longValue("state", stateId, null, year, HEALTH_ESTABLISHMENTS)
             );
         }));
     }
@@ -420,8 +424,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                     territory,
                     period,
                     bigIntegerValue("municipality", null, municipalityId, year, TOTAL_POPULATION),
-                    sumDoctors(periodId, null, municipalityId),
-                    countHealthUnits(null, municipalityId),
+                    longValue("municipality", null, municipalityId, year, TOTAL_DOCTORS),
+                    longValue("municipality", null, municipalityId, year, HEALTH_ESTABLISHMENTS),
                     decimalValue("municipality", null, municipalityId, year, MEDICAL_COVERAGE)
             );
         }));
@@ -453,6 +457,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return List.of();
         }
 
+        boolean sortHigherIsBetter = higherIsBetter(indicatorCode, higherIsBetter);
         Map<String, TerritoryIndicatorValueDto> population = indicatorRepository.findStateValues(TOTAL_POPULATION, year)
                 .stream()
                 .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left));
@@ -461,19 +466,19 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                         .stream()
                         .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left))
                 : Map.of();
-        Map<String, Long> doctors = rankingNeedsDoctors(indicatorCode) ? stateDoctorTotals(periodId) : Map.of();
+        Map<String, Long> doctors = rankingNeedsDoctors(indicatorCode) ? indicatorLongTotalsByState(TOTAL_DOCTORS, year) : Map.of();
         Map<String, Long> hospitalBeds = rankingNeedsHospitalBeds(indicatorCode)
-                ? stateInfrastructureTotals(periodId, "total_camas_hospitalizacion")
+                ? indicatorLongTotalsByState(HOSPITAL_BEDS_TOTAL, year)
                 : Map.of();
         Map<String, Long> consultingRooms = rankingNeedsHospitalBeds(indicatorCode)
-                ? stateInfrastructureTotals(periodId, "total_consultorios")
+                ? indicatorLongTotalsByState(CONSULTING_ROOMS, year)
                 : Map.of();
 
         AtomicInteger rank = new AtomicInteger(1);
         return indicatorRepository.findStateValues(indicatorCode, year)
                 .stream()
                 .filter(value -> value.getValue() != null)
-                .sorted((a, b) -> compareValues(a.getValue(), b.getValue(), higherIsBetter))
+                .sorted((a, b) -> compareValues(a.getValue(), b.getValue(), sortHigherIsBetter))
                 .limit(normalizeLimit(limit))
                 .map(value -> rankingRow(
                         value,
@@ -483,7 +488,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                         consultingRooms.get(value.getTerritoryCode()),
                         coverage.get(value.getTerritoryCode()),
                         rank.getAndIncrement(),
-                        higherIsBetter
+                        sortHigherIsBetter
                 ))
                 .toList();
     }
@@ -506,6 +511,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return List.of();
         }
 
+        boolean sortHigherIsBetter = higherIsBetter(indicatorCode, higherIsBetter);
         Map<String, TerritoryIndicatorValueDto> population = indicatorRepository.findMunicipalityValuesByState(TOTAL_POPULATION, year, stateCode)
                 .stream()
                 .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left));
@@ -514,19 +520,19 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                         .stream()
                         .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left))
                 : Map.of();
-        Map<String, Long> doctors = rankingNeedsDoctors(indicatorCode) ? municipalityDoctorTotals(periodId, stateCode) : Map.of();
+        Map<String, Long> doctors = rankingNeedsDoctors(indicatorCode) ? indicatorLongTotalsByMunicipality(TOTAL_DOCTORS, year, stateCode) : Map.of();
         Map<String, Long> hospitalBeds = rankingNeedsHospitalBeds(indicatorCode)
-                ? municipalityInfrastructureTotals(periodId, stateCode, "total_camas_hospitalizacion")
+                ? indicatorLongTotalsByMunicipality(HOSPITAL_BEDS_TOTAL, year, stateCode)
                 : Map.of();
         Map<String, Long> consultingRooms = rankingNeedsHospitalBeds(indicatorCode)
-                ? municipalityInfrastructureTotals(periodId, stateCode, "total_consultorios")
+                ? indicatorLongTotalsByMunicipality(CONSULTING_ROOMS, year, stateCode)
                 : Map.of();
 
         AtomicInteger rank = new AtomicInteger(1);
         return indicatorRepository.findMunicipalityValuesByState(indicatorCode, year, stateCode)
                 .stream()
                 .filter(value -> value.getValue() != null)
-                .sorted((a, b) -> compareValues(a.getValue(), b.getValue(), higherIsBetter))
+                .sorted((a, b) -> compareValues(a.getValue(), b.getValue(), sortHigherIsBetter))
                 .limit(normalizeLimit(limit))
                 .map(value -> rankingRow(
                         value,
@@ -536,7 +542,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                         consultingRooms.get(value.getTerritoryCode()),
                         coverage.get(value.getTerritoryCode()),
                         rank.getAndIncrement(),
-                        higherIsBetter
+                        sortHigherIsBetter
                 ))
                 .toList();
     }
@@ -731,96 +737,6 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
         return HEALTHCARE_ACCESS_DEFICIENCY.equals(indicatorCode);
     }
 
-    private Map<String, Long> stateDoctorTotals(Integer periodId) {
-        return longTotalsByCode(em.createNativeQuery("""
-                SELECT
-                    s.inegi_code AS code,
-                    COALESCE(SUM(hus.total_doctors), 0) AS total
-                FROM states s
-                LEFT JOIN municipalities m ON m.state_id = s.id
-                LEFT JOIN health_units hu ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                GROUP BY s.inegi_code
-                """)
-                .setParameter("periodId", periodId)
-                .getResultList());
-    }
-
-    private Map<String, Long> municipalityDoctorTotals(Integer periodId, String stateCode) {
-        return longTotalsByCode(em.createNativeQuery("""
-                SELECT
-                    m.inegi_code AS code,
-                    COALESCE(SUM(hus.total_doctors), 0) AS total
-                FROM municipalities m
-                JOIN states s ON s.id = m.state_id
-                LEFT JOIN health_units hu ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                WHERE s.inegi_code = :stateCode
-                GROUP BY m.inegi_code
-                """)
-                .setParameter("periodId", periodId)
-                .setParameter("stateCode", stateCode)
-                .getResultList());
-    }
-
-    private Map<String, Long> stateInfrastructureTotals(Integer periodId, String infrastructureCode) {
-        return longTotalsByCode(em.createNativeQuery("""
-                SELECT
-                    s.inegi_code AS code,
-                    COALESCE(SUM(CASE WHEN it.code = :infrastructureCode THEN huid.quantity ELSE 0 END), 0) AS total
-                FROM states s
-                LEFT JOIN municipalities m ON m.state_id = s.id
-                LEFT JOIN health_units hu ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_infrastructure hui
-                    ON hui.health_unit_id = hu.id
-                   AND hui.period_id = :periodId
-                LEFT JOIN health_unit_infrastructure_details huid
-                    ON huid.health_unit_infrastructure_id = hui.id
-                LEFT JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
-                GROUP BY s.inegi_code
-                """)
-                .setParameter("periodId", periodId)
-                .setParameter("infrastructureCode", infrastructureCode)
-                .getResultList());
-    }
-
-    private Map<String, Long> municipalityInfrastructureTotals(Integer periodId, String stateCode, String infrastructureCode) {
-        return longTotalsByCode(em.createNativeQuery("""
-                SELECT
-                    m.inegi_code AS code,
-                    COALESCE(SUM(CASE WHEN it.code = :infrastructureCode THEN huid.quantity ELSE 0 END), 0) AS total
-                FROM municipalities m
-                JOIN states s ON s.id = m.state_id
-                LEFT JOIN health_units hu ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_infrastructure hui
-                    ON hui.health_unit_id = hu.id
-                   AND hui.period_id = :periodId
-                LEFT JOIN health_unit_infrastructure_details huid
-                    ON huid.health_unit_infrastructure_id = hui.id
-                LEFT JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
-                WHERE s.inegi_code = :stateCode
-                GROUP BY m.inegi_code
-                """)
-                .setParameter("periodId", periodId)
-                .setParameter("stateCode", stateCode)
-                .setParameter("infrastructureCode", infrastructureCode)
-                .getResultList());
-    }
-
-    private Map<String, Long> longTotalsByCode(List<?> rows) {
-        return rows.stream()
-                .map(row -> (Object[]) row)
-                .collect(Collectors.toMap(
-                        row -> toString(row[0]),
-                        row -> toLong(row[1]),
-                        (left, right) -> left
-                ));
-    }
-
     private DashboardChartDataPoint chartPoint(TerritoryIndicatorValueDto value, boolean higherIsBetter) {
         return new DashboardChartDataPoint(
                 value.getTerritoryName(),
@@ -943,6 +859,48 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 .orElse(null);
     }
 
+    private Long longValue(String level, Integer stateId, Integer municipalityId, Integer year, String indicatorCode) {
+        return indicatorRepository.findOne(level, stateId, municipalityId, year, indicatorCode)
+                .map(TerritoryIndicatorValueDto::getValue)
+                .map(BigDecimal::longValue)
+                .orElse(null);
+    }
+
+    private Map<String, Long> indicatorLongTotalsByState(String indicatorCode, Integer year) {
+        return indicatorRepository.findStateValues(indicatorCode, year)
+                .stream()
+                .filter(value -> value.getValue() != null)
+                .collect(Collectors.toMap(
+                        TerritoryIndicatorValueDto::getTerritoryCode,
+                        value -> value.getValue().longValue(),
+                        (left, right) -> left
+                ));
+    }
+
+    private Map<String, Long> indicatorLongTotalsByMunicipality(String indicatorCode, Integer year, String stateCode) {
+        return indicatorRepository.findMunicipalityValuesByState(indicatorCode, year, stateCode)
+                .stream()
+                .filter(value -> value.getValue() != null)
+                .collect(Collectors.toMap(
+                        TerritoryIndicatorValueDto::getTerritoryCode,
+                        value -> value.getValue().longValue(),
+                        (left, right) -> left
+                ));
+    }
+
+    private boolean higherIsBetter(String indicatorCode, boolean fallback) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT higher_is_better
+                FROM indicators
+                WHERE code = :indicatorCode
+                """)
+                .setParameter("indicatorCode", indicatorCode)
+                .setMaxResults(1)
+                .getResultList();
+
+        return rows.isEmpty() ? fallback : toBoolean(rows.get(0));
+    }
+
     private BigDecimal averageValue(List<TerritoryIndicatorValueDto> values) {
         List<BigDecimal> present = values.stream()
                 .map(TerritoryIndicatorValueDto::getValue)
@@ -993,17 +951,6 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 .count();
     }
 
-    private Long countHealthUnits(Integer stateId, Integer municipalityId) {
-        String sql = healthUnitFilter("""
-                SELECT COUNT(DISTINCT hu.id)
-                FROM health_units hu
-                JOIN municipalities m ON m.id = hu.municipality_id
-                WHERE 1 = 1
-                """, stateId, municipalityId);
-
-        return singleLong(sql, stateId, municipalityId);
-    }
-
     private Long countHospitals(Integer stateId, Integer municipalityId) {
         String sql = healthUnitFilter("""
                 SELECT COUNT(DISTINCT hu.id)
@@ -1018,37 +965,6 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 """, stateId, municipalityId);
 
         return singleLong(sql, stateId, municipalityId);
-    }
-
-    private Long sumDoctors(Integer periodId, Integer stateId, Integer municipalityId) {
-        String sql = healthUnitFilter("""
-                SELECT COALESCE(SUM(hus.total_doctors), 0)
-                FROM health_units hu
-                JOIN municipalities m ON m.id = hu.municipality_id
-                JOIN health_unit_staff hus ON hus.health_unit_id = hu.id
-                WHERE hus.period_id = :periodId
-                """, stateId, municipalityId);
-
-        return singleLong(sql, periodId, stateId, municipalityId);
-    }
-
-    private Long sumInfrastructure(Integer periodId, Integer stateId, Integer municipalityId, String infrastructureCode) {
-        String sql = healthUnitFilter("""
-                SELECT COALESCE(SUM(CASE WHEN it.code = :infrastructureCode THEN huid.quantity ELSE 0 END), 0)
-                FROM health_units hu
-                JOIN municipalities m ON m.id = hu.municipality_id
-                JOIN health_unit_infrastructure hui ON hui.health_unit_id = hu.id
-                JOIN health_unit_infrastructure_details huid ON huid.health_unit_infrastructure_id = hui.id
-                JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
-                WHERE hui.period_id = :periodId
-                """, stateId, municipalityId);
-
-        return toLong(em.createNativeQuery(sql)
-                .setParameter("periodId", periodId)
-                .setParameter("infrastructureCode", infrastructureCode)
-                .setParameter("stateId", stateId)
-                .setParameter("municipalityId", municipalityId)
-                .getSingleResult());
     }
 
     private List<DashboardChartDataPoint> infrastructureDistribution(Integer periodId, Integer stateId, Integer municipalityId) {
@@ -1106,14 +1022,6 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     private Long singleLong(String sql, Integer stateId, Integer municipalityId) {
         return toLong(em.createNativeQuery(sql)
-                .setParameter("stateId", stateId)
-                .setParameter("municipalityId", municipalityId)
-                .getSingleResult());
-    }
-
-    private Long singleLong(String sql, Integer periodId, Integer stateId, Integer municipalityId) {
-        return toLong(em.createNativeQuery(sql)
-                .setParameter("periodId", periodId)
                 .setParameter("stateId", stateId)
                 .setParameter("municipalityId", municipalityId)
                 .getSingleResult());
@@ -1253,5 +1161,18 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     private String toString(Object value) {
         return value == null ? null : value.toString();
+    }
+
+    private boolean toBoolean(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+        if (value instanceof Number number) {
+            return number.intValue() != 0;
+        }
+        return Boolean.parseBoolean(value.toString());
     }
 }

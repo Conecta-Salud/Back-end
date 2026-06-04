@@ -9,6 +9,7 @@ import com.itesm.application.security.AuthenticatedUserContext;
 import com.itesm.application.security.CurrentUser;
 import com.itesm.domain.models.user.User;
 import com.itesm.domain.repository.UserRepository;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.HttpMethod;
@@ -18,19 +19,25 @@ import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
-import io.quarkus.arc.profile.UnlessBuildProfile;
+import org.jboss.logging.Logger;
+
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 
 @Provider
 @Priority(Priorities.AUTHENTICATION)
 @UnlessBuildProfile("test")
 public class FirebaseAuthFilter implements ContainerRequestFilter {
+
+    private static final Logger LOG = Logger.getLogger(FirebaseAuthFilter.class);
+    private static final String AUTH_PROVIDER_CONFIGURATION_DETAIL =
+            "Revise la configuración del proveedor de autenticación en el servidor.";
+
     @Inject
     UserRepository userRepository;
     @Inject
     AuthenticatedUserContext authenticatedUserContext;
-
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
@@ -61,7 +68,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
             Optional<User> userOptional = userRepository.findByFirebaseUuid(decodedToken.getUid());
 
             if (userOptional.isEmpty()) {
-                System.out.println("No DB user found for firebase_uuid: " + decodedToken.getUid());
+                LOG.warnf("No database user found for firebase_uuid=%s", decodedToken.getUid());
                 abortUnauthorized(requestContext, "UNAUTHENTICATED", "User not registered in database");
                 return;
             }
@@ -87,7 +94,13 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
             authenticatedUserContext.setCurrentUser(currentUser);
 
         } catch (FirebaseAuthException e) {
-            System.out.println("Firebase token verification failed: " + e.getMessage());
+            if (isAuthProviderConfigurationError(e)) {
+                LOG.error("Firebase Admin authentication provider is not configured correctly.", e);
+                abortServiceUnavailable(requestContext);
+                return;
+            }
+
+            LOG.warn("Firebase token verification failed.");
             abortUnauthorized(requestContext, "INVALID_TOKEN", "Invalid Firebase token");
         }
     }
@@ -114,7 +127,40 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
         return normalized;
     }
 
+    private boolean isAuthProviderConfigurationError(FirebaseAuthException exception) {
+        String message = exception.getMessage();
+
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+
+        String normalized = message.toLowerCase(Locale.ROOT);
+
+        return normalized.contains("error getting access token for service account")
+                || normalized.contains("invalid_grant")
+                || normalized.contains("invalid jwt signature")
+                || normalized.contains("service account");
+    }
+
     private void abortUnauthorized(ContainerRequestContext requestContext, String code, String detail) {
+        abortWithStatus(requestContext, Response.Status.UNAUTHORIZED, code, detail);
+    }
+
+    private void abortServiceUnavailable(ContainerRequestContext requestContext) {
+        abortWithStatus(
+                requestContext,
+                Response.Status.SERVICE_UNAVAILABLE,
+                ApiErrorResponses.AUTH_PROVIDER_CONFIGURATION_ERROR,
+                AUTH_PROVIDER_CONFIGURATION_DETAIL
+        );
+    }
+
+    private void abortWithStatus(
+            ContainerRequestContext requestContext,
+            Response.Status status,
+            String code,
+            String detail
+    ) {
         ApiErrorResponse body = ApiErrorResponses.fromCode(
                 code,
                 detail,
@@ -122,7 +168,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
         );
 
         requestContext.abortWith(
-                Response.status(Response.Status.UNAUTHORIZED)
+                Response.status(status)
                         .type(MediaType.APPLICATION_JSON)
                         .entity(body)
                         .build()

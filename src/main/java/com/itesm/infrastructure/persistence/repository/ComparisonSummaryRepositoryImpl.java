@@ -50,10 +50,12 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     %s AS total_population,
                     %s AS percentage_over_60,
                     %s AS total_poverty_population,
-                    COALESCE(units.total_health_units, 0) AS total_health_units,
+                    %s AS total_health_units,
                     COALESCE(units.total_hospitals, 0) AS total_hospitals,
-                    COALESCE(staff.total_doctors, 0) AS total_doctors,
-                    COALESCE(infra.total_hospital_beds, 0) AS total_hospital_beds
+                    %s AS total_doctors,
+                    %s AS total_hospital_beds,
+                    %s AS doctors_per_1000,
+                    %s AS beds_per_1000
                 FROM states s
                 JOIN periods p ON p.id = :periodId
                 LEFT JOIN territory_indicator_values tiv
@@ -68,7 +70,6 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                 LEFT JOIN (
                     SELECT
                         m.state_id,
-                        COUNT(DISTINCT hu.id) AS total_health_units,
                         COUNT(DISTINCT CASE
                             WHEN et.name = 'DE HOSPITALIZACION'
                               OR UPPER(mut.name) LIKE '%%HOSPITAL%%'
@@ -81,34 +82,6 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
                     GROUP BY m.state_id
                 ) units ON units.state_id = s.id
-                LEFT JOIN (
-                    SELECT
-                        m.state_id,
-                        SUM(hus.total_doctors) AS total_doctors
-                    FROM municipalities m
-                    JOIN health_units hu ON hu.municipality_id = m.id
-                    JOIN health_unit_staff hus
-                        ON hus.health_unit_id = hu.id
-                       AND hus.period_id = :periodId
-                    GROUP BY m.state_id
-                ) staff ON staff.state_id = s.id
-                LEFT JOIN (
-                    SELECT
-                        m.state_id,
-                        SUM(CASE
-                            WHEN it.code = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END
-                        ) AS total_hospital_beds
-                    FROM municipalities m
-                    JOIN health_units hu ON hu.municipality_id = m.id
-                    JOIN health_unit_infrastructure hui
-                        ON hui.health_unit_id = hu.id
-                       AND hui.period_id = :periodId
-                    JOIN health_unit_infrastructure_details huid
-                        ON huid.health_unit_infrastructure_id = hui.id
-                    JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
-                    GROUP BY m.state_id
-                ) infra ON infra.state_id = s.id
                 WHERE s.inegi_code IN (:stateCodes)
                 GROUP BY
                     s.id,
@@ -116,14 +89,16 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     s.name,
                     p.id,
                     p.period_year,
-                    units.total_health_units,
-                    units.total_hospitals,
-                    staff.total_doctors,
-                    infra.total_hospital_beds
+                    units.total_hospitals
                 """.formatted(
                 indicatorValue("total_population"),
                 indicatorValue("percentage_over_60"),
-                indicatorValue("total_poverty_population")
+                indicatorValue("total_poverty_population"),
+                indicatorValue("health_establishments"),
+                indicatorValue("total_doctors"),
+                indicatorValue("hospital_beds"),
+                indicatorValue("doctors_per_1000"),
+                indicatorValue("beds_per_1000")
         );
 
         NativeQuery<?> query = em.createNativeQuery(sql).unwrap(NativeQuery.class);
@@ -156,10 +131,12 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     %s AS total_population,
                     %s AS percentage_over_60,
                     %s AS total_poverty_population,
-                    COALESCE(units.total_health_units, 0) AS total_health_units,
+                    %s AS total_health_units,
                     COALESCE(units.total_hospitals, 0) AS total_hospitals,
-                    COALESCE(staff.total_doctors, 0) AS total_doctors,
-                    COALESCE(infra.total_hospital_beds, 0) AS total_hospital_beds
+                    %s AS total_doctors,
+                    %s AS total_hospital_beds,
+                    %s AS doctors_per_1000,
+                    %s AS beds_per_1000
                 FROM municipalities m
                 JOIN states s ON s.id = m.state_id
                 JOIN periods p ON p.id = :periodId
@@ -175,7 +152,6 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                 LEFT JOIN (
                     SELECT
                         hu.municipality_id,
-                        COUNT(DISTINCT hu.id) AS total_health_units,
                         COUNT(DISTINCT CASE
                             WHEN et.name = 'DE HOSPITALIZACION'
                               OR UPPER(mut.name) LIKE '%%HOSPITAL%%'
@@ -187,32 +163,6 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
                     GROUP BY hu.municipality_id
                 ) units ON units.municipality_id = m.id
-                LEFT JOIN (
-                    SELECT
-                        hu.municipality_id,
-                        SUM(hus.total_doctors) AS total_doctors
-                    FROM health_units hu
-                    JOIN health_unit_staff hus
-                        ON hus.health_unit_id = hu.id
-                       AND hus.period_id = :periodId
-                    GROUP BY hu.municipality_id
-                ) staff ON staff.municipality_id = m.id
-                LEFT JOIN (
-                    SELECT
-                        hu.municipality_id,
-                        SUM(CASE
-                            WHEN it.code = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END
-                        ) AS total_hospital_beds
-                    FROM health_units hu
-                    JOIN health_unit_infrastructure hui
-                        ON hui.health_unit_id = hu.id
-                       AND hui.period_id = :periodId
-                    JOIN health_unit_infrastructure_details huid
-                        ON huid.health_unit_infrastructure_id = hui.id
-                    JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
-                    GROUP BY hu.municipality_id
-                ) infra ON infra.municipality_id = m.id
                 WHERE m.inegi_code IN (:municipalityCodes)
                 GROUP BY
                     m.id,
@@ -221,14 +171,16 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     s.name,
                     p.id,
                     p.period_year,
-                    units.total_health_units,
-                    units.total_hospitals,
-                    staff.total_doctors,
-                    infra.total_hospital_beds
+                    units.total_hospitals
                 """.formatted(
                 indicatorValue("total_population"),
                 indicatorValue("percentage_over_60"),
-                indicatorValue("total_poverty_population")
+                indicatorValue("total_poverty_population"),
+                indicatorValue("health_establishments"),
+                indicatorValue("total_doctors"),
+                indicatorValue("hospital_beds"),
+                indicatorValue("doctors_per_1000"),
+                indicatorValue("beds_per_1000")
         );
 
         NativeQuery<?> query = em.createNativeQuery(sql).unwrap(NativeQuery.class);
@@ -245,8 +197,8 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
     }
 
     private String indicatorValue(String indicatorCode) {
-        return "MAX(CASE WHEN i.code = '%s' AND da.is_available = 1 "
-                + "AND da.availability_status NOT IN ('not_available', 'not_applicable') "
+        return "MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
+                + "AND COALESCE(da.availability_status, tiv.availability_status) NOT IN ('not_available', 'not_applicable') "
                 + "THEN tiv.value END)".formatted(indicatorCode);
     }
 
@@ -271,10 +223,12 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                 toBigIntegerNullable(row[7]),
                 toBigDecimalNullable(row[8]),
                 toBigIntegerNullable(row[9]),
-                toLong(row[10]),
+                toLongNullable(row[10]),
                 toLong(row[11]),
-                toLong(row[12]),
-                toLong(row[13])
+                toLongNullable(row[12]),
+                toLongNullable(row[13]),
+                toBigDecimalNullable(row[14]),
+                toBigDecimalNullable(row[15])
         );
     }
 
@@ -291,6 +245,16 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
     private Long toLong(Object value) {
         if (value == null) {
             return 0L;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.valueOf(value.toString());
+    }
+
+    private Long toLongNullable(Object value) {
+        if (value == null) {
+            return null;
         }
         if (value instanceof Number number) {
             return number.longValue();

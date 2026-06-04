@@ -16,6 +16,8 @@ public class ComparisonRawItem {
     private Long totalHospitals;
     private Long totalDoctors;
     private Long totalHospitalBeds;
+    private BigDecimal doctorsPer1000;
+    private BigDecimal bedsPer1000;
 
     public ComparisonRawItem(
             ComparisonTerritory territory,
@@ -26,7 +28,9 @@ public class ComparisonRawItem {
             Long totalHealthUnits,
             Long totalHospitals,
             Long totalDoctors,
-            Long totalHospitalBeds
+            Long totalHospitalBeds,
+            BigDecimal doctorsPer1000,
+            BigDecimal bedsPer1000
     ) {
         this.territory = territory;
         this.period = period;
@@ -37,6 +41,8 @@ public class ComparisonRawItem {
         this.totalHospitals = totalHospitals;
         this.totalDoctors = totalDoctors;
         this.totalHospitalBeds = totalHospitalBeds;
+        this.doctorsPer1000 = doctorsPer1000;
+        this.bedsPer1000 = bedsPer1000;
     }
 
     public ComparisonTerritory getTerritory() {
@@ -109,5 +115,21 @@ public class ComparisonRawItem {
 
     public void setTotalHospitalBeds(Long totalHospitalBeds) {
         this.totalHospitalBeds = totalHospitalBeds;
+    }
+
+    public BigDecimal getDoctorsPer1000() {
+        return doctorsPer1000;
+    }
+
+    public void setDoctorsPer1000(BigDecimal doctorsPer1000) {
+        this.doctorsPer1000 = doctorsPer1000;
+    }
+
+    public BigDecimal getBedsPer1000() {
+        return bedsPer1000;
+    }
+
+    public void setBedsPer1000(BigDecimal bedsPer1000) {
+        this.bedsPer1000 = bedsPer1000;
     }
 }

@@ -75,43 +75,31 @@ public class CountryDashboardRepositoryImpl implements CountryDashboardRepositor
                     'country' AS territory_type,
                     p.id AS period_id,
                     p.period_year AS period_year,
-                    COALESCE(units.total_health_units, 0) AS total_health_units,
-                    COALESCE(staff.total_doctors, 0) AS total_doctors,
-                    COALESCE(staff.total_nurses, 0) AS total_nurses,
-                    COALESCE(infra.total_consulting_rooms, 0) AS total_consing_rooms,
-                    COALESCE(infra.total_hospital_beds, 0) AS total_hospital_beds
+                    %s AS total_health_units,
+                    %s AS total_doctors,
+                    %s AS total_nurses,
+                    %s AS total_consulting_rooms,
+                    %s AS total_hospital_beds
                 FROM periods p
-                LEFT JOIN (
-                    SELECT
-                        COUNT(DISTINCT hu.id) AS total_health_units
-                    FROM health_units hu
-                ) units ON 1 = 1
-                LEFT JOIN (
-                    SELECT
-                        SUM(hus.total_doctors) AS total_doctors,
-                        SUM(hus.total_nurses) AS total_nurses
-                    FROM health_unit_staff hus
-                    WHERE hus.period_id = :periodId
-                ) staff ON 1 = 1
-                LEFT JOIN (
-                    SELECT
-                        SUM(CASE
-                            WHEN it.code = 'total_consultorios'
-                            THEN huid.quantity ELSE 0 END
-                        ) AS total_consulting_rooms,
-                        SUM(CASE
-                            WHEN it.code = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END
-                        ) AS total_hospital_beds
-                    FROM health_unit_infrastructure hui
-                    JOIN health_unit_infrastructure_details huid
-                        ON huid.health_unit_infrastructure_id = hui.id
-                    JOIN infrastructure_types it
-                        ON it.id = huid.infrastructure_type_id
-                    WHERE hui.period_id = :periodId
-                ) infra ON 1 = 1
+                LEFT JOIN territory_indicator_values tiv
+                    ON tiv.territory_level = 'country'
+                   AND tiv.state_id IS NULL
+                   AND tiv.municipality_id IS NULL
+                   AND tiv.analysis_year = p.period_year
+                LEFT JOIN indicators i ON i.id = tiv.indicator_id
+                LEFT JOIN data_availability da
+                    ON da.indicator_id = i.id
+                   AND da.territory_level = tiv.territory_level
+                   AND da.analysis_year = tiv.analysis_year
                 WHERE p.id = :periodId
-                """)
+                GROUP BY p.id, p.period_year
+                """.formatted(
+                indicatorValue("health_establishments"),
+                indicatorValue("total_doctors"),
+                indicatorValue("total_nurses"),
+                indicatorValue("consulting_rooms"),
+                indicatorValue("hospital_beds")
+        ))
                 .setParameter("periodId", periodId)
                 .getResultList();
 
@@ -120,6 +108,12 @@ public class CountryDashboardRepositoryImpl implements CountryDashboardRepositor
         }
 
         return Optional.of(mapToHealthDashboard(result.get(0)));
+    }
+
+    private String indicatorValue(String indicatorCode) {
+        return "MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
+                + "AND COALESCE(da.availability_status, tiv.availability_status) NOT IN ('not_available', 'not_applicable') "
+                + "THEN tiv.value END)".formatted(indicatorCode);
     }
 
     private HealthDashboard mapToHealthDashboard(Object[] row) {
@@ -161,7 +155,7 @@ public class CountryDashboardRepositoryImpl implements CountryDashboardRepositor
 
     private Long toLong(Object value) {
         if (value == null) {
-            return 0L;
+            return null;
         }
         if (value instanceof Number number) {
             return number.longValue();

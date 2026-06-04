@@ -1,66 +1,131 @@
-# hello-world
+# ConectaSalud Back-end
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Back-end de ConectaSalud construido con Quarkus, Java, MySQL, Hibernate ORM y Flyway.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Setup local
 
-## Running the application in dev mode
+Orden recomendado para levantar un ambiente local limpio:
 
-You can run your application in dev mode that enables live coding using:
+1. Crear la base de datos con `conecta_salud.sql`.
+2. Ejecutar el seed minimo manual oficial, si esta disponible para el ambiente.
+3. Configurar `FIREBASE_SERVICE_ACCOUNT` apuntando a un JSON externo al repositorio.
+4. Configurar variables de base de datos y CORS.
+5. Levantar Quarkus.
+6. Cargar CSVs en este orden:
+   - poblacion;
+   - establecimientos;
+   - sectorial.
 
-```shell script
-./mvnw quarkus:dev
+Los periodos no se cargan por seed manual. Los procesadores CSV deben asegurarlos automaticamente mediante `PeriodCatalogWriter`.
+
+## Variables de entorno
+
+No se deben versionar secretos ni rutas personales. Configura el runtime con variables:
+
+```properties
+DB_URL=jdbc:mysql://...
+DB_USERNAME=...
+DB_PASSWORD=...
+CORS_ORIGINS=http://localhost:5173
+FIREBASE_SERVICE_ACCOUNT=/absolute/path/outside/repo/service-account.json
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+`FIREBASE_SERVICE_ACCOUNT` debe apuntar a un archivo fuera del repositorio.
 
-## Packaging and running the application
+## Ejecucion
 
-The application can be packaged using:
+Modo desarrollo:
 
-```shell script
-./mvnw package
+```shell
+mvnw.cmd quarkus:dev
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+Empaquetado:
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+```shell
+mvnw.cmd clean package
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+Validacion rapida sin tests:
 
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
+```shell
+mvnw.cmd clean package -DskipTests
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+## Seed minimo manual
 
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
+La carpeta `src/main/resources/db/seed/` documenta el alcance permitido del seed manual minimo.
 
-You can then execute your native executable with: `./target/hello-world-1.0.0-SNAPSHOT-runner`
+El seed minimo oficial debe ser Workbench friendly, idempotente y ejecutarse despues de `conecta_salud.sql`. Solo debe contener catalogos base:
 
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
+- `departments`
+- `users`
+- `data_sources`
+- `indicator_categories`
+- `indicators`
+- `specialties`
+- `infrastructure_types`
 
-## Related Guides
+No debe contener datos operativos, derivados o de carga:
 
-- REST ([guide](https://quarkus.io/guides/rest)): A Jakarta REST implementation utilizing build time processing and Vert.x. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it.
+- `periods`
+- `states`
+- `municipalities`
+- `institutions`
+- `establishment_types`
+- `medical_unit_types`
+- `health_units`
+- `territory_indicator_values`
+- `data_availability`
+- `indicator_availability_rules`
+- `upload_batches`
+- `data_uploads`
+- `data_upload_errors`
+- logs, exports o datos demo
 
-## Provided Code
+Actualmente no hay un seed SQL minimo oficial versionado en esta carpeta. No agregues seeds historicos o parciales que contradigan el flujo CSV actual.
 
-### REST
+## Flujo CSV actual
 
-Easily start your REST Web Services
+Los flujos reales de carga son:
 
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+| sourceType | fileRole |
+| --- | --- |
+| `population` | `population_municipal_base` |
+| `population` | `population_state_national_indicators` |
+| `health_establishments` | `establishments_catalog` |
+| `health_sectorial` | `sectorial_data` |
+
+Orden funcional recomendado:
+
+1. `population` con `population_municipal_base`.
+2. `population` con `population_state_national_indicators`.
+3. `health_establishments` con `establishments_catalog`.
+4. `health_sectorial` con `sectorial_data`.
+
+## Roles legacy
+
+Estos `fileRole` siguen existiendo en codigo por compatibilidad, pero no son recomendados para el nuevo flujo:
+
+- `population_indicators`
+- `population_total`
+- `percentage_over_60`
+- `healthcare_access_deficiency`
+- `total_poverty_population`
+
+No documentarlos como flujo principal ni usarlos para nuevas cargas salvo que se este atendiendo compatibilidad legacy.
+
+## Indicadores y disponibilidad
+
+La tabla central de indicadores es `territory_indicator_values`.
+
+La disponibilidad se expone y persiste con `data_availability`.
+
+Las tablas legacy `state_indicators` y `municipality_indicators` ya no forman parte del flujo actual. Si aparecen en documentacion antigua, esa documentacion debe actualizarse o archivarse. Si aparecen en codigo productivo, revisar antes de eliminar.
+
+## Seguridad
+
+- No versionar archivos JSON reales de Firebase.
+- No versionar `target/`.
+- No versionar `uploads/` ni archivos CSV cargados por usuarios.
+- Mantener secretos en variables de entorno o en gestores externos.
