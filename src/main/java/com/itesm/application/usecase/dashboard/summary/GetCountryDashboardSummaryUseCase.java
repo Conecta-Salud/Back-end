@@ -12,6 +12,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -89,7 +90,7 @@ public class GetCountryDashboardSummaryUseCase {
                 new DashboardKpi(
                         "total_population",
                         "Total population",
-                        new BigDecimal(metrics.getTotalPopulation()),
+                        toDecimalOrNull(metrics.getTotalPopulation()),
                         "people",
                         "default",
                         1
@@ -97,7 +98,7 @@ public class GetCountryDashboardSummaryUseCase {
                 new DashboardKpi(
                         "vulnerable_population",
                         "Vulnerable population",
-                        new BigDecimal(metrics.getVulnerablePopulation()),
+                        toDecimalOrNull(metrics.getVulnerablePopulation()),
                         "people",
                         "red",
                         2
@@ -105,15 +106,15 @@ public class GetCountryDashboardSummaryUseCase {
                 new DashboardKpi(
                         "priority_states",
                         "Priority states",
-                        BigDecimal.valueOf(metrics.getPriorityStates()),
+                        toDecimalOrNull(metrics.getPriorityStates()),
                         "count",
-                        metrics.getPriorityStates() > 0 ? "red" : "green",
+                        getVariantFromPositiveCount(metrics.getPriorityStates(), "red", "green"),
                         3
                 ),
                 new DashboardKpi(
                         "medical_coverage_index",
                         "Medical coverage index",
-                        metrics.getMedicalCoverageIndex(),
+                        toDecimalOrNull(metrics.getMedicalCoverageIndex()),
                         "doctors_per_1000",
                         getVariantFromMedicalCoverage(metrics.getMedicalCoverageIndex()),
                         4
@@ -202,15 +203,15 @@ public class GetCountryDashboardSummaryUseCase {
                 new DashboardKpi(
                         "states_with_hospital_deficit",
                         "States with hospital deficit",
-                        BigDecimal.valueOf(metrics.getStatesWithHospitalDeficit()),
+                        toDecimalOrNull(metrics.getStatesWithHospitalDeficit()),
                         "count",
-                        metrics.getStatesWithHospitalDeficit() > 0 ? "yellow" : "green",
+                        getVariantFromPositiveCount(metrics.getStatesWithHospitalDeficit(), "yellow", "green"),
                         2
                 ),
                 new DashboardKpi(
                         "total_hospitals",
                         "Total hospitals",
-                        BigDecimal.valueOf(metrics.getTotalHospitals()),
+                        toDecimalOrNull(metrics.getTotalHospitals()),
                         "count",
                         "default",
                         3
@@ -327,15 +328,15 @@ public class GetCountryDashboardSummaryUseCase {
                 new DashboardKpi(
                         "critical_states",
                         "Critical states",
-                        BigDecimal.valueOf(metrics.getCriticalStates()),
+                        toDecimalOrNull(metrics.getCriticalStates()),
                         "count",
-                        metrics.getCriticalStates() > 0 ? "red" : "green",
+                        getVariantFromPositiveCount(metrics.getCriticalStates(), "red", "green"),
                         2
                 ),
                 new DashboardKpi(
                         "total_doctors",
                         "Total doctors",
-                        BigDecimal.valueOf(metrics.getTotalDoctors()),
+                        toDecimalOrNull(metrics.getTotalDoctors()),
                         "count",
                         "default",
                         3
@@ -406,6 +407,26 @@ public class GetCountryDashboardSummaryUseCase {
         }
 
         return "red";
+    }
+
+    private BigDecimal toDecimalOrNull(Long value) {
+        return value == null ? null : BigDecimal.valueOf(value);
+    }
+
+    private BigDecimal toDecimalOrNull(BigInteger value) {
+        return value == null ? null : new BigDecimal(value);
+    }
+
+    private BigDecimal toDecimalOrNull(BigDecimal value) {
+        return value;
+    }
+
+    private String getVariantFromPositiveCount(Long value, String positiveVariant, String zeroVariant) {
+        if (value == null) {
+            return "neutral";
+        }
+
+        return value > 0 ? positiveVariant : zeroVariant;
     }
 
     private DashboardSummaryDto toDto(DashboardSummary summary) {
