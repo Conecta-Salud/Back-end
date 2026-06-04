@@ -62,10 +62,19 @@ public class CsvSchemaRegistry {
                 "territory_level", "inegi_code", "territory_name", "value"
         ));
         requiredHeaders.put(CsvFileRole.establishments_catalog, List.of(
-                "clues", "institution_name", "state_code", "state_name", "municipality_code",
-                "municipality_name", "unit_name", "establishment_type", "medical_unit_type",
-                "care_level", "operation_status", "locality_name", "address", "latitude", "longitude"
+                "clues",
+                "nombre de la institucion",
+                "clave de la entidad",
+                "entidad",
+                "clave del municipio",
+                "municipio",
+                "nombre tipo establecimiento",
+                "nombre de tipologia",
+                "nombre de la unidad",
+                "estatus de operacion",
+                "nivel atencion"
         ));
+        partialHeaderRoles.add(CsvFileRole.establishments_catalog);
         requiredHeaders.put(CsvFileRole.sectorial_data, List.of(
                 "clues", "state_code", "state_name", "municipality_code", "municipality_name",
                 "total_doctors", "total_nurses", "total_camas_hospitalizacion", "total_consultorios"
@@ -93,9 +102,7 @@ public class CsvSchemaRegistry {
 
         for (String requiredHeader : required) {
             String normalizedRequired = normalize(requiredHeader);
-            boolean present = usesPartialHeaderMatch(fileRole)
-                    ? normalizedPresent.stream().anyMatch(header -> header.contains(normalizedRequired))
-                    : normalizedPresent.contains(normalizedRequired);
+            boolean present = hasHeader(fileRole, normalizedPresent, normalizedRequired);
 
             if (!present) {
                 missing.add(requiredHeader);
@@ -112,11 +119,28 @@ public class CsvSchemaRegistry {
             return StandardCharsets.UTF_16LE;
         }
 
+        if (fileRole == CsvFileRole.establishments_catalog) {
+            return Charset.forName("windows-1252");
+        }
+
         return StandardCharsets.UTF_8;
     }
 
     public boolean usesPartialHeaderMatch(CsvFileRole fileRole) {
         return partialHeaderRoles.contains(fileRole);
+    }
+
+    private boolean hasHeader(CsvFileRole fileRole, List<String> normalizedPresent, String normalizedRequired) {
+        if (!usesPartialHeaderMatch(fileRole)) {
+            return normalizedPresent.contains(normalizedRequired);
+        }
+
+        if (fileRole == CsvFileRole.establishments_catalog
+                && ("entidad".equals(normalizedRequired) || "municipio".equals(normalizedRequired))) {
+            return normalizedPresent.contains(normalizedRequired);
+        }
+
+        return normalizedPresent.stream().anyMatch(header -> header.contains(normalizedRequired));
     }
 
     private String normalize(String value) {
