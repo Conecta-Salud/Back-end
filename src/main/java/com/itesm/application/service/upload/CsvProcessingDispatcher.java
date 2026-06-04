@@ -112,6 +112,8 @@ public class CsvProcessingDispatcher {
                 + " catalog values created/updated, "
                 + result.territorialIndicatorsUpserted()
                 + " territorial indicators upserted, "
+                + result.warningRecords()
+                + " warnings, "
                 + result.errorRecords()
                 + " errors."
         );
@@ -126,8 +128,12 @@ public class CsvProcessingDispatcher {
     }
 
     private UploadStatus statusFor(HealthEstablishmentProcessingResult result) {
-        if (result.errorRecords() == 0) {
+        if (result.errorRecords() == 0 && result.warningRecords() == 0) {
             return UploadStatus.completed;
+        }
+
+        if (result.errorRecords() == 0) {
+            return UploadStatus.warning;
         }
 
         return result.healthUnitsUpserted() > 0 ? UploadStatus.warning : UploadStatus.error;

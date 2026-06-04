@@ -117,7 +117,7 @@ public class HealthEstablishmentsCsvProcessor {
             healthUnitWriter.markInactiveBySourceYear(sourceYear);
         }
 
-        HealthEstablishmentProcessingResult result = new HealthEstablishmentProcessingResult(0, 0, 0, 0, 0, 0, 0);
+        HealthEstablishmentProcessingResult result = new HealthEstablishmentProcessingResult(0, 0, 0, 0, 0, 0, 0, 0);
 
         for (DataUploadEntity upload : establishmentUploads) {
             result = result.add(processUpload(batch, upload, writeFinalData));
@@ -133,7 +133,7 @@ public class HealthEstablishmentsCsvProcessor {
             );
 
             dataAvailabilityWriter.upsert(buildAvailability(catalog.indicator(), sourceYear));
-            result = result.add(new HealthEstablishmentProcessingResult(0, 0, 0, 0, 0, indicatorRows, 0));
+            result = result.add(new HealthEstablishmentProcessingResult(0, 0, 0, 0, 0, indicatorRows, 0, 0));
         }
 
         uploadBatchRepository.recalculateCounters(batch.getId());
@@ -154,6 +154,7 @@ public class HealthEstablishmentsCsvProcessor {
         int skippedRows = 0;
         int validRecords = 0;
         int errorRecords = 0;
+        int warningRecords = 0;
         int healthUnitsUpserted = 0;
         int catalogValuesChanged = 0;
 
@@ -164,7 +165,7 @@ public class HealthEstablishmentsCsvProcessor {
                 UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "CSV file is empty or has no header row");
                 dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
                 updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, "CSV processing found 1 error(s)");
-                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, 1);
+                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, 1, 0);
             }
 
             HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns =
@@ -177,12 +178,12 @@ public class HealthEstablishmentsCsvProcessor {
                         .toList();
                 dataUploadErrorRepository.appendErrors(upload.getId(), errors);
                 updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
-                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, errors.size());
+                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, errors.size(), 0);
             }
 
             String line;
             int csvRowNumber = 1;
-            while ((line = reader.readLine()) != null) {
+            while ((line = readCsvRecord(reader)) != null) {
                 csvRowNumber++;
 
                 if (line.isBlank()) {
@@ -196,12 +197,18 @@ public class HealthEstablishmentsCsvProcessor {
                     continue;
                 }
 
-                dataRows++;
                 HealthEstablishmentCsvRow row = csvAdapter.toRow(csvRowNumber, values, columns);
+                if (isSkippableRow(row)) {
+                    skippedRows++;
+                    continue;
+                }
+
+                dataRows++;
                 RowProcessingResult rowResult = processRow(batch, row, context, writeFinalData);
                 chunk.errors().addAll(rowResult.errors());
                 rowResult.healthUnitOptional().ifPresent(chunk.healthUnits()::add);
-                errorRecords += rowResult.errors().size();
+                errorRecords += countBlockingIssues(rowResult.errors());
+                warningRecords += countWarningIssues(rowResult.errors());
                 catalogValuesChanged += rowResult.catalogValuesChanged();
 
                 if (rowResult.validRecord()) {
@@ -217,14 +224,15 @@ public class HealthEstablishmentsCsvProcessor {
             healthUnitsUpserted += flushChunk(upload.getId(), chunk, writeFinalData);
 
             int persistedUnits = writeFinalData ? healthUnitsUpserted : 0;
-            UploadStatus status = statusFor(errorRecords, persistedUnits);
+            int issueRecords = errorRecords + warningRecords;
+            UploadStatus status = statusFor(errorRecords, warningRecords, persistedUnits);
             updateUpload(
                     upload.getId(),
                     status,
                     dataRows,
                     validRecords,
-                    errorRecords,
-                    errorRecords == 0 ? null : "CSV processing found " + errorRecords + " error(s)"
+                    issueRecords,
+                    issueRecords == 0 ? null : processingSummary(errorRecords, warningRecords)
             );
 
             return new HealthEstablishmentProcessingResult(
@@ -234,12 +242,13 @@ public class HealthEstablishmentsCsvProcessor {
                     persistedUnits,
                     writeFinalData ? catalogValuesChanged : 0,
                     0,
-                    errorRecords
+                    errorRecords,
+                    warningRecords
             );
         } catch (IOException e) {
             UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "Could not read stored CSV file");
             dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "Could not read stored CSV file");
+            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + warningRecords + 1, "Could not read stored CSV file");
 
             return new HealthEstablishmentProcessingResult(
                     1,
@@ -248,7 +257,8 @@ public class HealthEstablishmentsCsvProcessor {
                     writeFinalData ? healthUnitsUpserted : 0,
                     writeFinalData ? catalogValuesChanged : 0,
                     0,
-                    errorRecords + 1
+                    errorRecords + 1,
+                    warningRecords
             );
         }
     }
@@ -480,13 +490,27 @@ public class HealthEstablishmentsCsvProcessor {
     }
 
     private boolean hasBlockingErrors(List<UploadErrorDraft> errors) {
-        return errors.stream().anyMatch(error ->
-                "REQUIRED_FIELD_MISSING".equals(error.getErrorCode())
-                        || "INVALID_STATE_CODE".equals(error.getErrorCode())
-                        || "INVALID_MUNICIPALITY_CODE".equals(error.getErrorCode())
-                        || "DUPLICATED_CLUES_IN_FILE".equals(error.getErrorCode())
-                        || "INVALID_ROW_FORMAT".equals(error.getErrorCode())
-        );
+        return errors.stream().anyMatch(this::isBlockingIssue);
+    }
+
+    private int countBlockingIssues(List<UploadErrorDraft> errors) {
+        return (int) errors.stream()
+                .filter(this::isBlockingIssue)
+                .count();
+    }
+
+    private int countWarningIssues(List<UploadErrorDraft> errors) {
+        return (int) errors.stream()
+                .filter(error -> !isBlockingIssue(error))
+                .count();
+    }
+
+    private boolean isBlockingIssue(UploadErrorDraft error) {
+        return "REQUIRED_FIELD_MISSING".equals(error.getErrorCode())
+                || "INVALID_STATE_CODE".equals(error.getErrorCode())
+                || "INVALID_MUNICIPALITY_CODE".equals(error.getErrorCode())
+                || "DUPLICATED_CLUES_IN_FILE".equals(error.getErrorCode())
+                || "INVALID_ROW_FORMAT".equals(error.getErrorCode());
     }
 
     private ProcessingCatalog loadCatalog(UploadBatchEntity batch) {
@@ -565,9 +589,97 @@ public class HealthEstablishmentsCsvProcessor {
         return new UploadErrorDraft(csvRowNumber, columnName, rawValue, errorCode, errorMessage);
     }
 
-    private UploadStatus statusFor(int errorRecords, int healthUnitsUpserted) {
+    private String readCsvRecord(BufferedReader reader) throws IOException {
+        String firstLine = reader.readLine();
+        if (firstLine == null) {
+            return null;
+        }
+
+        StringBuilder record = new StringBuilder(firstLine);
+        while (hasOpenQuotes(record)) {
+            String continuation = reader.readLine();
+            if (continuation == null) {
+                break;
+            }
+
+            record.append('\n').append(continuation);
+        }
+
+        return record.toString();
+    }
+
+    private boolean hasOpenQuotes(CharSequence value) {
+        boolean inQuotes = false;
+
+        for (int i = 0; i < value.length(); i++) {
+            if (value.charAt(i) != '"') {
+                continue;
+            }
+
+            if (inQuotes && i + 1 < value.length() && value.charAt(i + 1) == '"') {
+                i++;
+                continue;
+            }
+
+            inQuotes = !inQuotes;
+        }
+
+        return inQuotes;
+    }
+
+    private boolean isSkippableRow(HealthEstablishmentCsvRow row) {
+        if (row.isBlank()) {
+            return true;
+        }
+
+        return isBlank(row.getCluesRaw())
+                && !hasAnyText(
+                row.getInstitutionNameRaw(),
+                row.getStateCodeRaw(),
+                row.getStateNameRaw(),
+                row.getMunicipalityCodeRaw(),
+                row.getMunicipalityNameRaw(),
+                row.getEstablishmentTypeRaw(),
+                row.getMedicalUnitTypeRaw(),
+                row.getUnitNameRaw(),
+                row.getOperationStatusRaw(),
+                row.getCareLevelRaw()
+        );
+    }
+
+    private boolean hasAnyText(String... values) {
+        for (String value : values) {
+            if (!isBlank(value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private String processingSummary(int errorRecords, int warningRecords) {
         if (errorRecords == 0) {
+            return "CSV processing found " + warningRecords + " warning(s)";
+        }
+
+        if (warningRecords == 0) {
+            return "CSV processing found " + errorRecords + " error(s)";
+        }
+
+        return "CSV processing found " + errorRecords + " error(s) and " + warningRecords + " warning(s)";
+    }
+
+    private UploadStatus statusFor(int errorRecords, int warningRecords, int healthUnitsUpserted) {
+        if (errorRecords == 0 && warningRecords == 0) {
             return UploadStatus.completed;
+        }
+
+        if (errorRecords == 0) {
+            return UploadStatus.warning;
         }
 
         return healthUnitsUpserted > 0 ? UploadStatus.warning : UploadStatus.error;

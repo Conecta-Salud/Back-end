@@ -67,4 +67,25 @@ public class HealthEstablishmentCsvRow {
     public String getCareLevelRaw() { return careLevelRaw; }
     public String getLatitudeRaw() { return latitudeRaw; }
     public String getLongitudeRaw() { return longitudeRaw; }
+
+    public boolean isBlank() {
+        return isBlank(cluesRaw)
+                && isBlank(institutionNameRaw)
+                && isBlank(stateCodeRaw)
+                && isBlank(stateNameRaw)
+                && isBlank(municipalityCodeRaw)
+                && isBlank(municipalityNameRaw)
+                && isBlank(localityNameRaw)
+                && isBlank(establishmentTypeRaw)
+                && isBlank(medicalUnitTypeRaw)
+                && isBlank(unitNameRaw)
+                && isBlank(operationStatusRaw)
+                && isBlank(careLevelRaw)
+                && isBlank(latitudeRaw)
+                && isBlank(longitudeRaw);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
 }
