@@ -8,7 +8,8 @@ public record HealthEstablishmentProcessingResult(
         int catalogValuesChanged,
         int territorialIndicatorsUpserted,
         int errorRecords,
-        int warningRecords
+        int warningRecords,
+        int coordinateWarnings
 ) {
     public HealthEstablishmentProcessingResult add(HealthEstablishmentProcessingResult other) {
         return new HealthEstablishmentProcessingResult(
@@ -19,7 +20,8 @@ public record HealthEstablishmentProcessingResult(
                 catalogValuesChanged + other.catalogValuesChanged(),
                 territorialIndicatorsUpserted + other.territorialIndicatorsUpserted(),
                 errorRecords + other.errorRecords(),
-                warningRecords + other.warningRecords()
+                warningRecords + other.warningRecords(),
+                coordinateWarnings + other.coordinateWarnings()
         );
     }
 }

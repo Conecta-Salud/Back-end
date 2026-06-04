@@ -16,6 +16,11 @@ import java.util.List;
 @ApplicationScoped
 public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository {
 
+    private static final List<String> NON_BLOCKING_ERROR_CODES = List.of(
+            "INVALID_COORDINATE",
+            "INVALID_CARE_LEVEL"
+    );
+
     private final EntityManager em;
 
     public DataUploadErrorRepositoryImpl(EntityManager em) {
@@ -139,6 +144,19 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
                         WHERE e.dataUpload.id = :uploadId
                         """, Long.class)
                 .setParameter("uploadId", uploadId)
+                .getSingleResult();
+    }
+
+    @Override
+    public long countBlockingByUploadId(Integer uploadId) {
+        return em.createQuery("""
+                        SELECT COUNT(e)
+                        FROM DataUploadErrorEntity e
+                        WHERE e.dataUpload.id = :uploadId
+                          AND e.errorCode NOT IN (:nonBlockingErrorCodes)
+                        """, Long.class)
+                .setParameter("uploadId", uploadId)
+                .setParameter("nonBlockingErrorCodes", NON_BLOCKING_ERROR_CODES)
                 .getSingleResult();
     }
 

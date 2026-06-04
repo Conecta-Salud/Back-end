@@ -117,7 +117,7 @@ public class HealthEstablishmentsCsvProcessor {
             healthUnitWriter.markInactiveBySourceYear(sourceYear);
         }
 
-        HealthEstablishmentProcessingResult result = new HealthEstablishmentProcessingResult(0, 0, 0, 0, 0, 0, 0, 0);
+        HealthEstablishmentProcessingResult result = new HealthEstablishmentProcessingResult(0, 0, 0, 0, 0, 0, 0, 0, 0);
 
         for (DataUploadEntity upload : establishmentUploads) {
             result = result.add(processUpload(batch, upload, writeFinalData));
@@ -133,7 +133,7 @@ public class HealthEstablishmentsCsvProcessor {
             );
 
             dataAvailabilityWriter.upsert(buildAvailability(catalog.indicator(), sourceYear));
-            result = result.add(new HealthEstablishmentProcessingResult(0, 0, 0, 0, 0, indicatorRows, 0, 0));
+            result = result.add(new HealthEstablishmentProcessingResult(0, 0, 0, 0, 0, indicatorRows, 0, 0, 0));
         }
 
         uploadBatchRepository.recalculateCounters(batch.getId());
@@ -155,6 +155,7 @@ public class HealthEstablishmentsCsvProcessor {
         int validRecords = 0;
         int errorRecords = 0;
         int warningRecords = 0;
+        int coordinateWarnings = 0;
         int healthUnitsUpserted = 0;
         int catalogValuesChanged = 0;
 
@@ -165,7 +166,7 @@ public class HealthEstablishmentsCsvProcessor {
                 UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "CSV file is empty or has no header row");
                 dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
                 updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, "CSV processing found 1 error(s)");
-                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, 1, 0);
+                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, 1, 0, 0);
             }
 
             HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns =
@@ -178,7 +179,7 @@ public class HealthEstablishmentsCsvProcessor {
                         .toList();
                 dataUploadErrorRepository.appendErrors(upload.getId(), errors);
                 updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
-                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, errors.size(), 0);
+                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, errors.size(), 0, 0);
             }
 
             String line;
@@ -209,6 +210,7 @@ public class HealthEstablishmentsCsvProcessor {
                 rowResult.healthUnitOptional().ifPresent(chunk.healthUnits()::add);
                 errorRecords += countBlockingIssues(rowResult.errors());
                 warningRecords += countWarningIssues(rowResult.errors());
+                coordinateWarnings += countCoordinateWarnings(rowResult.errors());
                 catalogValuesChanged += rowResult.catalogValuesChanged();
 
                 if (rowResult.validRecord()) {
@@ -224,15 +226,15 @@ public class HealthEstablishmentsCsvProcessor {
             healthUnitsUpserted += flushChunk(upload.getId(), chunk, writeFinalData);
 
             int persistedUnits = writeFinalData ? healthUnitsUpserted : 0;
-            int issueRecords = errorRecords + warningRecords;
+            int countedIssueRecords = errorRecords + warningRecords;
             UploadStatus status = statusFor(errorRecords, warningRecords, persistedUnits);
             updateUpload(
                     upload.getId(),
                     status,
                     dataRows,
                     validRecords,
-                    issueRecords,
-                    issueRecords == 0 ? null : processingSummary(errorRecords, warningRecords)
+                    countedIssueRecords,
+                    countedIssueRecords == 0 ? null : processingSummary(errorRecords, warningRecords)
             );
 
             return new HealthEstablishmentProcessingResult(
@@ -243,7 +245,8 @@ public class HealthEstablishmentsCsvProcessor {
                     writeFinalData ? catalogValuesChanged : 0,
                     0,
                     errorRecords,
-                    warningRecords
+                    warningRecords,
+                    coordinateWarnings
             );
         } catch (IOException e) {
             UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "Could not read stored CSV file");
@@ -258,7 +261,8 @@ public class HealthEstablishmentsCsvProcessor {
                     writeFinalData ? catalogValuesChanged : 0,
                     0,
                     errorRecords + 1,
-                    warningRecords
+                    warningRecords,
+                    coordinateWarnings
             );
         }
     }
@@ -283,6 +287,10 @@ public class HealthEstablishmentsCsvProcessor {
         CareLevel careLevel = normalizeCareLevel(row, errors);
         BigDecimal latitude = parseCoordinate(row, "LATITUD", row.getLatitudeRaw(), BigDecimal.valueOf(-90), BigDecimal.valueOf(90), errors);
         BigDecimal longitude = parseCoordinate(row, "LONGITUD", row.getLongitudeRaw(), BigDecimal.valueOf(-180), BigDecimal.valueOf(180), errors);
+        if (hasCoordinateWarning(errors)) {
+            latitude = null;
+            longitude = null;
+        }
 
         if (clues != null && !context.seenClues().add(clues)) {
             errors.add(error(
@@ -502,6 +510,13 @@ public class HealthEstablishmentsCsvProcessor {
     private int countWarningIssues(List<UploadErrorDraft> errors) {
         return (int) errors.stream()
                 .filter(error -> !isBlockingIssue(error))
+                .filter(error -> !isCoordinateWarning(error))
+                .count();
+    }
+
+    private int countCoordinateWarnings(List<UploadErrorDraft> errors) {
+        return (int) errors.stream()
+                .filter(this::isCoordinateWarning)
                 .count();
     }
 
@@ -511,6 +526,14 @@ public class HealthEstablishmentsCsvProcessor {
                 || "INVALID_MUNICIPALITY_CODE".equals(error.getErrorCode())
                 || "DUPLICATED_CLUES_IN_FILE".equals(error.getErrorCode())
                 || "INVALID_ROW_FORMAT".equals(error.getErrorCode());
+    }
+
+    private boolean hasCoordinateWarning(List<UploadErrorDraft> errors) {
+        return errors.stream().anyMatch(this::isCoordinateWarning);
+    }
+
+    private boolean isCoordinateWarning(UploadErrorDraft error) {
+        return "INVALID_COORDINATE".equals(error.getErrorCode());
     }
 
     private ProcessingCatalog loadCatalog(UploadBatchEntity batch) {

@@ -112,8 +112,10 @@ public class CsvProcessingDispatcher {
                 + " catalog values created/updated, "
                 + result.territorialIndicatorsUpserted()
                 + " territorial indicators upserted, "
+                + result.coordinateWarnings()
+                + " coordinate warnings, "
                 + result.warningRecords()
-                + " warnings, "
+                + " non-blocking warnings, "
                 + result.errorRecords()
                 + " errors."
         );

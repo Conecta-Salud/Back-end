@@ -21,5 +21,7 @@ public interface DataUploadErrorRepository {
 
     long countByUploadId(Integer uploadId);
 
+    long countBlockingByUploadId(Integer uploadId);
+
     long countByBatchId(Integer batchId);
 }

@@ -173,7 +173,7 @@ public class UploadBatchService {
         batch = uploadBatchRepository.findById(batchId)
                 .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: Upload batch not found"));
         boolean hasRegisteredErrors = uploads.stream()
-                .anyMatch(upload -> dataUploadErrorRepository.countByUploadId(upload.getId()) > 0);
+                .anyMatch(upload -> dataUploadErrorRepository.countBlockingByUploadId(upload.getId()) > 0);
 
         if (failOnErrors && (hasRegisteredErrors || safeInteger(batch.getErrorRecords()) > 0)) {
             throw new BadRequestException("BATCH_HAS_ERRORS: batchId=" + batchId + " has validation errors");
