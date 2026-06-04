@@ -124,7 +124,7 @@ public class CsvSchemaRegistry {
         }
 
         if (fileRole == CsvFileRole.establishments_catalog) {
-            return List.of(StandardCharsets.UTF_8, Charset.forName("windows-1252"));
+            return List.of(StandardCharsets.UTF_8);
         }
 
         return List.of(StandardCharsets.UTF_8);

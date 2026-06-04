@@ -33,7 +33,6 @@ import jakarta.ws.rs.NotFoundException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,7 +51,6 @@ public class HealthEstablishmentsCsvProcessor {
     private static final int CHUNK_SIZE = 500;
     private static final String INDICATOR_CODE = "health_establishments";
     private static final String METHODOLOGY_NOTE = "Conteo de establecimientos de salud registrados en el catalogo DGIS.";
-    private static final List<Charset> SOURCE_CHARSETS = List.of(StandardCharsets.UTF_8, Charset.forName("windows-1252"));
 
     private final CsvStorageService csvStorageService;
     private final DataUploadRepository dataUploadRepository;
@@ -159,7 +157,7 @@ public class HealthEstablishmentsCsvProcessor {
         int healthUnitsUpserted = 0;
         int catalogValuesChanged = 0;
 
-        try (BufferedReader reader = Files.newBufferedReader(path, detectSourceCharset(path))) {
+        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             String headerLine = reader.readLine();
 
             if (headerLine == null || headerLine.isBlank()) {
@@ -269,7 +267,7 @@ public class HealthEstablishmentsCsvProcessor {
         String establishmentTypeName = required(row, "NOMBRE TIPO ESTABLECIMIENTO", row.getEstablishmentTypeRaw(), errors);
         String medicalUnitTypeName = required(row, "NOMBRE DE TIPOLOGIA", row.getMedicalUnitTypeRaw(), errors);
         String unitName = required(row, "NOMBRE DE LA UNIDAD", row.getUnitNameRaw(), errors);
-        String operationStatus = required(row, "ESTATUS DE OPERACION", row.getOperationStatusRaw(), errors);
+        String operationStatus = optionalText(row.getOperationStatusRaw());
         String stateCode = normalizeStateCode(row, errors);
         String municipalityCode = normalizeMunicipalityCode(row, stateCode, errors);
         CareLevel careLevel = normalizeCareLevel(row, errors);
@@ -496,7 +494,7 @@ public class HealthEstablishmentsCsvProcessor {
         IndicatorMetadata indicator = indicators.get(INDICATOR_CODE);
 
         if (indicator == null) {
-            throw new NotFoundException("UNKNOWN_INDICATOR: Missing indicator " + INDICATOR_CODE);
+            throw new NotFoundException("UNKNOWN_INDICATOR: Missing required indicator: " + INDICATOR_CODE);
         }
 
         if (batch.getDataSource() == null || batch.getDataSource().getId() == null) {
@@ -565,40 +563,6 @@ public class HealthEstablishmentsCsvProcessor {
             String errorMessage
     ) {
         return new UploadErrorDraft(csvRowNumber, columnName, rawValue, errorCode, errorMessage);
-    }
-
-    private Charset detectSourceCharset(Path path) {
-        Charset bestCharset = SOURCE_CHARSETS.get(0);
-        int bestMissingHeaderCount = Integer.MAX_VALUE;
-
-        for (Charset charset : SOURCE_CHARSETS) {
-            try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
-                String headerLine = reader.readLine();
-                if (headerLine == null || headerLine.isBlank()) {
-                    return charset;
-                }
-
-                HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns =
-                        csvAdapter.detectColumns(csvAdapter.parseCsvLine(headerLine));
-                int missingHeaderCount = csvAdapter.missingHeaders(columns).size();
-                while (reader.readLine() != null) {
-                    // Drain the reader to verify the selected charset can decode the whole file.
-                }
-
-                if (missingHeaderCount == 0) {
-                    return charset;
-                }
-
-                if (missingHeaderCount < bestMissingHeaderCount) {
-                    bestCharset = charset;
-                    bestMissingHeaderCount = missingHeaderCount;
-                }
-            } catch (IOException ignored) {
-                // Try the next configured charset. The caller will handle read failures for the chosen charset.
-            }
-        }
-
-        return bestCharset;
     }
 
     private UploadStatus statusFor(int errorRecords, int healthUnitsUpserted) {
