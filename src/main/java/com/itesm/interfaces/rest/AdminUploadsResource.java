@@ -3,6 +3,9 @@ package com.itesm.interfaces.rest;
 import com.itesm.application.dto.admin.uploads.*;
 import com.itesm.application.dto.common.PageResponseDto;
 import com.itesm.application.security.AuthenticatedUserContext;
+import com.itesm.application.service.activity.ActivityActions;
+import com.itesm.application.service.activity.ActivityLoggerService;
+import com.itesm.application.service.activity.ActivityModules;
 import com.itesm.application.service.upload.UploadBatchService;
 import com.itesm.domain.models.user.UserRole;
 import jakarta.ws.rs.*;
@@ -15,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Path("/api/v1/admin/uploads")
 @Produces(MediaType.APPLICATION_JSON)
@@ -22,13 +26,16 @@ public class AdminUploadsResource {
 
     private final UploadBatchService uploadBatchService;
     private final AuthenticatedUserContext authenticatedUserContext;
+    private final ActivityLoggerService activityLoggerService;
 
     public AdminUploadsResource(
             UploadBatchService uploadBatchService,
-            AuthenticatedUserContext authenticatedUserContext
+            AuthenticatedUserContext authenticatedUserContext,
+            ActivityLoggerService activityLoggerService
     ) {
         this.uploadBatchService = uploadBatchService;
         this.authenticatedUserContext = authenticatedUserContext;
+        this.activityLoggerService = activityLoggerService;
     }
 
     @POST
@@ -40,6 +47,14 @@ public class AdminUploadsResource {
         UploadBatchResponse response = uploadBatchService.createBatch(
                 request,
                 authenticatedUserContext.getCurrentUser().getUserId()
+        );
+
+        logUploadSuccess(
+                ActivityActions.UPLOAD_BATCH_CREATED,
+                "Lote de carga " + response.getId()
+                        + " creado para " + response.getSourceType()
+                        + ", año " + response.getSourceYear()
+                        + ", versión " + response.getBatchVersion()
         );
 
         return Response.status(Response.Status.CREATED)
@@ -70,6 +85,13 @@ public class AdminUploadsResource {
                     stream
             );
 
+            logUploadSuccess(
+                    ActivityActions.UPLOAD_FILE_UPLOADED,
+                    "Archivo " + response.getFile().getOriginalFileName()
+                            + " subido al lote " + batchId
+                            + " con rol " + response.getFile().getFileRole()
+            );
+
             return Response.status(Response.Status.CREATED)
                     .entity(response)
                     .build();
@@ -83,7 +105,21 @@ public class AdminUploadsResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public ValidateUploadResponse validateUpload(@PathParam("uploadId") Integer uploadId) {
         assertAdmin();
-        return uploadBatchService.validateUpload(uploadId);
+
+        ValidateUploadResponse response = uploadBatchService.validateUpload(uploadId);
+
+        String detail = "Archivo de carga " + uploadId
+                + " validado: total=" + response.getTotalRecords()
+                + ", válidos=" + response.getValidRecords()
+                + ", errores=" + response.getErrorRecords();
+
+        if (response.getErrorRecords() != null && response.getErrorRecords() > 0) {
+            logUploadWarning(ActivityActions.UPLOAD_FILE_VALIDATED, detail);
+        } else {
+            logUploadSuccess(ActivityActions.UPLOAD_FILE_VALIDATED, detail);
+        }
+
+        return response;
     }
 
     @POST
@@ -94,7 +130,20 @@ public class AdminUploadsResource {
             ProcessUploadBatchRequest request
     ) {
         assertAdmin();
-        return uploadBatchService.processBatch(batchId, request);
+
+        ProcessUploadBatchResponse response = uploadBatchService.processBatch(batchId, request);
+
+        String detail = safeDetail(response.getMessage());
+
+        if ("error".equalsIgnoreCase(response.getStatus())) {
+            logUploadError(ActivityActions.UPLOAD_BATCH_FAILED, detail);
+        } else if ("warning".equalsIgnoreCase(response.getStatus())) {
+            logUploadWarning(ActivityActions.UPLOAD_BATCH_PROCESSED, detail);
+        } else {
+            logUploadSuccess(ActivityActions.UPLOAD_BATCH_PROCESSED, detail);
+        }
+
+        return response;
     }
 
     @GET
@@ -200,5 +249,44 @@ public class AdminUploadsResource {
         }
 
         throw new BadRequestException("REQUIRED_FIELD_MISSING: file name is required");
+    }
+
+    private UUID currentUserId() {
+        return authenticatedUserContext.getCurrentUser().getUserId();
+    }
+
+    private void logUploadSuccess(String action, String detail) {
+        activityLoggerService.logSuccess(
+                currentUserId(),
+                action,
+                ActivityModules.DATA_UPLOADS,
+                detail
+        );
+    }
+
+    private void logUploadWarning(String action, String detail) {
+        activityLoggerService.logWarning(
+                currentUserId(),
+                action,
+                ActivityModules.DATA_UPLOADS,
+                detail
+        );
+    }
+
+    private void logUploadError(String action, String detail) {
+        activityLoggerService.logError(
+                currentUserId(),
+                action,
+                ActivityModules.DATA_UPLOADS,
+                detail
+        );
+    }
+
+    private String safeDetail(String detail) {
+        if (detail == null || detail.isBlank()) {
+            return null;
+        }
+
+        return detail.length() > 900 ? detail.substring(0, 900) + "..." : detail;
     }
 }
