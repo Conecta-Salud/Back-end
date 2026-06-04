@@ -21,17 +21,26 @@ public class PeriodCatalogWriter {
 
     @Transactional
     public Integer ensurePeriod(short year) {
+        return ensurePeriod(year, DESCRIPTION);
+    }
+
+    @Transactional
+    public Integer ensurePeriod(short year, String description) {
         Optional<Integer> existing = findPeriodId(year);
         if (existing.isPresent()) {
             return existing.get();
         }
+
+        String effectiveDescription = description == null || description.isBlank()
+                ? DESCRIPTION
+                : description.trim();
 
         em.createNativeQuery("""
                         INSERT INTO periods (period_year, status, description)
                         VALUES (:periodYear, 'published', :description)
                         """)
                 .setParameter("periodYear", year)
-                .setParameter("description", DESCRIPTION)
+                .setParameter("description", effectiveDescription)
                 .executeUpdate();
 
         return findPeriodId(year)

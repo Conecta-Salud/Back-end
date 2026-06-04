@@ -22,6 +22,7 @@ import com.itesm.infrastructure.persistence.repository.HealthUnitWriter;
 import com.itesm.infrastructure.persistence.repository.HealthUnitWriter.HealthUnitWriteDraft;
 import com.itesm.infrastructure.persistence.repository.InstitutionCatalogWriter;
 import com.itesm.infrastructure.persistence.repository.MedicalUnitTypeCatalogWriter;
+import com.itesm.infrastructure.persistence.repository.PeriodCatalogWriter;
 import com.itesm.infrastructure.persistence.repository.TerritoryCatalogWriter;
 import com.itesm.infrastructure.persistence.repository.TerritoryCatalogWriter.MunicipalityCatalogResult;
 import com.itesm.infrastructure.persistence.repository.TerritoryIndicatorValueWriter;
@@ -51,6 +52,7 @@ public class HealthEstablishmentsCsvProcessor {
     private static final int CHUNK_SIZE = 500;
     private static final String INDICATOR_CODE = "health_establishments";
     private static final String METHODOLOGY_NOTE = "Conteo de establecimientos de salud registrados en el catalogo DGIS.";
+    private static final String PERIOD_DESCRIPTION = "Datos oficiales cargados desde catalogo de establecimientos DGIS.";
 
     private final CsvStorageService csvStorageService;
     private final DataUploadRepository dataUploadRepository;
@@ -65,6 +67,7 @@ public class HealthEstablishmentsCsvProcessor {
     private final HealthEstablishmentsIndicatorWriter healthEstablishmentsIndicatorWriter;
     private final TerritoryIndicatorValueWriter territoryIndicatorValueWriter;
     private final DataAvailabilityWriter dataAvailabilityWriter;
+    private final PeriodCatalogWriter periodCatalogWriter;
 
     public HealthEstablishmentsCsvProcessor(
             CsvStorageService csvStorageService,
@@ -79,7 +82,8 @@ public class HealthEstablishmentsCsvProcessor {
             HealthUnitWriter healthUnitWriter,
             HealthEstablishmentsIndicatorWriter healthEstablishmentsIndicatorWriter,
             TerritoryIndicatorValueWriter territoryIndicatorValueWriter,
-            DataAvailabilityWriter dataAvailabilityWriter
+            DataAvailabilityWriter dataAvailabilityWriter,
+            PeriodCatalogWriter periodCatalogWriter
     ) {
         this.csvStorageService = csvStorageService;
         this.dataUploadRepository = dataUploadRepository;
@@ -94,6 +98,7 @@ public class HealthEstablishmentsCsvProcessor {
         this.healthEstablishmentsIndicatorWriter = healthEstablishmentsIndicatorWriter;
         this.territoryIndicatorValueWriter = territoryIndicatorValueWriter;
         this.dataAvailabilityWriter = dataAvailabilityWriter;
+        this.periodCatalogWriter = periodCatalogWriter;
     }
 
     public HealthEstablishmentProcessingResult process(
@@ -112,6 +117,14 @@ public class HealthEstablishmentsCsvProcessor {
 
         boolean writeFinalData = mode != UploadProcessingMode.validate_only;
         Short sourceYear = batch.getSourceYear();
+
+        if (sourceYear == null) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: sourceYear is required");
+        }
+
+        if (writeFinalData) {
+            periodCatalogWriter.ensurePeriod(sourceYear, PERIOD_DESCRIPTION);
+        }
 
         if (writeFinalData && (mode == UploadProcessingMode.replace || replaceExistingForYear)) {
             healthUnitWriter.markInactiveBySourceYear(sourceYear);

@@ -15,6 +15,7 @@ import com.itesm.domain.repository.UploadBatchRepository;
 import com.itesm.infrastructure.persistence.entity.DataUploadEntity;
 import com.itesm.infrastructure.persistence.entity.UploadBatchEntity;
 import com.itesm.infrastructure.persistence.repository.DataAvailabilityWriter;
+import com.itesm.infrastructure.persistence.repository.PeriodCatalogWriter;
 import com.itesm.infrastructure.persistence.repository.TerritoryCatalogWriter;
 import com.itesm.infrastructure.persistence.repository.TerritoryCatalogWriter.MunicipalityCatalogResult;
 import com.itesm.infrastructure.persistence.repository.TerritoryIndicatorValueWriter;
@@ -46,6 +47,7 @@ public class PopulationIndicatorsCsvProcessor {
     private static final BigDecimal THOUSANDS_MULTIPLIER = new BigDecimal("1000");
     private static final String BASE_POPULATION_NOTE = "Dato poblacional base 2020 utilizado como referencia para el año de análisis.";
     private static final String MUNICIPAL_UNAVAILABLE_NOTE = "Indicador no disponible a nivel municipal en la fuente oficial.";
+    private static final String PERIOD_DESCRIPTION = "Datos oficiales cargados desde fuente poblacional.";
     private static final List<Short> TARGET_ANALYSIS_YEARS = List.of((short) 2018, (short) 2020, (short) 2022, (short) 2024);
     private static final Set<String> INDICATOR_CODES = Set.of(
             "total_population",
@@ -67,6 +69,7 @@ public class PopulationIndicatorsCsvProcessor {
     private final TerritoryIndicatorValueWriter territoryIndicatorValueWriter;
     private final DataAvailabilityWriter dataAvailabilityWriter;
     private final TerritoryCatalogWriter territoryCatalogWriter;
+    private final PeriodCatalogWriter periodCatalogWriter;
 
     public PopulationIndicatorsCsvProcessor(
             CsvStorageService csvStorageService,
@@ -76,7 +79,8 @@ public class PopulationIndicatorsCsvProcessor {
             PopulationIndicatorsCsvAdapter csvAdapter,
             TerritoryIndicatorValueWriter territoryIndicatorValueWriter,
             DataAvailabilityWriter dataAvailabilityWriter,
-            TerritoryCatalogWriter territoryCatalogWriter
+            TerritoryCatalogWriter territoryCatalogWriter,
+            PeriodCatalogWriter periodCatalogWriter
     ) {
         this.csvStorageService = csvStorageService;
         this.dataUploadRepository = dataUploadRepository;
@@ -86,6 +90,7 @@ public class PopulationIndicatorsCsvProcessor {
         this.territoryIndicatorValueWriter = territoryIndicatorValueWriter;
         this.dataAvailabilityWriter = dataAvailabilityWriter;
         this.territoryCatalogWriter = territoryCatalogWriter;
+        this.periodCatalogWriter = periodCatalogWriter;
     }
 
     public PopulationProcessingResult process(
@@ -104,6 +109,10 @@ public class PopulationIndicatorsCsvProcessor {
 
         ProcessingCatalog catalog = loadCatalog(batch);
         boolean writeFinalData = mode != UploadProcessingMode.validate_only;
+
+        if (writeFinalData) {
+            ensurePeriods();
+        }
 
         if (writeFinalData && (mode == UploadProcessingMode.replace || replaceExistingForYear)) {
             territoryIndicatorValueWriter.deleteExistingPopulationValues(
@@ -125,6 +134,12 @@ public class PopulationIndicatorsCsvProcessor {
 
         uploadBatchRepository.recalculateCounters(batch.getId());
         return result;
+    }
+
+    private void ensurePeriods() {
+        for (Short year : TARGET_ANALYSIS_YEARS) {
+            periodCatalogWriter.ensurePeriod(year, PERIOD_DESCRIPTION);
+        }
     }
 
     private PopulationProcessingResult processUpload(

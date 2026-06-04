@@ -56,7 +56,12 @@ public class HealthSectorialIndicatorWriter {
         return new SectorialIndicatorWriteResult(availableLevels.rowCount(), availableLevels.levelsByIndicatorCode());
     }
 
-    private void deleteExistingValues(Short analysisYear, Integer dataSourceId, Set<Integer> indicatorIds) {
+    @Transactional
+    public void deleteExistingValues(Short analysisYear, Integer dataSourceId, Set<Integer> indicatorIds) {
+        if (analysisYear == null || dataSourceId == null || indicatorIds == null || indicatorIds.isEmpty()) {
+            return;
+        }
+
         em.createNativeQuery("""
                         DELETE FROM territory_indicator_values
                         WHERE analysis_year = :analysisYear

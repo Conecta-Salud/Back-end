@@ -6,6 +6,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @ApplicationScoped
 public class DataAvailabilityWriter {
@@ -70,5 +71,21 @@ public class DataAvailabilityWriter {
 
             query.executeUpdate();
         }
+    }
+
+    @Transactional
+    public void deleteByIndicatorIdsAndAnalysisYear(Set<Integer> indicatorIds, Short analysisYear) {
+        if (indicatorIds == null || indicatorIds.isEmpty() || analysisYear == null) {
+            return;
+        }
+
+        em.createNativeQuery("""
+                        DELETE FROM data_availability
+                        WHERE indicator_id IN (:indicatorIds)
+                          AND analysis_year = :analysisYear
+                        """)
+                .setParameter("indicatorIds", indicatorIds)
+                .setParameter("analysisYear", analysisYear)
+                .executeUpdate();
     }
 }

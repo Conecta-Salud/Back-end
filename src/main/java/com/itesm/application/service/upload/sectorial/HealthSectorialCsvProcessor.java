@@ -75,6 +75,7 @@ public class HealthSectorialCsvProcessor {
             "total_consultorios",
             "total_camas_hospitalizacion"
     );
+    private static final String PERIOD_DESCRIPTION = "Datos oficiales cargados desde fuente sectorial DGIS.";
     private static final String RATE_NOT_AVAILABLE_NOTE = "No se pudo calcular la tasa porque falta poblacion para el territorio/anio.";
 
     private final CsvStorageService csvStorageService;
@@ -156,13 +157,15 @@ public class HealthSectorialCsvProcessor {
         }
 
         boolean writeFinalData = mode != UploadProcessingMode.validate_only;
-        Integer periodId = writeFinalData ? periodCatalogWriter.ensurePeriod(sourceYear) : null;
+        Integer periodId = writeFinalData ? periodCatalogWriter.ensurePeriod(sourceYear, PERIOD_DESCRIPTION) : null;
         ProcessingCatalog catalog = loadCatalog();
         ProcessingContext context = new ProcessingContext();
 
         if (writeFinalData && (mode == UploadProcessingMode.replace || replaceExistingForYear)) {
             healthUnitStaffWriter.deleteByPeriodAndDataSource(periodId, batch.getDataSource().getId());
             healthUnitInfrastructureWriter.deleteByPeriodAndDataSource(periodId, batch.getDataSource().getId());
+            healthSectorialIndicatorWriter.deleteExistingValues(sourceYear, batch.getDataSource().getId(), catalog.sectorialIndicatorIds());
+            dataAvailabilityWriter.deleteByIndicatorIdsAndAnalysisYear(catalog.sectorialIndicatorIds(), sourceYear);
         }
 
         HealthSectorialProcessingResult result = new HealthSectorialProcessingResult(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -682,6 +685,16 @@ public class HealthSectorialCsvProcessor {
             Map<String, Integer> specialtyIdsByCode,
             Map<String, Integer> infrastructureTypeIdsByCode
     ) {
+        Set<Integer> sectorialIndicatorIds() {
+            return Set.of(
+                    indicatorIdsByCode.get("total_doctors"),
+                    indicatorIdsByCode.get("total_nurses"),
+                    indicatorIdsByCode.get("hospital_beds"),
+                    indicatorIdsByCode.get("consulting_rooms"),
+                    indicatorIdsByCode.get("doctors_per_1000"),
+                    indicatorIdsByCode.get("beds_per_1000")
+            );
+        }
     }
 
     private record ProcessingContext(
