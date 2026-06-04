@@ -30,5 +30,3 @@ No debe sembrar datos operativos, territoriales o derivados. En particular, no d
 - logs, exports o datos demo
 
 Los periodos, estados, municipios, unidades de salud, disponibilidad e indicadores territoriales se derivan de los procesadores CSV actuales. Los periodos son asegurados automaticamente por `PeriodCatalogWriter`.
-
-Actualmente no hay un seed SQL minimo oficial versionado en esta carpeta. No agregues seeds manuales parciales o historicos; si se incorpora uno, debe cumplir el alcance anterior y quedar como el unico SQL recomendado.

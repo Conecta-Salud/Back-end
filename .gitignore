@@ -13,6 +13,11 @@ release.properties
 
 # Runtime/generated files
 uploads/
+*.log
+*.tmp
+*.csv
+*.jar
+*.war
 
 # JSON credentials and generated JSON files
 *.json
