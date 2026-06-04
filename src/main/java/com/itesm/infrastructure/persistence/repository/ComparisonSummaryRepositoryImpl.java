@@ -61,15 +61,6 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     %s AS beds_per_1000
                 FROM states s
                 JOIN periods p ON p.id = :periodId
-                LEFT JOIN territory_indicator_values tiv
-                    ON tiv.state_id = s.id
-                   AND tiv.territory_level = 'state'
-                   AND tiv.analysis_year = p.period_year
-                LEFT JOIN indicators i ON i.id = tiv.indicator_id
-                LEFT JOIN data_availability da
-                    ON da.indicator_id = i.id
-                   AND da.territory_level = tiv.territory_level
-                   AND da.analysis_year = tiv.analysis_year
                 LEFT JOIN (
                     SELECT
                         m.state_id,
@@ -86,22 +77,15 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     GROUP BY m.state_id
                 ) units ON units.state_id = s.id
                 WHERE s.inegi_code IN (:stateCodes)
-                GROUP BY
-                    s.id,
-                    s.inegi_code,
-                    s.name,
-                    p.id,
-                    p.period_year,
-                    units.total_hospitals
                 """.formatted(
-                indicatorValue("total_population"),
-                indicatorValue("percentage_over_60"),
-                indicatorValue("total_poverty_population"),
-                indicatorValue("health_establishments"),
-                indicatorValue("total_doctors"),
-                indicatorValue("hospital_beds"),
-                indicatorValue("doctors_per_1000"),
-                indicatorValue("beds_per_1000")
+                stateIndicatorValue("total_population"),
+                stateIndicatorValue("percentage_over_60"),
+                stateIndicatorValue("total_poverty_population"),
+                stateIndicatorValue("health_establishments"),
+                stateIndicatorValue("total_doctors"),
+                stateIndicatorValue("hospital_beds"),
+                stateIndicatorValue("doctors_per_1000"),
+                stateIndicatorValue("beds_per_1000")
         );
 
         NativeQuery<?> query = em.createNativeQuery(sql).unwrap(NativeQuery.class);
@@ -143,15 +127,6 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                 FROM municipalities m
                 JOIN states s ON s.id = m.state_id
                 JOIN periods p ON p.id = :periodId
-                LEFT JOIN territory_indicator_values tiv
-                    ON tiv.municipality_id = m.id
-                   AND tiv.territory_level = 'municipality'
-                   AND tiv.analysis_year = p.period_year
-                LEFT JOIN indicators i ON i.id = tiv.indicator_id
-                LEFT JOIN data_availability da
-                    ON da.indicator_id = i.id
-                   AND da.territory_level = tiv.territory_level
-                   AND da.analysis_year = tiv.analysis_year
                 LEFT JOIN (
                     SELECT
                         hu.municipality_id,
@@ -167,23 +142,15 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     GROUP BY hu.municipality_id
                 ) units ON units.municipality_id = m.id
                 WHERE m.inegi_code IN (:municipalityCodes)
-                GROUP BY
-                    m.id,
-                    m.inegi_code,
-                    m.name,
-                    s.name,
-                    p.id,
-                    p.period_year,
-                    units.total_hospitals
                 """.formatted(
-                indicatorValue("total_population"),
-                indicatorValue("percentage_over_60"),
-                indicatorValue("total_poverty_population"),
-                indicatorValue("health_establishments"),
-                indicatorValue("total_doctors"),
-                indicatorValue("hospital_beds"),
-                indicatorValue("doctors_per_1000"),
-                indicatorValue("beds_per_1000")
+                municipalityIndicatorValue("total_population"),
+                municipalityIndicatorValue("percentage_over_60"),
+                municipalityIndicatorValue("total_poverty_population"),
+                municipalityIndicatorValue("health_establishments"),
+                municipalityIndicatorValue("total_doctors"),
+                municipalityIndicatorValue("hospital_beds"),
+                municipalityIndicatorValue("doctors_per_1000"),
+                municipalityIndicatorValue("beds_per_1000")
         );
 
         NativeQuery<?> query = em.createNativeQuery(sql).unwrap(NativeQuery.class);
@@ -199,12 +166,36 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                 .toList();
     }
 
-    private String indicatorValue(String indicatorCode) {
-        // Devuelve null cuando el indicador no existe o no esta disponible; asi la
-        // capa de aplicacion puede responder value=null sin convertirlo en error.
-        return "MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
-                + "AND COALESCE(da.availability_status, tiv.availability_status) NOT IN ('not_available', 'not_applicable') "
-                + "THEN tiv.value END)".formatted(indicatorCode);
+    private String stateIndicatorValue(String indicatorCode) {
+        return """
+            (
+                SELECT tiv.value
+                FROM territory_indicator_values tiv
+                JOIN indicators ind ON ind.id = tiv.indicator_id
+                WHERE ind.code = '%s'
+                  AND tiv.territory_level = 'state'
+                  AND tiv.state_id = s.id
+                  AND tiv.analysis_year = p.period_year
+                  AND tiv.availability_status NOT IN ('not_available', 'not_applicable')
+                LIMIT 1
+            )
+            """.formatted(indicatorCode);
+    }
+
+    private String municipalityIndicatorValue(String indicatorCode) {
+        return """
+            (
+                SELECT tiv.value
+                FROM territory_indicator_values tiv
+                JOIN indicators ind ON ind.id = tiv.indicator_id
+                WHERE ind.code = '%s'
+                  AND tiv.territory_level = 'municipality'
+                  AND tiv.municipality_id = m.id
+                  AND tiv.analysis_year = p.period_year
+                  AND tiv.availability_status NOT IN ('not_available', 'not_applicable')
+                LIMIT 1
+            )
+            """.formatted(indicatorCode);
     }
 
     private int indexOfCode(List<String> requestedCodes, String code) {
