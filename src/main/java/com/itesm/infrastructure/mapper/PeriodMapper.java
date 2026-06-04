@@ -14,7 +14,7 @@ public class PeriodMapper {
 
         return new Period(
                 entity.getId(),
-                entity.getPeriodYear(),
+                entity.getPeriodYear() == null ? null : entity.getPeriodYear().intValue(),
                 entity.getStatus()
         );
     }

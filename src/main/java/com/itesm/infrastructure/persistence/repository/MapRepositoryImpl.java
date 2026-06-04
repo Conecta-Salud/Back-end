@@ -1,217 +1,105 @@
 package com.itesm.infrastructure.persistence.repository;
 
-import com.itesm.domain.models.map.MapIndicatorType;
+import com.itesm.domain.models.indicator.TerritoryIndicatorValueDto;
 import com.itesm.domain.models.map.MapIndicator;
+import com.itesm.domain.models.map.MapIndicatorType;
 import com.itesm.domain.repository.MapRepository;
+import com.itesm.domain.repository.TerritoryIndicatorQueryRepository;
+import com.itesm.domain.service.DataAvailabilityService;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class MapRepositoryImpl implements MapRepository {
 
-    @Inject
-    EntityManager em;
+    private final EntityManager em;
+    private final TerritoryIndicatorQueryRepository territoryIndicatorQueryRepository;
+    private final DataAvailabilityService dataAvailabilityService;
+
+    public MapRepositoryImpl(
+            EntityManager em,
+            TerritoryIndicatorQueryRepository territoryIndicatorQueryRepository,
+            DataAvailabilityService dataAvailabilityService
+    ) {
+        this.em = em;
+        this.territoryIndicatorQueryRepository = territoryIndicatorQueryRepository;
+        this.dataAvailabilityService = dataAvailabilityService;
+    }
 
     @Override
     public boolean existsPeriodByYear(Integer year) {
-        Long count = em.createQuery(
-                        "SELECT COUNT(p) FROM PeriodEntity p WHERE p.periodYear = :year",
-                        Long.class
-                )
+        Number count = (Number) em.createNativeQuery("""
+                        SELECT COUNT(*)
+                        FROM periods
+                        WHERE period_year = :year
+                        """)
                 .setParameter("year", year)
                 .getSingleResult();
 
-        return count > 0;
+        return count.longValue() > 0;
     }
 
     @Override
     public boolean existsStateByCode(String stateCode) {
-        Long count = em.createQuery(
-                        "SELECT COUNT(s) FROM StateEntity s WHERE s.inegiCode = :stateCode",
-                        Long.class
-                )
+        Number count = (Number) em.createNativeQuery("""
+                        SELECT COUNT(*)
+                        FROM states
+                        WHERE inegi_code = :stateCode
+                        """)
                 .setParameter("stateCode", stateCode)
                 .getSingleResult();
 
-        return count > 0;
+        return count.longValue() > 0;
     }
 
     @Override
     public List<MapIndicator> findStateIndicators(MapIndicatorType indicatorType, Integer year) {
-        String sql = switch (indicatorType) {
-            case MEDICAL_COVERAGE -> sqlStateMedicalCoverage();
-            case HOSPITAL_BEDS -> sqlStateHospitalBeds();
-            case HEALTHCARE_ACCESS_DEFICIENCY -> sqlStateHealthcareAccessDeficiency();
-        };
+        String indicatorCode = indicatorType.getIndicatorCode();
 
-        List<Object[]> rows = em.createNativeQuery(sql)
-                .setParameter("year", year)
-                .getResultList();
+        if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, "state", year)) {
+            return List.of();
+        }
 
-        return rows.stream()
-                .map(row -> mapRow(row, indicatorType))
-                .collect(Collectors.toList());
+        return territoryIndicatorQueryRepository.findStateValues(indicatorCode, year)
+                .stream()
+                .map(value -> mapIndicator(value, indicatorType))
+                .toList();
     }
 
     @Override
-    public List<MapIndicator> findMunicipalityIndicators(String stateCode, MapIndicatorType indicatorType, Integer year) {
-        String sql = switch (indicatorType) {
-            case MEDICAL_COVERAGE -> sqlMunicipalityMedicalCoverage();
-            case HOSPITAL_BEDS -> sqlMunicipalityHospitalBeds();
-            case HEALTHCARE_ACCESS_DEFICIENCY -> sqlMunicipalityHealthcareAccessDeficiency();
-        };
+    public List<MapIndicator> findMunicipalityIndicators(
+            String stateCode,
+            MapIndicatorType indicatorType,
+            Integer year
+    ) {
+        String indicatorCode = indicatorType.getIndicatorCode();
 
-        List<Object[]> rows = em.createNativeQuery(sql)
-                .setParameter("stateCode", stateCode)
-                .setParameter("year", year)
-                .getResultList();
+        if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+            return List.of();
+        }
 
-        return rows.stream()
-                .map(row -> mapRow(row, indicatorType))
-                .collect(Collectors.toList());
+        return territoryIndicatorQueryRepository.findMapValuesByState(indicatorCode, year, stateCode)
+                .stream()
+                .map(value -> mapIndicator(value, indicatorType))
+                .toList();
     }
 
-    private String sqlStateMedicalCoverage() {
-        return """
-                SELECT
-                    s.inegi_code AS code,
-                    s.name AS name,
-                    ROUND((COALESCE(SUM(hus.total_doctors), 0) / NULLIF(si.total_population, 0)) * 1000, 2) AS value
-                FROM states s
-                JOIN state_indicators si ON si.state_id = s.id
-                JOIN periods p ON p.id = si.period_id
-                LEFT JOIN municipalities m ON m.state_id = s.id
-                LEFT JOIN health_units hu ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                    AND hus.period_id = p.id
-                WHERE p.period_year = :year
-                GROUP BY s.id, s.inegi_code, s.name, si.total_population
-                ORDER BY s.name ASC
-                """;
-    }
-
-    private String sqlStateHospitalBeds() {
-        return """
-                SELECT
-                    s.inegi_code AS code,
-                    s.name AS name,
-                    ROUND((COALESCE(SUM(CASE 
-                        WHEN it.name = 'total_camas_hospitalizacion' 
-                        THEN huid.quantity ELSE 0 END), 0) / NULLIF(si.total_population, 0)) * 1000, 2) AS value
-                FROM states s
-                JOIN state_indicators si ON si.state_id = s.id
-                JOIN periods p ON p.id = si.period_id
-                LEFT JOIN municipalities m ON m.state_id = s.id
-                LEFT JOIN health_units hu ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_infrastructure hui
-                    ON hui.health_unit_id = hu.id
-                    AND hui.period_id = p.id
-                LEFT JOIN health_unit_infrastructure_details huid
-                    ON huid.health_unit_infrastructure_id = hui.id
-                LEFT JOIN infrastructure_types it
-                    ON it.id = huid.infrastructure_type_id
-                WHERE p.period_year = :year
-                GROUP BY s.id, s.inegi_code, s.name, si.total_population
-                ORDER BY s.name ASC
-                """;
-    }
-
-    private String sqlStateHealthcareAccessDeficiency() {
-        return """
-                SELECT
-                    s.inegi_code AS code,
-                    s.name AS name,
-                    ROUND((si.healthcare_access_deficiency / NULLIF(si.total_population, 0)) * 100, 2) AS value
-                FROM states s
-                JOIN state_indicators si ON si.state_id = s.id
-                JOIN periods p ON p.id = si.period_id
-                WHERE p.period_year = :year
-                ORDER BY s.name ASC
-                """;
-    }
-
-    private String sqlMunicipalityMedicalCoverage() {
-        return """
-                SELECT
-                    m.inegi_code AS code,
-                    m.name AS name,
-                    ROUND((COALESCE(SUM(hus.total_doctors), 0) / NULLIF(mi.total_population, 0)) * 1000, 2) AS value
-                FROM municipalities m
-                JOIN states s ON s.id = m.state_id
-                JOIN municipality_indicators mi ON mi.municipality_id = m.id
-                JOIN periods p ON p.id = mi.period_id
-                LEFT JOIN health_units hu ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                    AND hus.period_id = p.id
-                WHERE s.inegi_code = :stateCode
-                AND p.period_year = :year
-                GROUP BY m.id, m.inegi_code, m.name, mi.total_population
-                ORDER BY m.name ASC
-                """;
-    }
-
-    private String sqlMunicipalityHospitalBeds() {
-        return """
-                SELECT
-                    m.inegi_code AS code,
-                    m.name AS name,
-                    ROUND((COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0) / NULLIF(mi.total_population, 0)) * 1000, 2) AS value
-                FROM municipalities m
-                JOIN states s ON s.id = m.state_id
-                JOIN municipality_indicators mi ON mi.municipality_id = m.id
-                JOIN periods p ON p.id = mi.period_id
-                LEFT JOIN health_units hu ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_infrastructure hui
-                    ON hui.health_unit_id = hu.id
-                    AND hui.period_id = p.id
-                LEFT JOIN health_unit_infrastructure_details huid
-                    ON huid.health_unit_infrastructure_id = hui.id
-                LEFT JOIN infrastructure_types it
-                    ON it.id = huid.infrastructure_type_id
-                WHERE s.inegi_code = :stateCode
-                AND p.period_year = :year
-                GROUP BY m.id, m.inegi_code, m.name, mi.total_population
-                ORDER BY m.name ASC
-                """;
-    }
-
-    private String sqlMunicipalityHealthcareAccessDeficiency() {
-        return """
-                SELECT
-                    m.inegi_code AS code,
-                    m.name AS name,
-                    ROUND((mi.healthcare_access_deficiency / NULLIF(mi.total_population, 0)) * 100, 2) AS value
-                FROM municipalities m
-                JOIN states s ON s.id = m.state_id
-                JOIN municipality_indicators mi ON mi.municipality_id = m.id
-                JOIN periods p ON p.id = mi.period_id
-                WHERE s.inegi_code = :stateCode
-                AND p.period_year = :year
-                ORDER BY m.name ASC
-                """;
-    }
-
-    private MapIndicator mapRow(Object[] row, MapIndicatorType indicatorType) {
+    private MapIndicator mapIndicator(
+            TerritoryIndicatorValueDto value,
+            MapIndicatorType indicatorType
+    ) {
         return new MapIndicator(
-                (String) row[0],
-                (String) row[1],
-                toBigDecimal(row[2]),
-                indicatorType
+                value.getTerritoryCode(),
+                value.getTerritoryName(),
+                value.getValue(),
+                indicatorType,
+                value.getSourceYear(),
+                value.getUnit(),
+                value.getAvailabilityStatus(),
+                value.getMethodologyNote(),
+                value.getDataSourceName()
         );
-    }
-
-    private BigDecimal toBigDecimal(Object value) {
-        if (value == null) return null;
-        if (value instanceof BigDecimal) return (BigDecimal) value;
-        return new BigDecimal(value.toString());
     }
 }

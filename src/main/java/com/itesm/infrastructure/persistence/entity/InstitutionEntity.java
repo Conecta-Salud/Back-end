@@ -13,6 +13,9 @@ public class InstitutionEntity {
     @Column(nullable = false, unique = true, length = 150)
     private String name;
 
+    @Column(length = 50)
+    private String acronym;
+
     public Integer getId() {
         return id;
     }
@@ -27,5 +30,13 @@ public class InstitutionEntity {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getAcronym() {
+        return acronym;
+    }
+
+    public void setAcronym(String acronym) {
+        this.acronym = acronym;
     }
 }

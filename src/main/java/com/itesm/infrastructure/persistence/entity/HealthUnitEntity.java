@@ -3,6 +3,8 @@ package com.itesm.infrastructure.persistence.entity;
 import com.itesm.domain.models.healthunit.CareLevel;
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "health_units")
 @NamedEntityGraph(
@@ -53,6 +55,27 @@ public class HealthUnitEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "care_level", nullable = false)
     private CareLevel careLevel;
+
+    @Column(name = "source_year")
+    private Short sourceYear;
+
+    @Column(name = "operation_status", length = 100)
+    private String operationStatus;
+
+    @Column(name = "locality_name", length = 180)
+    private String localityName;
+
+    @Column(columnDefinition = "TEXT")
+    private String address;
+
+    @Column(precision = 10, scale = 7)
+    private BigDecimal latitude;
+
+    @Column(precision = 10, scale = 7)
+    private BigDecimal longitude;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
 
     public Integer getId() {
         return id;
@@ -116,5 +139,61 @@ public class HealthUnitEntity {
 
     public void setCareLevel(CareLevel careLevel) {
         this.careLevel = careLevel;
+    }
+
+    public Short getSourceYear() {
+        return sourceYear;
+    }
+
+    public void setSourceYear(Short sourceYear) {
+        this.sourceYear = sourceYear;
+    }
+
+    public String getOperationStatus() {
+        return operationStatus;
+    }
+
+    public void setOperationStatus(String operationStatus) {
+        this.operationStatus = operationStatus;
+    }
+
+    public String getLocalityName() {
+        return localityName;
+    }
+
+    public void setLocalityName(String localityName) {
+        this.localityName = localityName;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public BigDecimal getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(BigDecimal latitude) {
+        this.latitude = latitude;
+    }
+
+    public BigDecimal getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(BigDecimal longitude) {
+        this.longitude = longitude;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

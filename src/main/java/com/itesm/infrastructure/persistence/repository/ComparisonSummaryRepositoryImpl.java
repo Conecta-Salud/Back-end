@@ -5,7 +5,6 @@ import com.itesm.domain.models.comparison.summary.ComparisonRawItem;
 import com.itesm.domain.models.comparison.summary.ComparisonTerritory;
 import com.itesm.domain.repository.ComparisonSummaryRepository;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import org.hibernate.query.NativeQuery;
 
@@ -16,8 +15,14 @@ import java.util.List;
 @ApplicationScoped
 public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryRepository {
 
-    @Inject
-    EntityManager em;
+    // Arma la base de datos para comparacion avanzada. Los indicadores agregados
+    // vienen de territory_indicator_values; hospitales se calcula operativo porque
+    // no existe como indicador materializado oficial.
+    private final EntityManager em;
+
+    public ComparisonSummaryRepositoryImpl(EntityManager em) {
+        this.em = em;
+    }
 
     @Override
     public boolean existsPeriodById(Integer periodId) {
@@ -29,11 +34,6 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                 .getSingleResult();
 
         return count > 0;
-    }
-
-    private int indexOfCode(List<String> requestedCodes, String code) {
-        int index = requestedCodes.indexOf(code);
-        return index >= 0 ? index : Integer.MAX_VALUE;
     }
 
     @Override
@@ -50,86 +50,49 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     'state' AS type,
                     p.id AS period_id,
                     p.period_year AS period_year,
-                    si.total_population AS total_population,
-                    si.percentage_over_60 AS percentage_over_60,
-                    si.total_poverty_population AS total_poverty_population,
-                    COALESCE(units.total_health_units, 0) AS total_health_units,
+                    %s AS total_population,
+                    %s AS percentage_over_60,
+                    %s AS total_poverty_population,
+                    %s AS total_health_units,
                     COALESCE(units.total_hospitals, 0) AS total_hospitals,
-                    COALESCE(staff.total_doctors, 0) AS total_doctors,
-                    COALESCE(infra.total_hospital_beds, 0) AS total_hospital_beds
+                    %s AS total_doctors,
+                    %s AS total_hospital_beds,
+                    %s AS doctors_per_1000,
+                    %s AS beds_per_1000
                 FROM states s
-                JOIN periods p
-                    ON p.id = :periodId
-                JOIN state_indicators si
-                    ON si.state_id = s.id
-                   AND si.period_id = p.id
-                
+                JOIN periods p ON p.id = :periodId
                 LEFT JOIN (
                     SELECT
                         m.state_id,
-                        COUNT(DISTINCT hu.id) AS total_health_units,
                         COUNT(DISTINCT CASE
                             WHEN et.name = 'DE HOSPITALIZACION'
-                              OR UPPER(mut.name) LIKE '%HOSPITAL%'
+                              OR UPPER(mut.name) LIKE '%%HOSPITAL%%'
                             THEN hu.id
                             ELSE NULL
                         END) AS total_hospitals
                     FROM municipalities m
-                    JOIN health_units hu
-                        ON hu.municipality_id = m.id
-                    JOIN establishment_types et
-                        ON et.id = hu.establishment_type_id
-                    JOIN medical_unit_types mut
-                        ON mut.id = hu.medical_unit_type_id
+                    JOIN health_units hu ON hu.municipality_id = m.id
+                    JOIN establishment_types et ON et.id = hu.establishment_type_id
+                    JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
                     GROUP BY m.state_id
-                ) units
-                    ON units.state_id = s.id
-                
-                LEFT JOIN (
-                    SELECT
-                        m.state_id,
-                        SUM(hus.total_doctors) AS total_doctors
-                    FROM municipalities m
-                    JOIN health_units hu
-                        ON hu.municipality_id = m.id
-                    JOIN health_unit_staff hus
-                        ON hus.health_unit_id = hu.id
-                       AND hus.period_id = :periodId
-                    GROUP BY m.state_id
-                ) staff
-                    ON staff.state_id = s.id
-                
-                LEFT JOIN (
-                    SELECT
-                        m.state_id,
-                        SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END
-                        ) AS total_hospital_beds
-                    FROM municipalities m
-                    JOIN health_units hu
-                        ON hu.municipality_id = m.id
-                    JOIN health_unit_infrastructure hui
-                        ON hui.health_unit_id = hu.id
-                       AND hui.period_id = :periodId
-                    JOIN health_unit_infrastructure_details huid
-                        ON huid.health_unit_infrastructure_id = hui.id
-                    JOIN infrastructure_types it
-                        ON it.id = huid.infrastructure_type_id
-                    GROUP BY m.state_id
-                ) infra
-                    ON infra.state_id = s.id
-                
+                ) units ON units.state_id = s.id
                 WHERE s.inegi_code IN (:stateCodes)
-                """;
+                """.formatted(
+                stateIndicatorValue("total_population"),
+                stateIndicatorValue("percentage_over_60"),
+                stateIndicatorValue("total_poverty_population"),
+                stateIndicatorValue("health_establishments"),
+                stateIndicatorValue("total_doctors"),
+                stateIndicatorValue("hospital_beds"),
+                stateIndicatorValue("doctors_per_1000"),
+                stateIndicatorValue("beds_per_1000")
+        );
 
         NativeQuery<?> query = em.createNativeQuery(sql).unwrap(NativeQuery.class);
         query.setParameter("periodId", periodId);
         query.setParameterList("stateCodes", stateCodes);
 
-        List<Object[]> rows = (List<Object[]>) query.getResultList();
-
-        return rows.stream()
+        return ((List<Object[]>) query.getResultList()).stream()
                 .map(this::mapComparisonRawItem)
                 .sorted((a, b) -> Integer.compare(
                         indexOfCode(stateCodes, a.getTerritory().getCode()),
@@ -152,88 +115,92 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                     'municipality' AS type,
                     p.id AS period_id,
                     p.period_year AS period_year,
-                    mi.total_population AS total_population,
-                    mi.percentage_over_60 AS percentage_over_60,
-                    mi.total_poverty_population AS total_poverty_population,
-                    COALESCE(units.total_health_units, 0) AS total_health_units,
+                    %s AS total_population,
+                    %s AS percentage_over_60,
+                    %s AS total_poverty_population,
+                    %s AS total_health_units,
                     COALESCE(units.total_hospitals, 0) AS total_hospitals,
-                    COALESCE(staff.total_doctors, 0) AS total_doctors,
-                    COALESCE(infra.total_hospital_beds, 0) AS total_hospital_beds
+                    %s AS total_doctors,
+                    %s AS total_hospital_beds,
+                    %s AS doctors_per_1000,
+                    %s AS beds_per_1000
                 FROM municipalities m
-                JOIN states s
-                    ON s.id = m.state_id
-                JOIN periods p
-                    ON p.id = :periodId
-                JOIN municipality_indicators mi
-                    ON mi.municipality_id = m.id
-                   AND mi.period_id = p.id
-                
+                JOIN states s ON s.id = m.state_id
+                JOIN periods p ON p.id = :periodId
                 LEFT JOIN (
                     SELECT
                         hu.municipality_id,
-                        COUNT(DISTINCT hu.id) AS total_health_units,
                         COUNT(DISTINCT CASE
                             WHEN et.name = 'DE HOSPITALIZACION'
-                              OR UPPER(mut.name) LIKE '%HOSPITAL%'
+                              OR UPPER(mut.name) LIKE '%%HOSPITAL%%'
                             THEN hu.id
                             ELSE NULL
                         END) AS total_hospitals
                     FROM health_units hu
-                    JOIN establishment_types et
-                        ON et.id = hu.establishment_type_id
-                    JOIN medical_unit_types mut
-                        ON mut.id = hu.medical_unit_type_id
+                    JOIN establishment_types et ON et.id = hu.establishment_type_id
+                    JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
                     GROUP BY hu.municipality_id
-                ) units
-                    ON units.municipality_id = m.id
-                
-                LEFT JOIN (
-                    SELECT
-                        hu.municipality_id,
-                        SUM(hus.total_doctors) AS total_doctors
-                    FROM health_units hu
-                    JOIN health_unit_staff hus
-                        ON hus.health_unit_id = hu.id
-                       AND hus.period_id = :periodId
-                    GROUP BY hu.municipality_id
-                ) staff
-                    ON staff.municipality_id = m.id
-                
-                LEFT JOIN (
-                    SELECT
-                        hu.municipality_id,
-                        SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END
-                        ) AS total_hospital_beds
-                    FROM health_units hu
-                    JOIN health_unit_infrastructure hui
-                        ON hui.health_unit_id = hu.id
-                       AND hui.period_id = :periodId
-                    JOIN health_unit_infrastructure_details huid
-                        ON huid.health_unit_infrastructure_id = hui.id
-                    JOIN infrastructure_types it
-                        ON it.id = huid.infrastructure_type_id
-                    GROUP BY hu.municipality_id
-                ) infra
-                    ON infra.municipality_id = m.id
-                
+                ) units ON units.municipality_id = m.id
                 WHERE m.inegi_code IN (:municipalityCodes)
-                """;
+                """.formatted(
+                municipalityIndicatorValue("total_population"),
+                municipalityIndicatorValue("percentage_over_60"),
+                municipalityIndicatorValue("total_poverty_population"),
+                municipalityIndicatorValue("health_establishments"),
+                municipalityIndicatorValue("total_doctors"),
+                municipalityIndicatorValue("hospital_beds"),
+                municipalityIndicatorValue("doctors_per_1000"),
+                municipalityIndicatorValue("beds_per_1000")
+        );
 
         NativeQuery<?> query = em.createNativeQuery(sql).unwrap(NativeQuery.class);
         query.setParameter("periodId", periodId);
         query.setParameterList("municipalityCodes", municipalityCodes);
 
-        List<Object[]> rows = (List<Object[]>) query.getResultList();
-
-        return rows.stream()
+        return ((List<Object[]>) query.getResultList()).stream()
                 .map(this::mapComparisonRawItem)
                 .sorted((a, b) -> Integer.compare(
                         indexOfCode(municipalityCodes, a.getTerritory().getCode()),
                         indexOfCode(municipalityCodes, b.getTerritory().getCode())
                 ))
                 .toList();
+    }
+
+    private String stateIndicatorValue(String indicatorCode) {
+        return """
+            (
+                SELECT tiv.value
+                FROM territory_indicator_values tiv
+                JOIN indicators ind ON ind.id = tiv.indicator_id
+                WHERE ind.code = '%s'
+                  AND tiv.territory_level = 'state'
+                  AND tiv.state_id = s.id
+                  AND tiv.analysis_year = p.period_year
+                  AND tiv.availability_status NOT IN ('not_available', 'not_applicable')
+                LIMIT 1
+            )
+            """.formatted(indicatorCode);
+    }
+
+    private String municipalityIndicatorValue(String indicatorCode) {
+        return """
+            (
+                SELECT tiv.value
+                FROM territory_indicator_values tiv
+                JOIN indicators ind ON ind.id = tiv.indicator_id
+                WHERE ind.code = '%s'
+                  AND tiv.territory_level = 'municipality'
+                  AND tiv.municipality_id = m.id
+                  AND tiv.analysis_year = p.period_year
+                  AND tiv.availability_status NOT IN ('not_available', 'not_applicable')
+                LIMIT 1
+            )
+            """.formatted(indicatorCode);
+    }
+
+    private int indexOfCode(List<String> requestedCodes, String code) {
+        int index = requestedCodes.indexOf(code);
+        return index >= 0 ? index : Integer.MAX_VALUE;
     }
 
     private ComparisonRawItem mapComparisonRawItem(Object[] row) {
@@ -249,48 +216,77 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                         toInteger(row[5]),
                         toInteger(row[6])
                 ),
-                toBigInteger(row[7]),
-                toBigDecimal(row[8]),
-                toBigInteger(row[9]),
-                toLong(row[10]),
+                toBigIntegerNullable(row[7]),
+                toBigDecimalNullable(row[8]),
+                toBigIntegerNullable(row[9]),
+                toLongNullable(row[10]),
                 toLong(row[11]),
-                toLong(row[12]),
-                toLong(row[13])
+                toLongNullable(row[12]),
+                toLongNullable(row[13]),
+                toBigDecimalNullable(row[14]),
+                toBigDecimalNullable(row[15])
         );
     }
 
     private Integer toInteger(Object value) {
-        if (value == null) return null;
-        if (value instanceof Integer) return (Integer) value;
-        if (value instanceof Short) return ((Short) value).intValue();
-        if (value instanceof Long) return ((Long) value).intValue();
-        if (value instanceof BigInteger) return ((BigInteger) value).intValue();
-        if (value instanceof BigDecimal) return ((BigDecimal) value).intValue();
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
         return Integer.valueOf(value.toString());
     }
 
     private Long toLong(Object value) {
-        if (value == null) return 0L;
-        if (value instanceof Long) return (Long) value;
-        if (value instanceof Integer) return ((Integer) value).longValue();
-        if (value instanceof BigInteger) return ((BigInteger) value).longValue();
-        if (value instanceof BigDecimal) return ((BigDecimal) value).longValue();
+        if (value == null) {
+            return 0L;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
         return Long.valueOf(value.toString());
     }
 
-    private BigInteger toBigInteger(Object value) {
-        if (value == null) return BigInteger.ZERO;
-        if (value instanceof BigInteger) return (BigInteger) value;
-        if (value instanceof BigDecimal) return ((BigDecimal) value).toBigInteger();
-        if (value instanceof Long) return BigInteger.valueOf((Long) value);
-        if (value instanceof Integer) return BigInteger.valueOf((Integer) value);
+    private Long toLongNullable(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.valueOf(value.toString());
+    }
+
+    private BigInteger toBigIntegerNullable(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigInteger integer) {
+            return integer;
+        }
+        if (value instanceof BigDecimal decimal) {
+            return decimal.toBigInteger();
+        }
+        if (value instanceof Number number) {
+            return BigInteger.valueOf(number.longValue());
+        }
         return new BigInteger(value.toString());
     }
 
-    private BigDecimal toBigDecimal(Object value) {
-        if (value == null) return BigDecimal.ZERO;
-        if (value instanceof BigDecimal) return (BigDecimal) value;
-        if (value instanceof BigInteger) return new BigDecimal((BigInteger) value);
+    private BigDecimal toBigDecimalNullable(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof BigInteger integer) {
+            return new BigDecimal(integer);
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
         return new BigDecimal(value.toString());
     }
 }
