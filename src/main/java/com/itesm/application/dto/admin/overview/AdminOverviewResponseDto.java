@@ -5,18 +5,18 @@ public class AdminOverviewResponseDto {
     private Long registeredUsers;
     private Long activeUsersLast7Days;
     private Long comparisonsPerformed;
-    private Long exportedReports;
+    private Long completedUploadBatches;
 
     public AdminOverviewResponseDto(
             Long registeredUsers,
             Long activeUsersLast7Days,
             Long comparisonsPerformed,
-            Long exportedReports
+            Long completedUploadBatches
     ) {
         this.registeredUsers = registeredUsers;
         this.activeUsersLast7Days = activeUsersLast7Days;
         this.comparisonsPerformed = comparisonsPerformed;
-        this.exportedReports = exportedReports;
+        this.completedUploadBatches = completedUploadBatches;
     }
 
     public Long getRegisteredUsers() {
@@ -31,7 +31,7 @@ public class AdminOverviewResponseDto {
         return comparisonsPerformed;
     }
 
-    public Long getExportedReports() {
-        return exportedReports;
+    public Long getCompletedUploadBatches() {
+        return completedUploadBatches;
     }
 }

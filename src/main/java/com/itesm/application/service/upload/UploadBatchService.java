@@ -1,0 +1,547 @@
+package com.itesm.application.service.upload;
+
+import com.itesm.application.dto.admin.uploads.*;
+import com.itesm.application.dto.common.PageResponseDto;
+import com.itesm.domain.models.common.PageResult;
+import com.itesm.domain.models.upload.CsvFileRole;
+import com.itesm.domain.models.upload.UploadErrorRow;
+import com.itesm.domain.models.upload.UploadProcessingMode;
+import com.itesm.domain.models.upload.UploadSourceType;
+import com.itesm.domain.models.upload.UploadStatus;
+import com.itesm.domain.repository.DataUploadErrorRepository;
+import com.itesm.domain.repository.DataUploadRepository;
+import com.itesm.domain.repository.UploadBatchRepository;
+import com.itesm.infrastructure.persistence.entity.DataSourceEntity;
+import com.itesm.infrastructure.persistence.entity.DataUploadEntity;
+import com.itesm.infrastructure.persistence.entity.DataUploadErrorEntity;
+import com.itesm.infrastructure.persistence.entity.UploadBatchEntity;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
+
+import java.io.InputStream;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+
+@ApplicationScoped
+public class UploadBatchService {
+
+    // Orquesta el ciclo de vida de una carga CSV: lote, archivo fisico, validacion,
+    // procesamiento y actualizacion de contadores visibles para administradores.
+    private final UploadBatchRepository uploadBatchRepository;
+    private final DataUploadRepository dataUploadRepository;
+    private final DataUploadErrorRepository dataUploadErrorRepository;
+    private final CsvStorageService csvStorageService;
+    private final CsvUploadContractRegistry csvUploadContractRegistry;
+    private final CsvValidationService csvValidationService;
+    private final CsvProcessingDispatcher csvProcessingDispatcher;
+
+    public UploadBatchService(
+            UploadBatchRepository uploadBatchRepository,
+            DataUploadRepository dataUploadRepository,
+            DataUploadErrorRepository dataUploadErrorRepository,
+            CsvStorageService csvStorageService,
+            CsvUploadContractRegistry csvUploadContractRegistry,
+            CsvValidationService csvValidationService,
+            CsvProcessingDispatcher csvProcessingDispatcher
+    ) {
+        this.uploadBatchRepository = uploadBatchRepository;
+        this.dataUploadRepository = dataUploadRepository;
+        this.dataUploadErrorRepository = dataUploadErrorRepository;
+        this.csvStorageService = csvStorageService;
+        this.csvUploadContractRegistry = csvUploadContractRegistry;
+        this.csvValidationService = csvValidationService;
+        this.csvProcessingDispatcher = csvProcessingDispatcher;
+    }
+
+    public UploadBatchResponse createBatch(CreateUploadBatchRequest request, UUID userId) {
+        if (request == null) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: el cuerpo de la solicitud es obligatorio");
+        }
+
+        UploadSourceType sourceType = parseSourceType(request.getSourceType(), true);
+        UploadProcessingMode processingMode = parseProcessingMode(request.getProcessingMode(), false);
+
+        if (request.getDataSourceCode() == null || request.getDataSourceCode().isBlank()) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: dataSourceCode es obligatorio");
+        }
+
+        if (request.getSourceYear() == null) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: sourceYear es obligatorio");
+        }
+
+        if (request.getExpectedFiles() == null || request.getExpectedFiles() < 1) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: expectedFiles debe ser mayor o igual a 1");
+        }
+
+        if (request.getBatchVersion() == null || request.getBatchVersion().isBlank()) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: batchVersion es obligatorio");
+        }
+
+        Short sourceYear = toShortYear(request.getSourceYear(), "sourceYear");
+        Short analysisYear = request.getAnalysisYear() == null
+                ? null
+                : toShortYear(request.getAnalysisYear(), "analysisYear");
+        String cleanedBatchVersion = request.getBatchVersion().trim();
+
+        if (uploadBatchRepository.existsBySourceTypeSourceYearAndBatchVersion(sourceType, sourceYear, cleanedBatchVersion)) {
+            throw new BadRequestException("DUPLICATED_BATCH_VERSION");
+        }
+
+        DataSourceEntity dataSource = uploadBatchRepository.findDataSourceByCode(request.getDataSourceCode())
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_DATA_SOURCE: dataSourceCode no existe"));
+
+        UploadBatchEntity batch = new UploadBatchEntity();
+        batch.setSourceType(sourceType);
+        batch.setDataSource(dataSource);
+        batch.setSourceYear(sourceYear);
+        batch.setAnalysisYear(analysisYear);
+        batch.setExpectedFiles(request.getExpectedFiles());
+        batch.setBatchVersion(cleanedBatchVersion);
+        batch.setProcessingMode(processingMode);
+        batch.setStatus(UploadStatus.pending);
+
+        UploadBatchEntity created;
+        try {
+            created = uploadBatchRepository.create(batch, userId, dataSource.getId());
+        } catch (RuntimeException e) {
+            if (isDuplicatedBatchVersionFailure(e)) {
+                throw new BadRequestException("DUPLICATED_BATCH_VERSION");
+            }
+            throw e;
+        }
+
+        return toBatchResponse(created);
+    }
+
+    public UploadFileResponse uploadFile(
+            Integer batchId,
+            String fileRole,
+            String originalFileName,
+            String mimeType,
+            InputStream inputStream
+    ) {
+        if (inputStream == null) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: el archivo es obligatorio");
+        }
+
+        UploadBatchEntity batch = uploadBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+        CsvFileRole parsedFileRole = parseFileRole(fileRole);
+        assertCanUploadFile(batch);
+        assertFileRoleAllowed(batch.getSourceType(), parsedFileRole);
+        assertExpectedFilesNotExceeded(batch);
+        if (!allowsMultipleFiles(parsedFileRole)) {
+            assertFileRoleNotDuplicated(batch.getId(), parsedFileRole);
+        }
+
+        StoredCsvFile storedFile = csvStorageService.store(batch.getId(), originalFileName, mimeType, inputStream);
+
+        // El checksum evita procesar dos veces el mismo contenido dentro del lote,
+        // aunque el archivo tenga otro nombre.
+        if (dataUploadRepository.existsChecksumInBatch(batch.getId(), storedFile.getChecksum())) {
+            csvStorageService.deleteQuietly(storedFile);
+            throw new BadRequestException("DUPLICATED_FILE: ya existe un archivo con el mismo contenido dentro de este lote");
+        }
+
+        DataUploadEntity upload = new DataUploadEntity();
+        upload.setFileRole(parsedFileRole);
+        upload.setOriginalFileName(storedFile.getOriginalFileName());
+        upload.setStoredFileName(storedFile.getStoredFileName());
+        upload.setFileVersion(batch.getBatchVersion());
+        upload.setFileSize(storedFile.getFileSize());
+        upload.setMimeType(storedFile.getMimeType());
+        upload.setChecksum(storedFile.getChecksum());
+        upload.setStatus(UploadStatus.pending);
+
+        DataUploadEntity created;
+        try {
+            created = dataUploadRepository.create(upload, batch.getId());
+        } catch (RuntimeException e) {
+            csvStorageService.deleteQuietly(storedFile.getStoredFileName());
+            throw e;
+        }
+
+        uploadBatchRepository.recalculateCounters(batch.getId());
+        return new UploadFileResponse(toFileSummaryResponse(created));
+    }
+
+    public ValidateUploadResponse validateUpload(Integer uploadId) {
+        DataUploadEntity upload = dataUploadRepository.findById(uploadId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_UPLOAD: archivo de carga no encontrado"));
+
+        assertCanValidateUpload(upload);
+        return csvValidationService.validate(upload);
+    }
+
+    public ProcessUploadBatchResponse processBatch(Integer batchId, ProcessUploadBatchRequest request) {
+        if (request == null) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: el cuerpo de la solicitud es obligatorio");
+        }
+
+        UploadBatchEntity batch = uploadBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+        UploadProcessingMode mode = parseProcessingMode(request.getMode(), true);
+        boolean replaceExistingForYear = Boolean.TRUE.equals(request.getReplaceExistingForYear());
+        boolean failOnErrors = Boolean.TRUE.equals(request.getFailOnErrors());
+
+        assertCanProcessBatch(batch);
+
+        List<DataUploadEntity> uploads = dataUploadRepository.findByBatchId(batchId);
+        if (uploads.isEmpty()) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: el lote no tiene archivos cargados");
+        }
+
+        uploadBatchRepository.recalculateCounters(batchId);
+        batch = uploadBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+        boolean hasRegisteredErrors = uploads.stream()
+                .anyMatch(upload -> dataUploadErrorRepository.countBlockingByUploadId(upload.getId()) > 0);
+
+        if (failOnErrors && (hasRegisteredErrors || safeInteger(batch.getErrorRecords()) > 0)) {
+            throw new BadRequestException("BATCH_HAS_ERRORS: el lote tiene errores de validación");
+        }
+
+        uploadBatchRepository.updateStatus(batchId, UploadStatus.processing, null, false);
+
+        try {
+            // El servicio solo controla estado y auditoria del lote; la regla de negocio
+            // especifica de cada CSV vive en su procesador especializado.
+            CsvProcessingResult processingResult = csvProcessingDispatcher.dispatch(batch, mode, replaceExistingForYear);
+            uploadBatchRepository.recalculateCounters(batchId);
+            UploadStatus finalStatus = processingResult.status();
+
+            uploadBatchRepository.updateStatus(
+                    batchId,
+                    finalStatus,
+                    finalStatus == UploadStatus.completed ? null : processingResult.message(),
+                    true
+            );
+
+            return new ProcessUploadBatchResponse(
+                    batchId,
+                    finalStatus.name(),
+                    batch.getSourceType().name(),
+                    mode.name(),
+                    replaceExistingForYear,
+                    failOnErrors,
+                    processingResult.message()
+            );
+        } catch (RuntimeException e) {
+            String message = e.getMessage() == null ? "Falló el procesamiento del lote CSV" : e.getMessage();
+            uploadBatchRepository.updateStatus(batchId, UploadStatus.error, message, true);
+
+            return new ProcessUploadBatchResponse(
+                    batchId,
+                    UploadStatus.error.name(),
+                    batch.getSourceType().name(),
+                    mode.name(),
+                    replaceExistingForYear,
+                    failOnErrors,
+                    message
+            );
+        }
+    }
+
+    public PageResponseDto<UploadBatchResponse> findBatches(
+            String sourceType,
+            Integer sourceYear,
+            String status,
+            int page,
+            int size
+    ) {
+        UploadSourceType parsedSourceType = parseSourceType(sourceType, false);
+        UploadStatus parsedStatus = parseStatus(status, false);
+        PageResult<UploadBatchEntity> result = uploadBatchRepository.findBatches(
+                parsedSourceType,
+                sourceYear,
+                parsedStatus,
+                page,
+                size
+        );
+
+        return new PageResponseDto<>(
+                result.getItems().stream().map(this::toBatchResponse).toList(),
+                result.getTotalItems(),
+                result.getPage(),
+                result.getSize(),
+                result.getTotalPages()
+        );
+    }
+
+    public UploadBatchDetailResponse findBatchDetail(Integer batchId) {
+        UploadBatchEntity batch = uploadBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+        List<UploadFileSummaryResponse> files = dataUploadRepository.findByBatchId(batchId)
+                .stream()
+                .map(this::toFileSummaryResponse)
+                .toList();
+
+        return new UploadBatchDetailResponse(
+                toBatchResponse(batch),
+                files
+        );
+    }
+
+    public PageResponseDto<UploadErrorResponse> findUploadErrors(Integer uploadId, int page, int size) {
+        dataUploadRepository.findById(uploadId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_UPLOAD: archivo de carga no encontrado"));
+
+        PageResult<DataUploadErrorEntity> result = dataUploadErrorRepository.findByUploadId(uploadId, page, size);
+
+        return new PageResponseDto<>(
+                result.getItems().stream().map(this::toErrorResponse).toList(),
+                result.getTotalItems(),
+                result.getPage(),
+                result.getSize(),
+                result.getTotalPages()
+        );
+    }
+
+    public PageResponseDto<UploadErrorResponse> findBatchErrors(Integer batchId, int page, int size) {
+        uploadBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+
+        PageResult<UploadErrorRow> result = dataUploadErrorRepository.findByBatchId(batchId, page, size);
+
+        return new PageResponseDto<>(
+                result.getItems().stream().map(this::toErrorResponse).toList(),
+                result.getTotalItems(),
+                result.getPage(),
+                result.getSize(),
+                result.getTotalPages()
+        );
+    }
+
+    private void assertCanUploadFile(UploadBatchEntity batch) {
+        UploadStatus status = batch.getStatus();
+
+        if (status != UploadStatus.pending && status != UploadStatus.warning) {
+            throw new BadRequestException("INVALID_BATCH_STATUS: solo se pueden subir archivos a lotes pendientes o en advertencia");
+        }
+    }
+
+    private void assertCanValidateUpload(DataUploadEntity upload) {
+        UploadStatus status = upload.getStatus();
+
+        if (status == UploadStatus.processing || status == UploadStatus.completed) {
+            throw new BadRequestException("INVALID_UPLOAD_STATUS: el archivo solo puede validarse cuando está pendiente, en advertencia o en error");
+        }
+    }
+
+    private void assertCanProcessBatch(UploadBatchEntity batch) {
+        UploadStatus status = batch.getStatus();
+
+        if (status != UploadStatus.pending && status != UploadStatus.warning) {
+            throw new BadRequestException("INVALID_BATCH_STATUS: el lote solo puede procesarse cuando está pendiente o en advertencia");
+        }
+    }
+
+    private void assertFileRoleAllowed(UploadSourceType sourceType, CsvFileRole fileRole) {
+        if (!csvUploadContractRegistry.isFileRoleAllowed(sourceType, fileRole)) {
+            throw new BadRequestException(
+                    "INVALID_FILE_ROLE_FOR_SOURCE_TYPE: el rol del archivo no corresponde con el tipo de carga seleccionado"
+            );
+        }
+    }
+
+    private void assertExpectedFilesNotExceeded(UploadBatchEntity batch) {
+        long currentFiles = dataUploadRepository.countByBatchId(batch.getId());
+
+        if (currentFiles >= safeInteger(batch.getExpectedFiles())) {
+            throw new BadRequestException(
+                    "EXPECTED_FILES_EXCEEDED: el lote ya alcanzó el número esperado de archivos"
+            );
+        }
+    }
+
+    private void assertFileRoleNotDuplicated(Integer batchId, CsvFileRole fileRole) {
+        if (dataUploadRepository.existsByBatchIdAndFileRole(batchId, fileRole)) {
+            throw new BadRequestException(
+                    "DUPLICATED_FILE_ROLE_IN_BATCH: ya existe un archivo con ese rol en el lote"
+            );
+        }
+    }
+
+    private boolean allowsMultipleFiles(CsvFileRole fileRole) {
+        return fileRole == CsvFileRole.population_indicators
+                || fileRole == CsvFileRole.population_municipal_base;
+    }
+
+    private UploadBatchResponse toBatchResponse(UploadBatchEntity batch) {
+        DataSourceEntity dataSource = batch.getDataSource();
+
+        return new UploadBatchResponse(
+                batch.getId(),
+                enumName(batch.getSourceType()),
+                dataSource == null ? null : dataSource.getCode(),
+                dataSource == null ? null : dataSource.getName(),
+                toInteger(batch.getSourceYear()),
+                toInteger(batch.getAnalysisYear()),
+                batch.getBatchVersion(),
+                enumName(batch.getProcessingMode()),
+                enumName(batch.getStatus()),
+                batch.getExpectedFiles(),
+                batch.getUploadedFiles(),
+                batch.getTotalRecords(),
+                batch.getValidRecords(),
+                batch.getErrorRecords(),
+                batch.getErrorDetail(),
+                batch.getCreatedAt(),
+                batch.getProcessedAt()
+        );
+    }
+
+    private UploadFileSummaryResponse toFileSummaryResponse(DataUploadEntity upload) {
+        return new UploadFileSummaryResponse(
+                upload.getId(),
+                enumName(upload.getFileRole()),
+                upload.getOriginalFileName(),
+                upload.getStoredFileName(),
+                upload.getFileSize(),
+                upload.getMimeType(),
+                upload.getChecksum(),
+                enumName(upload.getStatus()),
+                upload.getTotalRecords(),
+                upload.getValidRecords(),
+                upload.getErrorRecords(),
+                upload.getErrorDetail(),
+                upload.getCreatedAt(),
+                upload.getProcessedAt()
+        );
+    }
+
+    private UploadErrorResponse toErrorResponse(DataUploadErrorEntity error) {
+        return new UploadErrorResponse(
+                error.getId(),
+                error.getDataUpload() == null ? null : error.getDataUpload().getId(),
+                error.getDataUpload() == null ? null : error.getDataUpload().getOriginalFileName(),
+                error.getCsvRowNumber(),
+                error.getColumnName(),
+                error.getRawValue(),
+                error.getErrorCode(),
+                error.getErrorMessage()
+        );
+    }
+
+    private UploadErrorResponse toErrorResponse(UploadErrorRow error) {
+        return new UploadErrorResponse(
+                error.id(),
+                error.uploadId(),
+                error.originalFileName(),
+                error.csvRowNumber(),
+                error.columnName(),
+                error.rawValue(),
+                error.errorCode(),
+                error.errorMessage()
+        );
+    }
+
+    private UploadSourceType parseSourceType(String value, boolean required) {
+        if (value == null || value.isBlank()) {
+            if (required) {
+                throw new BadRequestException("REQUIRED_FIELD_MISSING: sourceType es obligatorio");
+            }
+            return null;
+        }
+
+        try {
+            return UploadSourceType.valueOf(value.trim());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("INVALID_SOURCE_TYPE: sourceType no es soportado");
+        }
+    }
+
+    private UploadProcessingMode parseProcessingMode(String value, boolean required) {
+        if (value == null || value.isBlank()) {
+            if (required) {
+                throw new BadRequestException("REQUIRED_FIELD_MISSING: processingMode es obligatorio");
+            }
+            return UploadProcessingMode.validate_only;
+        }
+
+        try {
+            return UploadProcessingMode.valueOf(value.trim());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("INVALID_PROCESSING_MODE: processingMode no es soportado");
+        }
+    }
+
+    private CsvFileRole parseFileRole(String value) {
+        if (value == null || value.isBlank()) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: fileRole es obligatorio");
+        }
+
+        try {
+            return CsvFileRole.valueOf(value.trim());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("INVALID_FILE_ROLE: fileRole no es soportado");
+        }
+    }
+
+    private UploadStatus parseStatus(String value, boolean required) {
+        if (value == null || value.isBlank()) {
+            if (required) {
+                throw new BadRequestException("REQUIRED_FIELD_MISSING: status es obligatorio");
+            }
+            return null;
+        }
+
+        try {
+            return UploadStatus.valueOf(value.trim());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("INVALID_STATUS: status no es soportado");
+        }
+    }
+
+    private Short toShortYear(Integer value, String fieldName) {
+        if (value == null) {
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + fieldName + " es obligatorio");
+        }
+
+        if (value < 1900 || value > 2100) {
+            throw new BadRequestException("INVALID_YEAR: " + fieldName + " debe estar entre 1900 y 2100");
+        }
+
+        return value.shortValue();
+    }
+
+    private Integer toInteger(Short value) {
+        return value == null ? null : value.intValue();
+    }
+
+    private int safeInteger(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private boolean isDuplicatedBatchVersionFailure(Throwable exception) {
+        Throwable current = exception;
+
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase(Locale.ROOT);
+                boolean duplicateOrUniqueFailure = normalized.contains("duplicate entry")
+                        || normalized.contains("duplicate key")
+                        || normalized.contains("unique");
+                boolean batchVersionConstraint = normalized.contains("batch_version")
+                        || normalized.contains("source_type")
+                        || normalized.contains("source_year")
+                        || normalized.contains("upload_batches");
+
+                if (duplicateOrUniqueFailure && batchVersionConstraint) {
+                    return true;
+                }
+            }
+
+            current = current.getCause();
+        }
+
+        return false;
+    }
+
+    private String enumName(Enum<?> value) {
+        return value == null ? null : value.name();
+    }
+}

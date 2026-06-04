@@ -10,373 +10,59 @@ import com.itesm.domain.models.dashboard.summary.municipality.MunicipalityMedica
 import com.itesm.domain.models.dashboard.summary.state.StateHealthcareAccessDeficiencyMetrics;
 import com.itesm.domain.models.dashboard.summary.state.StateHospitalBedsMetrics;
 import com.itesm.domain.models.dashboard.summary.state.StateMedicalCoverageMetrics;
+import com.itesm.domain.models.indicator.TerritoryIndicatorValueDto;
 import com.itesm.domain.repository.DashboardSummaryRepository;
+import com.itesm.domain.repository.TerritoryIndicatorQueryRepository;
+import com.itesm.domain.service.DataAvailabilityService;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepository {
 
-    @Inject
-    EntityManager em;
+    // Repositorio mixto: usa indicadores materializados para agregados territoriales
+    // y tablas operativas solo para vistas de detalle por unidad/distribuciones.
+    private static final String TOTAL_POPULATION = "total_population";
+    private static final String PERCENTAGE_OVER_60 = "percentage_over_60";
+    private static final String MEDICAL_COVERAGE = "doctors_per_1000";
+    private static final String HOSPITAL_BEDS = "beds_per_1000";
+    private static final String HEALTHCARE_ACCESS_DEFICIENCY = "healthcare_access_deficiency";
+    private static final String TOTAL_POVERTY_POPULATION = "total_poverty_population";
+    private static final String HEALTH_ESTABLISHMENTS = "health_establishments";
+    private static final String TOTAL_DOCTORS = "total_doctors";
+    private static final String HOSPITAL_BEDS_TOTAL = "hospital_beds";
+    private static final String CONSULTING_ROOMS = "consulting_rooms";
+
+    private final EntityManager em;
+    private final TerritoryIndicatorQueryRepository indicatorRepository;
+    private final DataAvailabilityService dataAvailabilityService;
+
+    public DashboardSummaryRepositoryImpl(
+            EntityManager em,
+            TerritoryIndicatorQueryRepository indicatorRepository,
+            DataAvailabilityService dataAvailabilityService
+    ) {
+        this.em = em;
+        this.indicatorRepository = indicatorRepository;
+        this.dataAvailabilityService = dataAvailabilityService;
+    }
 
     @Override
     public boolean existsPeriodById(Integer periodId) {
-        Long count = em.createQuery(
-                        "SELECT COUNT(p) FROM PeriodEntity p WHERE p.id = :periodId",
-                        Long.class
-                )
-                .setParameter("periodId", periodId)
-                .getSingleResult();
-
-        return count > 0;
+        return period(periodId).isPresent();
     }
 
-    private DashboardChartDataPoint mapSimplePiePoint(Object[] row) {
-        return new DashboardChartDataPoint(
-                row[0] != null ? prettifyLabel(row[0].toString()) : "Not specified",
-                null,
-                toBigDecimal(row[1]),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                Map.of()
-        );
-    }
-
-    private String prettifyLabel(String value) {
-        if (value == null || value.isBlank()) {
-            return "Not specified";
-        }
-
-        return switch (value) {
-            case "total_camas_hospitalizacion" -> "Hospital beds";
-            case "total_consultorios" -> "Consulting rooms";
-            case "medicos_generales" -> "General practitioners";
-            case "pediatras" -> "Pediatricians";
-            case "ginecoobstetras" -> "Gynecologists and obstetricians";
-            case "cirujanos" -> "Surgeons";
-            case "geriatras" -> "Geriatricians";
-            case "oftalmologos" -> "Ophthalmologists";
-            case "traumatologos" -> "Traumatologists";
-            case "dermatologos" -> "Dermatologists";
-            case "odontologos" -> "Dentists";
-            case "cardiologos" -> "Cardiologists";
-            case "urgenciologos" -> "Emergency physicians";
-            case "internistas" -> "Internists";
-            case "anestesiologos" -> "Anesthesiologists";
-            default -> value
-                    .replace("_", " ")
-                    .trim();
-        };
-    }
-
-    // =========================== COBERTURA MÉDICA ===========================
-    // =========================== País ===========================
-    @Override
-    public Optional<CountryMedicalCoverageMetrics> findCountryMedicalCoverageMetrics(Integer periodId) {
-        List<Object[]> result = em.createNativeQuery("""
-                WITH state_coverage AS (
-                    SELECT
-                        s.id AS state_id,
-                        s.name AS state_name,
-                        si.total_population AS population,
-                        COALESCE(SUM(hus.total_doctors), 0) AS doctors,
-                        ROUND(
-                            (COALESCE(SUM(hus.total_doctors), 0) / NULLIF(si.total_population, 0)) * 1000,
-                            2
-                        ) AS doctors_per_1000
-                    FROM states s
-                    JOIN state_indicators si 
-                        ON si.state_id = s.id
-                       AND si.period_id = :periodId
-                    LEFT JOIN municipalities m 
-                        ON m.state_id = s.id
-                    LEFT JOIN health_units hu 
-                        ON hu.municipality_id = m.id
-                    LEFT JOIN health_unit_staff hus 
-                        ON hus.health_unit_id = hu.id
-                       AND hus.period_id = :periodId
-                    GROUP BY s.id, s.name, si.total_population
-                )
-                SELECT
-                    p.id AS period_id,
-                    p.period_year AS period_year,
-                    COALESCE(SUM(sc.population), 0) AS total_population,
-                    COALESCE(SUM(sc.doctors), 0) AS total_doctors,
-                    ROUND(
-                        (COALESCE(SUM(sc.doctors), 0) / NULLIF(SUM(sc.population), 0)) * 1000,
-                        2
-                    ) AS doctors_per_1000,
-                    COALESCE(SUM(CASE WHEN sc.doctors_per_1000 < 1.0 THEN 1 ELSE 0 END), 0) AS critical_states,
-                    ROUND(COALESCE(AVG(sc.doctors_per_1000), 0), 2) AS average_state_medical_coverage
-                FROM periods p
-                LEFT JOIN state_coverage sc ON 1 = 1
-                WHERE p.id = :periodId
-                GROUP BY p.id, p.period_year
-                """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        if (result.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(mapCountryMedicalCoverageMetrics(result.get(0)));
-    }
-
-    @Override
-    public List<DashboardRankingRow> findCountryMedicalCoverageRanking(Integer periodId, Integer limit) {
-        List<Object[]> rows = em.createNativeQuery("""
-                SELECT
-                    ROW_NUMBER() OVER (
-                        ORDER BY ROUND((COALESCE(SUM(hus.total_doctors), 0) / NULLIF(si.total_population, 0)) * 1000, 2) ASC
-                    ) AS ranking_position,
-                    s.id AS state_id,
-                    s.inegi_code AS code,
-                    s.name AS name,
-                    si.total_population AS population,
-                    COALESCE(SUM(hus.total_doctors), 0) AS doctors,
-                    ROUND((COALESCE(SUM(hus.total_doctors), 0) / NULLIF(si.total_population, 0)) * 1000, 2) AS doctors_per_1000
-                FROM states s
-                JOIN state_indicators si 
-                    ON si.state_id = s.id
-                   AND si.period_id = :periodId
-                LEFT JOIN municipalities m 
-                    ON m.state_id = s.id
-                LEFT JOIN health_units hu 
-                    ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus 
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                GROUP BY s.id, s.inegi_code, s.name, si.total_population
-                ORDER BY doctors_per_1000 ASC
-                LIMIT :limit
-                """)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapRankingRow)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findCountryMedicalCoverageMainChart(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-                SELECT
-                    s.name AS label,
-                    s.inegi_code AS code,
-                    ROUND((COALESCE(SUM(hus.total_doctors), 0) / NULLIF(si.total_population, 0)) * 1000, 2) AS value,
-                    si.total_population AS population,
-                    COALESCE(SUM(hus.total_doctors), 0) AS doctors
-                FROM states s
-                JOIN state_indicators si 
-                    ON si.state_id = s.id
-                   AND si.period_id = :periodId
-                LEFT JOIN municipalities m 
-                    ON m.state_id = s.id
-                LEFT JOIN health_units hu 
-                    ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus 
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                GROUP BY s.id, s.inegi_code, s.name, si.total_population
-                ORDER BY value ASC
-                """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapChartDataPoint)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findCountryMedicalCoverageSecondaryChart(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-                SELECT
-                    s.name AS label,
-                    s.inegi_code AS code,
-                    COALESCE(SUM(hus.total_doctors), 0) AS value
-                FROM states s
-                JOIN state_indicators si 
-                    ON si.state_id = s.id
-                   AND si.period_id = :periodId
-                LEFT JOIN municipalities m 
-                    ON m.state_id = s.id
-                LEFT JOIN health_units hu 
-                    ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus 
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                GROUP BY s.id, s.inegi_code, s.name
-                ORDER BY value DESC
-                """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        (String) row[0],
-                        (String) row[1],
-                        toBigDecimal(row[2]),
-                        null,
-                        toLong(row[2]),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findCountrySpecialtiesDistribution(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                sp.name AS label,
-                COALESCE(SUM(huss.quantity), 0) AS value
-            FROM health_unit_staff_specialties huss
-            JOIN specialties sp
-                ON sp.id = huss.specialty_id
-            JOIN health_unit_staff hus
-                ON hus.id = huss.health_unit_staff_id
-               AND hus.period_id = :periodId
-            GROUP BY sp.id, sp.name
-            HAVING value > 0
-            ORDER BY value DESC
-            """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapSimplePiePoint)
-                .toList();
-    }
-
-    private CountryMedicalCoverageMetrics mapCountryMedicalCoverageMetrics(Object[] row) {
-        return new CountryMedicalCoverageMetrics(
-                new DashboardPeriod(
-                        toInteger(row[0]),
-                        toInteger(row[1])
-                ),
-                toBigInteger(row[2]),
-                toLong(row[3]),
-                toBigDecimal(row[4]),
-                toLong(row[5]),
-                toBigDecimal(row[6])
-        );
-    }
-
-    private DashboardRankingRow mapRankingRow(Object[] row) {
-        BigDecimal value = toBigDecimal(row[6]);
-        String[] classification = classifyMedicalCoverage(value);
-
-        return new DashboardRankingRow(
-                String.valueOf(toInteger(row[1])),
-                toInteger(row[0]),
-                (String) row[2],
-                (String) row[3],
-                toBigInteger(row[4]),
-                toLong(row[5]),
-                null,
-                null,
-                value,
-                classification[0],
-                classification[1],
-                Map.of()
-        );
-    }
-
-    private DashboardChartDataPoint mapChartDataPoint(Object[] row) {
-        BigDecimal value = toBigDecimal(row[2]);
-        String[] classification = classifyMedicalCoverage(value);
-
-        return new DashboardChartDataPoint(
-                (String) row[0],
-                (String) row[1],
-                value,
-                toBigInteger(row[3]),
-                toLong(row[4]),
-                null,
-                null,
-                value,
-                classification[0],
-                classification[1],
-                Map.of()
-        );
-    }
-
-    private String[] classifyMedicalCoverage(BigDecimal value) {
-        if (value == null) {
-            return new String[]{"no_data", "neutral"};
-        }
-
-        double number = value.doubleValue();
-
-        if (number >= 2.7) {
-            return new String[]{"good", "green"};
-        }
-
-        if (number >= 1.0) {
-            return new String[]{"risk", "yellow"};
-        }
-
-        return new String[]{"critical", "red"};
-    }
-
-    private Integer toInteger(Object value) {
-        if (value == null) return null;
-        if (value instanceof Integer) return (Integer) value;
-        if (value instanceof Short) return ((Short) value).intValue();
-        if (value instanceof Long) return ((Long) value).intValue();
-        if (value instanceof BigInteger) return ((BigInteger) value).intValue();
-        if (value instanceof BigDecimal) return ((BigDecimal) value).intValue();
-        return Integer.valueOf(value.toString());
-    }
-
-    private Long toLong(Object value) {
-        if (value == null) return 0L;
-        if (value instanceof Long) return (Long) value;
-        if (value instanceof Integer) return ((Integer) value).longValue();
-        if (value instanceof BigInteger) return ((BigInteger) value).longValue();
-        if (value instanceof BigDecimal) return ((BigDecimal) value).longValue();
-        return Long.valueOf(value.toString());
-    }
-
-    private BigInteger toBigInteger(Object value) {
-        if (value == null) return BigInteger.ZERO;
-        if (value instanceof BigInteger) return (BigInteger) value;
-        if (value instanceof BigDecimal) return ((BigDecimal) value).toBigInteger();
-        if (value instanceof Long) return BigInteger.valueOf((Long) value);
-        if (value instanceof Integer) return BigInteger.valueOf((Integer) value);
-        return new BigInteger(value.toString());
-    }
-
-    private BigDecimal toBigDecimal(Object value) {
-        if (value == null) return null;
-        if (value instanceof BigDecimal) return (BigDecimal) value;
-        if (value instanceof BigInteger) return new BigDecimal((BigInteger) value);
-        return new BigDecimal(value.toString());
-    }
-
-    // =========================== Estado ===========================
     @Override
     public boolean existsStateById(Integer stateId) {
         Long count = em.createQuery(
@@ -388,228 +74,6 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
         return count > 0;
     }
-
-    @Override
-    public Optional<StateMedicalCoverageMetrics> findStateMedicalCoverageMetrics(Integer stateId, Integer periodId) {
-        List<Object[]> result = em.createNativeQuery("""
-            WITH municipality_coverage AS (
-                SELECT
-                    m.id AS municipality_id,
-                    m.name AS municipality_name,
-                    mi.total_population AS population,
-                    COALESCE(SUM(hus.total_doctors), 0) AS doctors,
-                    ROUND(
-                        (COALESCE(SUM(hus.total_doctors), 0) / NULLIF(mi.total_population, 0)) * 1000,
-                        2
-                    ) AS doctors_per_1000
-                FROM municipalities m
-                JOIN municipality_indicators mi
-                    ON mi.municipality_id = m.id
-                   AND mi.period_id = :periodId
-                LEFT JOIN health_units hu
-                    ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                WHERE m.state_id = :stateId
-                GROUP BY m.id, m.name, mi.total_population
-            )
-            SELECT
-                s.id AS state_id,
-                s.inegi_code AS state_code,
-                s.name AS state_name,
-                p.id AS period_id,
-                p.period_year AS period_year,
-                si.total_population AS total_population,
-                COALESCE(SUM(mc.doctors), 0) AS total_doctors,
-                ROUND(
-                    (COALESCE(SUM(mc.doctors), 0) / NULLIF(si.total_population, 0)) * 1000,
-                    2
-                ) AS doctors_per_1000,
-                COALESCE(SUM(CASE WHEN mc.doctors_per_1000 < 1.0 THEN 1 ELSE 0 END), 0) AS critical_municipalities,
-                ROUND(COALESCE(AVG(mc.doctors_per_1000), 0), 2) AS average_municipal_coverage
-            FROM states s
-            JOIN periods p
-                ON p.id = :periodId
-            JOIN state_indicators si
-                ON si.state_id = s.id
-               AND si.period_id = p.id
-            LEFT JOIN municipality_coverage mc
-                ON 1 = 1
-            WHERE s.id = :stateId
-            GROUP BY s.id, s.inegi_code, s.name, p.id, p.period_year, si.total_population
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        if (result.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(mapStateMedicalCoverageMetrics(result.get(0)));
-    }
-
-    @Override
-    public List<DashboardRankingRow> findStateMedicalCoverageRanking(Integer stateId, Integer periodId, Integer limit) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY ROUND((COALESCE(SUM(hus.total_doctors), 0) / NULLIF(mi.total_population, 0)) * 1000, 2) ASC
-                ) AS ranking_position,
-                m.id AS municipality_id,
-                m.inegi_code AS code,
-                m.name AS name,
-                mi.total_population AS population,
-                COALESCE(SUM(hus.total_doctors), 0) AS doctors,
-                ROUND((COALESCE(SUM(hus.total_doctors), 0) / NULLIF(mi.total_population, 0)) * 1000, 2) AS doctors_per_1000
-            FROM municipalities m
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = :periodId
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE m.state_id = :stateId
-            GROUP BY m.id, m.inegi_code, m.name, mi.total_population
-            ORDER BY doctors_per_1000 ASC
-            LIMIT :limit
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapRankingRow)
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findStateMedicalCoverageMainChart(Integer stateId, Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                m.name AS label,
-                m.inegi_code AS code,
-                ROUND((COALESCE(SUM(hus.total_doctors), 0) / NULLIF(mi.total_population, 0)) * 1000, 2) AS value,
-                mi.total_population AS population,
-                COALESCE(SUM(hus.total_doctors), 0) AS doctors
-            FROM municipalities m
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = :periodId
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE m.state_id = :stateId
-            GROUP BY m.id, m.inegi_code, m.name, mi.total_population
-            ORDER BY value ASC
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapChartDataPoint)
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findStateMedicalCoverageSecondaryChart(Integer stateId, Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                m.name AS label,
-                m.inegi_code AS code,
-                COALESCE(SUM(hus.total_doctors), 0) AS value
-            FROM municipalities m
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE m.state_id = :stateId
-            GROUP BY m.id, m.inegi_code, m.name
-            ORDER BY value DESC
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        (String) row[0],
-                        (String) row[1],
-                        toBigDecimal(row[2]),
-                        null,
-                        toLong(row[2]),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findStateSpecialtiesDistribution(
-            Integer stateId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                sp.name AS label,
-                COALESCE(SUM(huss.quantity), 0) AS value
-            FROM health_unit_staff_specialties huss
-            JOIN specialties sp
-                ON sp.id = huss.specialty_id
-            JOIN health_unit_staff hus
-                ON hus.id = huss.health_unit_staff_id
-               AND hus.period_id = :periodId
-            JOIN health_units hu
-                ON hu.id = hus.health_unit_id
-            JOIN municipalities m
-                ON m.id = hu.municipality_id
-            WHERE m.state_id = :stateId
-            GROUP BY sp.id, sp.name
-            HAVING value > 0
-            ORDER BY value DESC
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapSimplePiePoint)
-                .toList();
-    }
-
-    private StateMedicalCoverageMetrics mapStateMedicalCoverageMetrics(Object[] row) {
-        return new StateMedicalCoverageMetrics(
-                new DashboardTerritory(
-                        toInteger(row[0]),
-                        (String) row[1],
-                        (String) row[2],
-                        "state"
-                ),
-                new DashboardPeriod(
-                        toInteger(row[3]),
-                        toInteger(row[4])
-                ),
-                toBigInteger(row[5]),
-                toLong(row[6]),
-                toBigDecimal(row[7]),
-                toLong(row[8]),
-                toBigDecimal(row[9])
-        );
-    }
-
-    // =========================== Municipio ===========================
 
     @Override
     public boolean existsMunicipalityById(Integer municipalityId) {
@@ -624,2106 +88,1097 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
     }
 
     @Override
-    public Optional<MunicipalityMedicalCoverageMetrics> findMunicipalityMedicalCoverageMetrics(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> result = em.createNativeQuery("""
-            SELECT
-                m.id AS municipality_id,
-                m.inegi_code AS municipality_code,
-                m.name AS municipality_name,
-                p.id AS period_id,
-                p.period_year AS period_year,
-                mi.total_population AS total_population,
-                COALESCE(staff.total_doctors, 0) AS total_doctors,
-                ROUND(
-                    (COALESCE(staff.total_doctors, 0) / NULLIF(mi.total_population, 0)) * 1000,
-                    2
-                ) AS doctors_per_1000,
-                COALESCE(infra.total_consulting_rooms, 0) AS total_consulting_rooms,
-                COALESCE(hospitals.total_hospitals, 0) AS total_hospitals
-            FROM municipalities m
-            JOIN periods p
-                ON p.id = :periodId
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = p.id
-            LEFT JOIN (
+    public Optional<CountryMedicalCoverageMetrics> findCountryMedicalCoverageMetrics(Integer periodId) {
+        return period(periodId).map(period -> {
+            Integer year = period.getPeriodYear();
+            return new CountryMedicalCoverageMetrics(
+                    period,
+                    bigIntegerValue("country", null, null, year, TOTAL_POPULATION),
+                    longValue("country", null, null, year, TOTAL_DOCTORS),
+                    decimalValue("country", null, null, year, MEDICAL_COVERAGE),
+                    countStateValuesBelow(MEDICAL_COVERAGE, year, BigDecimal.ONE),
+                    averageValue(indicatorRepository.findStateValues(MEDICAL_COVERAGE, year))
+            );
+        });
+    }
+
+    @Override
+    public List<DashboardRankingRow> findCountryMedicalCoverageRanking(Integer periodId, Integer limit) {
+        return stateRanking(periodId, MEDICAL_COVERAGE, limit, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findCountryMedicalCoverageMainChart(Integer periodId) {
+        return stateChart(periodId, MEDICAL_COVERAGE, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findCountryMedicalCoverageSecondaryChart(Integer periodId) {
+        return stateChart(periodId, PERCENTAGE_OVER_60, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findCountrySpecialtiesDistribution(Integer periodId) {
+        return chartRows(em.createNativeQuery("""
                 SELECT
-                    hu.municipality_id,
-                    SUM(hus.total_doctors) AS total_doctors
-                FROM health_units hu
-                JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                GROUP BY hu.municipality_id
-            ) staff
-                ON staff.municipality_id = m.id
-            LEFT JOIN (
+                    sp.name AS label,
+                    NULL AS code,
+                    SUM(huss.quantity) AS value
+                FROM health_unit_staff_specialties huss
+                JOIN specialties sp ON sp.id = huss.specialty_id
+                JOIN health_unit_staff hus ON hus.id = huss.health_unit_staff_id
+                WHERE hus.period_id = :periodId
+                GROUP BY sp.name
+                ORDER BY value DESC
+                """)
+                .setParameter("periodId", periodId)
+                .getResultList());
+    }
+
+    @Override
+    public Optional<StateMedicalCoverageMetrics> findStateMedicalCoverageMetrics(Integer stateId, Integer periodId) {
+        return period(periodId).flatMap(period -> stateTerritory(stateId).map(territory -> {
+            Integer year = period.getPeriodYear();
+            String stateCode = territory.getCode();
+            return new StateMedicalCoverageMetrics(
+                    territory,
+                    period,
+                    bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
+                    longValue("state", stateId, null, year, TOTAL_DOCTORS),
+                    decimalValue("state", stateId, null, year, MEDICAL_COVERAGE),
+                    countMunicipalityValuesBelow(MEDICAL_COVERAGE, year, stateCode, BigDecimal.ONE),
+                    averageValue(indicatorRepository.findMunicipalityValuesByState(MEDICAL_COVERAGE, year, stateCode))
+            );
+        }));
+    }
+
+    @Override
+    public List<DashboardRankingRow> findStateMedicalCoverageRanking(Integer stateId, Integer periodId, Integer limit) {
+        return municipalityRankingByState(stateId, periodId, MEDICAL_COVERAGE, limit, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateMedicalCoverageMainChart(Integer stateId, Integer periodId) {
+        return municipalityChartByState(stateId, periodId, MEDICAL_COVERAGE, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateMedicalCoverageSecondaryChart(Integer stateId, Integer periodId) {
+        return municipalityChartByState(stateId, periodId, PERCENTAGE_OVER_60, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateSpecialtiesDistribution(Integer stateId, Integer periodId) {
+        return chartRows(em.createNativeQuery("""
                 SELECT
-                    hu.municipality_id,
-                    SUM(CASE
-                        WHEN it.name = 'total_consultorios'
-                        THEN huid.quantity ELSE 0 END
-                    ) AS total_consulting_rooms
-                FROM health_units hu
-                JOIN health_unit_infrastructure hui
-                    ON hui.health_unit_id = hu.id
-                   AND hui.period_id = :periodId
-                JOIN health_unit_infrastructure_details huid
-                    ON huid.health_unit_infrastructure_id = hui.id
-                JOIN infrastructure_types it
-                    ON it.id = huid.infrastructure_type_id
-                GROUP BY hu.municipality_id
-            ) infra
-                ON infra.municipality_id = m.id
-            LEFT JOIN (
+                    sp.name AS label,
+                    NULL AS code,
+                    SUM(huss.quantity) AS value
+                FROM health_unit_staff_specialties huss
+                JOIN specialties sp ON sp.id = huss.specialty_id
+                JOIN health_unit_staff hus ON hus.id = huss.health_unit_staff_id
+                JOIN health_units hu ON hu.id = hus.health_unit_id
+                JOIN municipalities m ON m.id = hu.municipality_id
+                WHERE hus.period_id = :periodId
+                  AND m.state_id = :stateId
+                GROUP BY sp.name
+                ORDER BY value DESC
+                """)
+                .setParameter("periodId", periodId)
+                .setParameter("stateId", stateId)
+                .getResultList());
+    }
+
+    @Override
+    public Optional<MunicipalityMedicalCoverageMetrics> findMunicipalityMedicalCoverageMetrics(Integer municipalityId, Integer periodId) {
+        return period(periodId).flatMap(period -> municipalityTerritory(municipalityId).map(territory -> {
+            Integer year = period.getPeriodYear();
+            return new MunicipalityMedicalCoverageMetrics(
+                    territory,
+                    period,
+                    bigIntegerValue("municipality", null, municipalityId, year, TOTAL_POPULATION),
+                    longValue("municipality", null, municipalityId, year, TOTAL_DOCTORS),
+                    decimalValue("municipality", null, municipalityId, year, MEDICAL_COVERAGE),
+                    longValue("municipality", null, municipalityId, year, CONSULTING_ROOMS),
+                    countHospitals(null, municipalityId)
+            );
+        }));
+    }
+
+    @Override
+    public List<DashboardRankingRow> findMunicipalityMedicalCoverageRanking(Integer municipalityId, Integer periodId, Integer limit) {
+        return healthUnitDoctorRanking(municipalityId, periodId, limit);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalityMedicalCoverageMainChart(Integer municipalityId, Integer periodId) {
+        return municipalityChartBySiblingState(municipalityId, periodId, MEDICAL_COVERAGE, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalityMedicalCoverageSecondaryChart(Integer municipalityId, Integer periodId) {
+        return municipalityChartBySiblingState(municipalityId, periodId, PERCENTAGE_OVER_60, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalitySpecialtiesDistribution(Integer municipalityId, Integer periodId) {
+        return chartRows(em.createNativeQuery("""
                 SELECT
-                    hu.municipality_id,
-                    COUNT(DISTINCT hu.id) AS total_hospitals
-                FROM health_units hu
-                JOIN establishment_types et
-                    ON et.id = hu.establishment_type_id
-                JOIN medical_unit_types mut
-                    ON mut.id = hu.medical_unit_type_id
-                WHERE et.name = 'DE HOSPITALIZACION'
-                   OR UPPER(mut.name) LIKE '%HOSPITAL%'
-                GROUP BY hu.municipality_id
-            ) hospitals
-                ON hospitals.municipality_id = m.id
-            WHERE m.id = :municipalityId
-            """)
-                .setParameter("municipalityId", municipalityId)
+                    sp.name AS label,
+                    NULL AS code,
+                    SUM(huss.quantity) AS value
+                FROM health_unit_staff_specialties huss
+                JOIN specialties sp ON sp.id = huss.specialty_id
+                JOIN health_unit_staff hus ON hus.id = huss.health_unit_staff_id
+                JOIN health_units hu ON hu.id = hus.health_unit_id
+                WHERE hus.period_id = :periodId
+                  AND hu.municipality_id = :municipalityId
+                GROUP BY sp.name
+                ORDER BY value DESC
+                """)
                 .setParameter("periodId", periodId)
-                .getResultList();
-
-        if (result.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(mapMunicipalityMedicalCoverageMetrics(result.get(0)));
-    }
-
-    @Override
-    public List<DashboardRankingRow> findMunicipalityMedicalCoverageRanking(
-            Integer municipalityId,
-            Integer periodId,
-            Integer limit
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY COALESCE(hus.total_doctors, 0) ASC
-                ) AS ranking_position,
-                hu.id AS unit_id,
-                hu.clues AS code,
-                hu.name AS name,
-                COALESCE(hus.total_doctors, 0) AS doctors,
-                mut.name AS unit_type,
-                hu.care_level AS care_level
-            FROM health_units hu
-            JOIN medical_unit_types mut
-                ON mut.id = hu.medical_unit_type_id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE hu.municipality_id = :municipalityId
-            ORDER BY doctors ASC, hu.name ASC
-            LIMIT :limit
-            """)
                 .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapMunicipalityUnitRankingRow)
-                .toList();
+                .getResultList());
     }
 
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalityMedicalCoverageMainChart(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                hu.name AS label,
-                hu.clues AS code,
-                COALESCE(hus.total_doctors, 0) AS doctors,
-                mut.name AS unit_type,
-                hu.care_level AS care_level
-            FROM health_units hu
-            JOIN medical_unit_types mut
-                ON mut.id = hu.medical_unit_type_id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE hu.municipality_id = :municipalityId
-            ORDER BY doctors DESC, hu.name ASC
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        (String) row[0],
-                        (String) row[1],
-                        toBigDecimal(row[2]),
-                        null,
-                        toLong(row[2]),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Map.of(
-                                "unitType", row[3] != null ? row[3].toString() : null,
-                                "careLevel", row[4] != null ? row[4].toString() : null
-                        )
-                ))
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalityMedicalCoverageSecondaryChart(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                hu.care_level AS label,
-                COUNT(*) AS total_units
-            FROM health_units hu
-            WHERE hu.municipality_id = :municipalityId
-            GROUP BY hu.care_level
-            ORDER BY total_units DESC
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        row[0] != null ? row[0].toString() : "not_specified",
-                        null,
-                        toBigDecimal(row[1]),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .toList();
-    }
-
-    private MunicipalityMedicalCoverageMetrics mapMunicipalityMedicalCoverageMetrics(Object[] row) {
-        return new MunicipalityMedicalCoverageMetrics(
-                new DashboardTerritory(
-                        toInteger(row[0]),
-                        (String) row[1],
-                        (String) row[2],
-                        "municipality"
-                ),
-                new DashboardPeriod(
-                        toInteger(row[3]),
-                        toInteger(row[4])
-                ),
-                toBigInteger(row[5]),
-                toLong(row[6]),
-                toBigDecimal(row[7]),
-                toLong(row[8]),
-                toLong(row[9])
-        );
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalitySpecialtiesDistribution(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                sp.name AS label,
-                COALESCE(SUM(huss.quantity), 0) AS value
-            FROM health_unit_staff_specialties huss
-            JOIN specialties sp
-                ON sp.id = huss.specialty_id
-            JOIN health_unit_staff hus
-                ON hus.id = huss.health_unit_staff_id
-               AND hus.period_id = :periodId
-            JOIN health_units hu
-                ON hu.id = hus.health_unit_id
-            WHERE hu.municipality_id = :municipalityId
-            GROUP BY sp.id, sp.name
-            HAVING value > 0
-            ORDER BY value DESC
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapSimplePiePoint)
-                .toList();
-    }
-
-    private DashboardRankingRow mapMunicipalityUnitRankingRow(Object[] row) {
-        return new DashboardRankingRow(
-                String.valueOf(toInteger(row[1])),
-                toInteger(row[0]),
-                (String) row[2],
-                (String) row[3],
-                null,
-                toLong(row[4]),
-                null,
-                null,
-                toBigDecimal(row[4]),
-                null,
-                null,
-                Map.of(
-                        "unitType", row[5] != null ? row[5].toString() : null,
-                        "careLevel", row[6] != null ? row[6].toString() : null
-                )
-        );
-    }
-
-
-
-    // =========================== INFRAESTRUCTURA HOSPITALARIA ===========================
-    // =========================== País ===========================
     @Override
     public Optional<CountryHospitalBedsMetrics> findCountryHospitalBedsMetrics(Integer periodId) {
-        List<Object[]> result = em.createNativeQuery("""
-            WITH state_beds AS (
-                SELECT
-                    s.id AS state_id,
-                    s.name AS state_name,
-                    si.total_population AS population,
-                    COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0
-                    ) AS hospital_beds,
-                    ROUND(
-                        (COALESCE(SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END), 0) / NULLIF(si.total_population, 0)) * 1000,
-                        2
-                    ) AS beds_per_1000
-                FROM states s
-                JOIN state_indicators si
-                    ON si.state_id = s.id
-                   AND si.period_id = :periodId
-                LEFT JOIN municipalities m
-                    ON m.state_id = s.id
-                LEFT JOIN health_units hu
-                    ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_infrastructure hui
-                    ON hui.health_unit_id = hu.id
-                   AND hui.period_id = :periodId
-                LEFT JOIN health_unit_infrastructure_details huid
-                    ON huid.health_unit_infrastructure_id = hui.id
-                LEFT JOIN infrastructure_types it
-                    ON it.id = huid.infrastructure_type_id
-                GROUP BY s.id, s.name, si.total_population
-            ),
-            hospitals AS (
-                SELECT
-                    COUNT(DISTINCT hu.id) AS total_hospitals
-                FROM health_units hu
-                JOIN establishment_types et
-                    ON et.id = hu.establishment_type_id
-                JOIN medical_unit_types mut
-                    ON mut.id = hu.medical_unit_type_id
-                WHERE et.name = 'DE HOSPITALIZACION'
-                   OR UPPER(mut.name) LIKE '%HOSPITAL%'
-            )
-            SELECT
-                p.id AS period_id,
-                p.period_year AS period_year,
-                COALESCE(SUM(sb.population), 0) AS total_population,
-                COALESCE(SUM(sb.hospital_beds), 0) AS total_hospital_beds,
-                ROUND(
-                    (COALESCE(SUM(sb.hospital_beds), 0) / NULLIF(SUM(sb.population), 0)) * 1000,
-                    2
-                ) AS hospital_beds_per_1000,
-                COALESCE(SUM(CASE WHEN sb.beds_per_1000 < 3.0 THEN 1 ELSE 0 END), 0) AS states_with_hospital_deficit,
-                COALESCE(h.total_hospitals, 0) AS total_hospitals,
-                ROUND(
-                    COALESCE(SUM(sb.hospital_beds), 0) / NULLIF(COALESCE(h.total_hospitals, 0), 0),
-                    2
-                ) AS average_beds_per_hospital
-            FROM periods p
-            LEFT JOIN state_beds sb ON 1 = 1
-            LEFT JOIN hospitals h ON 1 = 1
-            WHERE p.id = :periodId
-            GROUP BY p.id, p.period_year, h.total_hospitals
-            """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        if (result.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(mapCountryHospitalBedsMetrics(result.get(0)));
+        return period(periodId).map(period -> {
+            Integer year = period.getPeriodYear();
+            Long hospitals = countHospitals(null, null);
+            Long beds = longValue("country", null, null, year, HOSPITAL_BEDS_TOTAL);
+            return new CountryHospitalBedsMetrics(
+                    period,
+                    bigIntegerValue("country", null, null, year, TOTAL_POPULATION),
+                    beds,
+                    decimalValue("country", null, null, year, HOSPITAL_BEDS),
+                    countStateValuesBelow(HOSPITAL_BEDS, year, BigDecimal.ONE),
+                    hospitals,
+                    averagePerUnit(beds, hospitals)
+            );
+        });
     }
 
     @Override
     public List<DashboardRankingRow> findCountryHospitalBedsRanking(Integer periodId, Integer limit) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY ROUND(
-                        (COALESCE(SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END), 0) / NULLIF(si.total_population, 0)) * 1000,
-                        2
-                    ) ASC
-                ) AS ranking_position,
-                s.id AS state_id,
-                s.inegi_code AS code,
-                s.name AS name,
-                si.total_population AS population,
-                COALESCE(SUM(CASE
-                    WHEN it.name = 'total_camas_hospitalizacion'
-                    THEN huid.quantity ELSE 0 END), 0
-                ) AS hospital_beds,
-                ROUND(
-                    (COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0) / NULLIF(si.total_population, 0)) * 1000,
-                    2
-                ) AS beds_per_1000
-            FROM states s
-            JOIN state_indicators si
-                ON si.state_id = s.id
-               AND si.period_id = :periodId
-            LEFT JOIN municipalities m
-                ON m.state_id = s.id
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_infrastructure hui
-                ON hui.health_unit_id = hu.id
-               AND hui.period_id = :periodId
-            LEFT JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            LEFT JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            GROUP BY s.id, s.inegi_code, s.name, si.total_population
-            ORDER BY beds_per_1000 ASC
-            LIMIT :limit
-            """)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHospitalBedsRankingRow)
-                .toList();
+        return stateRanking(periodId, HOSPITAL_BEDS, limit, true);
     }
 
     @Override
     public List<DashboardChartDataPoint> findCountryHospitalBedsMainChart(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                s.name AS label,
-                s.inegi_code AS code,
-                ROUND(
-                    (COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0) / NULLIF(si.total_population, 0)) * 1000,
-                    2
-                ) AS value,
-                si.total_population AS population,
-                COALESCE(SUM(CASE
-                    WHEN it.name = 'total_camas_hospitalizacion'
-                    THEN huid.quantity ELSE 0 END), 0
-                ) AS hospital_beds
-            FROM states s
-            JOIN state_indicators si
-                ON si.state_id = s.id
-               AND si.period_id = :periodId
-            LEFT JOIN municipalities m
-                ON m.state_id = s.id
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_infrastructure hui
-                ON hui.health_unit_id = hu.id
-               AND hui.period_id = :periodId
-            LEFT JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            LEFT JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            GROUP BY s.id, s.inegi_code, s.name, si.total_population
-            ORDER BY value ASC
-            """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHospitalBedsChartDataPoint)
-                .toList();
+        return stateChart(periodId, HOSPITAL_BEDS, true);
     }
 
     @Override
     public List<DashboardChartDataPoint> findCountryHospitalBedsSecondaryChart(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                et.name AS label,
-                COUNT(hu.id) AS total_units
-            FROM health_units hu
-            JOIN establishment_types et
-                ON et.id = hu.establishment_type_id
-            GROUP BY et.id, et.name
-            ORDER BY total_units DESC
-            """)
-                .getResultList();
+        return stateChart(periodId, TOTAL_POPULATION, false);
+    }
 
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        row[0] != null ? row[0].toString() : "not_specified",
-                        null,
-                        toBigDecimal(row[1]),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
+    @Override
+    public Optional<StateHospitalBedsMetrics> findStateHospitalBedsMetrics(Integer stateId, Integer periodId) {
+        return period(periodId).flatMap(period -> stateTerritory(stateId).map(territory -> {
+            Integer year = period.getPeriodYear();
+            String stateCode = territory.getCode();
+            return new StateHospitalBedsMetrics(
+                    territory,
+                    period,
+                    bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
+                    longValue("state", stateId, null, year, HOSPITAL_BEDS_TOTAL),
+                    decimalValue("state", stateId, null, year, HOSPITAL_BEDS),
+                    countMunicipalityValuesBelow(HOSPITAL_BEDS, year, stateCode, BigDecimal.ONE),
+                    countHospitals(stateId, null),
+                    longValue("state", stateId, null, year, CONSULTING_ROOMS)
+            );
+        }));
+    }
+
+    @Override
+    public List<DashboardRankingRow> findStateHospitalBedsRanking(Integer stateId, Integer periodId, Integer limit) {
+        return municipalityRankingByState(stateId, periodId, HOSPITAL_BEDS, limit, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateHospitalBedsMainChart(Integer stateId, Integer periodId) {
+        return municipalityChartByState(stateId, periodId, HOSPITAL_BEDS, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateHospitalBedsSecondaryChart(Integer stateId, Integer periodId) {
+        return municipalityChartByState(stateId, periodId, TOTAL_POPULATION, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateInfrastructureDistribution(Integer stateId, Integer periodId) {
+        return infrastructureDistribution(periodId, stateId, null);
+    }
+
+    @Override
+    public Optional<MunicipalityHospitalBedsMetrics> findMunicipalityHospitalBedsMetrics(Integer municipalityId, Integer periodId) {
+        return period(periodId).flatMap(period -> municipalityTerritory(municipalityId).map(territory -> new MunicipalityHospitalBedsMetrics(
+                territory,
+                period,
+                countHospitals(null, municipalityId),
+                longValue("municipality", null, municipalityId, period.getPeriodYear(), CONSULTING_ROOMS),
+                longValue("municipality", null, municipalityId, period.getPeriodYear(), HOSPITAL_BEDS_TOTAL),
+                predominantCareLevel(municipalityId)
+        )));
+    }
+
+    @Override
+    public List<DashboardRankingRow> findMunicipalityHospitalBedsRanking(Integer municipalityId, Integer periodId, Integer limit) {
+        return healthUnitInfrastructureRanking(municipalityId, periodId, limit);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalityHospitalBedsMainChart(Integer municipalityId, Integer periodId) {
+        return municipalityChartBySiblingState(municipalityId, periodId, HOSPITAL_BEDS, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalityHospitalBedsSecondaryChart(Integer municipalityId, Integer periodId) {
+        return municipalityChartBySiblingState(municipalityId, periodId, TOTAL_POPULATION, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findCountryInfrastructureDistribution(Integer periodId) {
+        return infrastructureDistribution(periodId, null, null);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalityInfrastructureDistribution(Integer municipalityId, Integer periodId) {
+        return infrastructureDistribution(periodId, null, municipalityId);
+    }
+
+    @Override
+    public Optional<CountryHealthcareAccessDeficiencyMetrics> findCountryHealthcareAccessDeficiencyMetrics(Integer periodId) {
+        return period(periodId).map(period -> {
+            Integer year = period.getPeriodYear();
+            return new CountryHealthcareAccessDeficiencyMetrics(
+                    period,
+                    bigIntegerValue("country", null, null, year, TOTAL_POPULATION),
+                    bigIntegerValue("country", null, null, year, HEALTHCARE_ACCESS_DEFICIENCY),
+                    countStateValuesAbove(HEALTHCARE_ACCESS_DEFICIENCY, year, BigDecimal.ZERO),
+                    decimalValue("country", null, null, year, MEDICAL_COVERAGE)
+            );
+        });
+    }
+
+    @Override
+    public List<DashboardRankingRow> findCountryHealthcareAccessDeficiencyRanking(Integer periodId, Integer limit) {
+        return stateRanking(periodId, HEALTHCARE_ACCESS_DEFICIENCY, limit, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findCountryHealthcareAccessDeficiencyMainChart(Integer periodId) {
+        return stateChart(periodId, HEALTHCARE_ACCESS_DEFICIENCY, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findCountryHealthcareAccessDeficiencySecondaryChart(Integer periodId) {
+        return stateChart(periodId, TOTAL_POVERTY_POPULATION, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findCountryHealthcareAccessDistribution(Integer periodId) {
+        return stateChart(periodId, HEALTHCARE_ACCESS_DEFICIENCY, false);
+    }
+
+    @Override
+    public Optional<StateHealthcareAccessDeficiencyMetrics> findStateHealthcareAccessDeficiencyMetrics(Integer stateId, Integer periodId) {
+        return period(periodId).flatMap(period -> stateTerritory(stateId).map(territory -> {
+            Integer year = period.getPeriodYear();
+            return new StateHealthcareAccessDeficiencyMetrics(
+                    territory,
+                    period,
+                    bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
+                    countMunicipalityValuesAbove(HEALTHCARE_ACCESS_DEFICIENCY, year, territory.getCode(), BigDecimal.ZERO),
+                    decimalValue("state", stateId, null, year, MEDICAL_COVERAGE),
+                    longValue("state", stateId, null, year, HEALTH_ESTABLISHMENTS)
+            );
+        }));
+    }
+
+    @Override
+    public List<DashboardRankingRow> findStateHealthcareAccessDeficiencyRanking(Integer stateId, Integer periodId, Integer limit) {
+        return municipalityRankingByState(stateId, periodId, HEALTHCARE_ACCESS_DEFICIENCY, limit, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateHealthcareAccessDeficiencyMainChart(Integer stateId, Integer periodId) {
+        return municipalityChartByState(stateId, periodId, HEALTHCARE_ACCESS_DEFICIENCY, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateHealthcareAccessDeficiencySecondaryChart(Integer stateId, Integer periodId) {
+        return municipalityChartByState(stateId, periodId, MEDICAL_COVERAGE, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findStateHealthcareAccessDistribution(Integer stateId, Integer periodId) {
+        return municipalityChartByState(stateId, periodId, HEALTHCARE_ACCESS_DEFICIENCY, false);
+    }
+
+    @Override
+    public Optional<MunicipalityHealthcareAccessDeficiencyMetrics> findMunicipalityHealthcareAccessDeficiencyMetrics(Integer municipalityId, Integer periodId) {
+        return period(periodId).flatMap(period -> municipalityTerritory(municipalityId).map(territory -> {
+            Integer year = period.getPeriodYear();
+            return new MunicipalityHealthcareAccessDeficiencyMetrics(
+                    territory,
+                    period,
+                    bigIntegerValue("municipality", null, municipalityId, year, TOTAL_POPULATION),
+                    longValue("municipality", null, municipalityId, year, TOTAL_DOCTORS),
+                    longValue("municipality", null, municipalityId, year, HEALTH_ESTABLISHMENTS),
+                    decimalValue("municipality", null, municipalityId, year, MEDICAL_COVERAGE)
+            );
+        }));
+    }
+
+    @Override
+    public List<DashboardRankingRow> findMunicipalityHealthcareAccessDeficiencyRanking(Integer municipalityId, Integer periodId, Integer limit) {
+        return healthUnitDoctorRanking(municipalityId, periodId, limit);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalityHealthcareAccessDeficiencyMainChart(Integer municipalityId, Integer periodId) {
+        return municipalityChartBySiblingState(municipalityId, periodId, HEALTHCARE_ACCESS_DEFICIENCY, false);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalityHealthcareAccessDeficiencySecondaryChart(Integer municipalityId, Integer periodId) {
+        return municipalityChartBySiblingState(municipalityId, periodId, MEDICAL_COVERAGE, true);
+    }
+
+    @Override
+    public List<DashboardChartDataPoint> findMunicipalityHealthcareAccessDistribution(Integer municipalityId, Integer periodId) {
+        return municipalityChartBySiblingState(municipalityId, periodId, HEALTHCARE_ACCESS_DEFICIENCY, false);
+    }
+
+    private List<DashboardRankingRow> stateRanking(Integer periodId, String indicatorCode, Integer limit, boolean higherIsBetter) {
+        Integer year = analysisYear(periodId).orElse(null);
+        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, "state", year)) {
+            return List.of();
+        }
+
+        // La direccion del ranking se toma del catalogo indicators.higher_is_better;
+        // el parametro recibido queda como respaldo si el catalogo no tiene dato.
+        boolean sortHigherIsBetter = higherIsBetter(indicatorCode, higherIsBetter);
+        Map<String, TerritoryIndicatorValueDto> population = indicatorRepository.findStateValues(TOTAL_POPULATION, year)
+                .stream()
+                .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left));
+        Map<String, TerritoryIndicatorValueDto> coverage = rankingNeedsCoverageIndex(indicatorCode)
+                ? indicatorRepository.findStateValues(MEDICAL_COVERAGE, year)
+                        .stream()
+                        .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left))
+                : Map.of();
+        Map<String, Long> doctors = rankingNeedsDoctors(indicatorCode) ? indicatorLongTotalsByState(TOTAL_DOCTORS, year) : Map.of();
+        Map<String, Long> hospitalBeds = rankingNeedsHospitalBeds(indicatorCode)
+                ? indicatorLongTotalsByState(HOSPITAL_BEDS_TOTAL, year)
+                : Map.of();
+        Map<String, Long> consultingRooms = rankingNeedsHospitalBeds(indicatorCode)
+                ? indicatorLongTotalsByState(CONSULTING_ROOMS, year)
+                : Map.of();
+
+        AtomicInteger rank = new AtomicInteger(1);
+        return indicatorRepository.findStateValues(indicatorCode, year)
+                .stream()
+                .filter(value -> value.getValue() != null)
+                .sorted((a, b) -> compareValues(a.getValue(), b.getValue(), sortHigherIsBetter))
+                .limit(normalizeLimit(limit))
+                .map(value -> rankingRow(
+                        value,
+                        population.get(value.getTerritoryCode()),
+                        doctors.get(value.getTerritoryCode()),
+                        hospitalBeds.get(value.getTerritoryCode()),
+                        consultingRooms.get(value.getTerritoryCode()),
+                        coverage.get(value.getTerritoryCode()),
+                        rank.getAndIncrement(),
+                        sortHigherIsBetter
                 ))
                 .toList();
     }
 
-    private CountryHospitalBedsMetrics mapCountryHospitalBedsMetrics(Object[] row) {
-        return new CountryHospitalBedsMetrics(
-                new DashboardPeriod(
-                        toInteger(row[0]),
-                        toInteger(row[1])
-                ),
-                toBigInteger(row[2]),
-                toLong(row[3]),
-                toBigDecimal(row[4]),
-                toLong(row[5]),
-                toLong(row[6]),
-                toBigDecimal(row[7])
-        );
+    private List<DashboardRankingRow> municipalityRankingByState(Integer stateId, Integer periodId, String indicatorCode, Integer limit, boolean higherIsBetter) {
+        return stateCode(stateId)
+                .map(code -> municipalityRanking(code, periodId, indicatorCode, limit, higherIsBetter))
+                .orElse(List.of());
     }
 
-    private DashboardRankingRow mapHospitalBedsRankingRow(Object[] row) {
-        BigDecimal value = toBigDecimal(row[6]);
-        String[] classification = classifyHospitalBeds(value);
-
-        return new DashboardRankingRow(
-                String.valueOf(toInteger(row[1])),
-                toInteger(row[0]),
-                (String) row[2],
-                (String) row[3],
-                toBigInteger(row[4]),
-                null,
-                toLong(row[5]),
-                null,
-                value,
-                classification[0],
-                classification[1],
-                Map.of()
-        );
+    private List<DashboardRankingRow> municipalityRankingBySiblingState(Integer municipalityId, Integer periodId, String indicatorCode, Integer limit, boolean higherIsBetter) {
+        return stateCodeByMunicipality(municipalityId)
+                .map(code -> municipalityRanking(code, periodId, indicatorCode, limit, higherIsBetter))
+                .orElse(List.of());
     }
 
-    private DashboardChartDataPoint mapHospitalBedsChartDataPoint(Object[] row) {
-        BigDecimal value = toBigDecimal(row[2]);
-        String[] classification = classifyHospitalBeds(value);
-
-        return new DashboardChartDataPoint(
-                (String) row[0],
-                (String) row[1],
-                value,
-                toBigInteger(row[3]),
-                null,
-                toLong(row[4]),
-                null,
-                null,
-                classification[0],
-                classification[1],
-                Map.of()
-        );
-    }
-
-    private String[] classifyHospitalBeds(BigDecimal value) {
-        if (value == null) {
-            return new String[]{"no_data", "neutral"};
+    private List<DashboardRankingRow> municipalityRanking(String stateCode, Integer periodId, String indicatorCode, Integer limit, boolean higherIsBetter) {
+        Integer year = analysisYear(periodId).orElse(null);
+        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+            return List.of();
         }
 
-        double number = value.doubleValue();
+        boolean sortHigherIsBetter = higherIsBetter(indicatorCode, higherIsBetter);
+        Map<String, TerritoryIndicatorValueDto> population = indicatorRepository.findMunicipalityValuesByState(TOTAL_POPULATION, year, stateCode)
+                .stream()
+                .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left));
+        Map<String, TerritoryIndicatorValueDto> coverage = rankingNeedsCoverageIndex(indicatorCode)
+                ? indicatorRepository.findMunicipalityValuesByState(MEDICAL_COVERAGE, year, stateCode)
+                        .stream()
+                        .collect(Collectors.toMap(TerritoryIndicatorValueDto::getTerritoryCode, Function.identity(), (left, right) -> left))
+                : Map.of();
+        Map<String, Long> doctors = rankingNeedsDoctors(indicatorCode) ? indicatorLongTotalsByMunicipality(TOTAL_DOCTORS, year, stateCode) : Map.of();
+        Map<String, Long> hospitalBeds = rankingNeedsHospitalBeds(indicatorCode)
+                ? indicatorLongTotalsByMunicipality(HOSPITAL_BEDS_TOTAL, year, stateCode)
+                : Map.of();
+        Map<String, Long> consultingRooms = rankingNeedsHospitalBeds(indicatorCode)
+                ? indicatorLongTotalsByMunicipality(CONSULTING_ROOMS, year, stateCode)
+                : Map.of();
 
-        if (number >= 3.0) {
-            return new String[]{"good", "green"};
-        }
-
-        if (number >= 1.0) {
-            return new String[]{"risk", "yellow"};
-        }
-
-        return new String[]{"critical", "red"};
+        AtomicInteger rank = new AtomicInteger(1);
+        return indicatorRepository.findMunicipalityValuesByState(indicatorCode, year, stateCode)
+                .stream()
+                .filter(value -> value.getValue() != null)
+                .sorted((a, b) -> compareValues(a.getValue(), b.getValue(), sortHigherIsBetter))
+                .limit(normalizeLimit(limit))
+                .map(value -> rankingRow(
+                        value,
+                        population.get(value.getTerritoryCode()),
+                        doctors.get(value.getTerritoryCode()),
+                        hospitalBeds.get(value.getTerritoryCode()),
+                        consultingRooms.get(value.getTerritoryCode()),
+                        coverage.get(value.getTerritoryCode()),
+                        rank.getAndIncrement(),
+                        sortHigherIsBetter
+                ))
+                .toList();
     }
 
-    // =========================== Estado ===========================
-    @Override
-    public Optional<StateHospitalBedsMetrics> findStateHospitalBedsMetrics(Integer stateId, Integer periodId) {
-        List<Object[]> result = em.createNativeQuery("""
-            WITH municipality_beds AS (
+    private List<DashboardRankingRow> healthUnitDoctorRanking(Integer municipalityId, Integer periodId, Integer limit) {
+        // Este ranking baja al nivel unidad medica; por eso consulta tablas operativas
+        // en lugar de territory_indicator_values.
+        List<?> rows = em.createNativeQuery("""
                 SELECT
-                    m.id AS municipality_id,
-                    m.name AS municipality_name,
-                    mi.total_population AS population,
-                    COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0
-                    ) AS hospital_beds,
-                    ROUND(
-                        (COALESCE(SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END), 0) / NULLIF(mi.total_population, 0)) * 1000,
-                        2
-                    ) AS beds_per_1000
-                FROM municipalities m
-                JOIN municipality_indicators mi
-                    ON mi.municipality_id = m.id
-                   AND mi.period_id = :periodId
-                LEFT JOIN health_units hu
-                    ON hu.municipality_id = m.id
+                    hu.id,
+                    hu.clues,
+                    hu.name,
+                    COALESCE(hus.total_doctors, 0) AS total_doctors,
+                    mut.name AS unit_type,
+                    hu.care_level
+                FROM health_units hu
+                LEFT JOIN health_unit_staff hus
+                    ON hus.health_unit_id = hu.id
+                   AND hus.period_id = :periodId
+                LEFT JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
+                WHERE hu.municipality_id = :municipalityId
+                ORDER BY total_doctors DESC, hu.name ASC
+                """)
+                .setParameter("municipalityId", municipalityId)
+                .setParameter("periodId", periodId)
+                .setMaxResults((int) normalizeLimit(limit))
+                .getResultList();
+
+        AtomicInteger rank = new AtomicInteger(1);
+        return rows.stream()
+                .map(row -> {
+                    Object[] values = (Object[]) row;
+                    Long doctors = toLong(values[3]);
+                    String unitType = toString(values[4]);
+                    String careLevel = toString(values[5]);
+                    return new DashboardRankingRow(
+                            toString(values[0]),
+                            rank.getAndIncrement(),
+                            toString(values[1]),
+                            toString(values[2]),
+                            null,
+                            doctors,
+                            null,
+                            null,
+                            null,
+                            unitType,
+                            careLevel,
+                            BigDecimal.valueOf(doctors),
+                            null,
+                            "neutral",
+                            extra(
+                                    "unitType", unitType,
+                                    "careLevel", careLevel
+                            )
+                    );
+                })
+                .toList();
+    }
+
+    private List<DashboardRankingRow> healthUnitInfrastructureRanking(Integer municipalityId, Integer periodId, Integer limit) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT
+                    hu.id,
+                    hu.clues,
+                    hu.name,
+                    COALESCE(SUM(CASE WHEN it.code = 'total_camas_hospitalizacion' THEN huid.quantity ELSE 0 END), 0) AS hospital_beds,
+                    COALESCE(SUM(CASE WHEN it.code = 'total_consultorios' THEN huid.quantity ELSE 0 END), 0) AS consulting_rooms,
+                    mut.name AS unit_type,
+                    hu.care_level
+                FROM health_units hu
                 LEFT JOIN health_unit_infrastructure hui
                     ON hui.health_unit_id = hu.id
                    AND hui.period_id = :periodId
                 LEFT JOIN health_unit_infrastructure_details huid
                     ON huid.health_unit_infrastructure_id = hui.id
-                LEFT JOIN infrastructure_types it
-                    ON it.id = huid.infrastructure_type_id
-                WHERE m.state_id = :stateId
-                GROUP BY m.id, m.name, mi.total_population
-            ),
-            state_infra AS (
-                SELECT
-                    m.state_id,
-                    COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0
-                    ) AS total_hospital_beds,
-                    COALESCE(SUM(CASE
-                        WHEN it.name = 'total_consultorios'
-                        THEN huid.quantity ELSE 0 END), 0
-                    ) AS total_consulting_rooms
-                FROM municipalities m
-                JOIN health_units hu
-                    ON hu.municipality_id = m.id
-                JOIN health_unit_infrastructure hui
-                    ON hui.health_unit_id = hu.id
-                   AND hui.period_id = :periodId
-                JOIN health_unit_infrastructure_details huid
-                    ON huid.health_unit_infrastructure_id = hui.id
-                JOIN infrastructure_types it
-                    ON it.id = huid.infrastructure_type_id
-                WHERE m.state_id = :stateId
-                GROUP BY m.state_id
-            ),
-            state_hospitals AS (
-                SELECT
-                    m.state_id,
-                    COUNT(DISTINCT hu.id) AS total_hospitals
-                FROM municipalities m
-                JOIN health_units hu
-                    ON hu.municipality_id = m.id
-                JOIN establishment_types et
-                    ON et.id = hu.establishment_type_id
-                JOIN medical_unit_types mut
-                    ON mut.id = hu.medical_unit_type_id
-                WHERE m.state_id = :stateId
-                  AND (
-                        et.name = 'DE HOSPITALIZACION'
-                        OR UPPER(mut.name) LIKE '%HOSPITAL%'
-                  )
-                GROUP BY m.state_id
-            )
-            SELECT
-                s.id AS state_id,
-                s.inegi_code AS state_code,
-                s.name AS state_name,
-                p.id AS period_id,
-                p.period_year AS period_year,
-                si.total_population AS total_population,
-                COALESCE(si2.total_hospital_beds, 0) AS total_hospital_beds,
-                ROUND(
-                    (COALESCE(si2.total_hospital_beds, 0) / NULLIF(si.total_population, 0)) * 1000,
-                    2
-                ) AS hospital_beds_per_1000,
-                COALESCE(SUM(CASE WHEN mb.beds_per_1000 < 3.0 THEN 1 ELSE 0 END), 0) AS municipalities_with_hospital_deficit,
-                COALESCE(sh.total_hospitals, 0) AS total_hospitals,
-                COALESCE(si2.total_consulting_rooms, 0) AS total_consulting_rooms
-            FROM states s
-            JOIN periods p
-                ON p.id = :periodId
-            JOIN state_indicators si
-                ON si.state_id = s.id
-               AND si.period_id = p.id
-            LEFT JOIN municipality_beds mb
-                ON 1 = 1
-            LEFT JOIN state_infra si2
-                ON si2.state_id = s.id
-            LEFT JOIN state_hospitals sh
-                ON sh.state_id = s.id
-            WHERE s.id = :stateId
-            GROUP BY
-                s.id,
-                s.inegi_code,
-                s.name,
-                p.id,
-                p.period_year,
-                si.total_population,
-                si2.total_hospital_beds,
-                si2.total_consulting_rooms,
-                sh.total_hospitals
-            """)
-                .setParameter("stateId", stateId)
+                LEFT JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
+                LEFT JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
+                WHERE hu.municipality_id = :municipalityId
+                GROUP BY hu.id, hu.clues, hu.name, mut.name, hu.care_level
+                ORDER BY hospital_beds DESC, consulting_rooms DESC, hu.name ASC
+                """)
+                .setParameter("municipalityId", municipalityId)
                 .setParameter("periodId", periodId)
+                .setMaxResults((int) normalizeLimit(limit))
                 .getResultList();
 
-        if (result.isEmpty()) {
-            return Optional.empty();
+        AtomicInteger rank = new AtomicInteger(1);
+        return rows.stream()
+                .map(row -> {
+                    Object[] values = (Object[]) row;
+                    Long hospitalBeds = toLong(values[3]);
+                    Long consultingRooms = toLong(values[4]);
+                    String unitType = toString(values[5]);
+                    String careLevel = toString(values[6]);
+                    return new DashboardRankingRow(
+                            toString(values[0]),
+                            rank.getAndIncrement(),
+                            toString(values[1]),
+                            toString(values[2]),
+                            null,
+                            null,
+                            hospitalBeds,
+                            consultingRooms,
+                            null,
+                            unitType,
+                            careLevel,
+                            BigDecimal.valueOf(hospitalBeds),
+                            null,
+                            "neutral",
+                            extra(
+                                    "unitType", unitType,
+                                    "careLevel", careLevel
+                            )
+                    );
+                })
+                .toList();
+    }
+
+    private List<DashboardChartDataPoint> stateChart(Integer periodId, String indicatorCode, boolean higherIsBetter) {
+        Integer year = analysisYear(periodId).orElse(null);
+        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, "state", year)) {
+            return List.of();
         }
 
-        return Optional.of(mapStateHospitalBedsMetrics(result.get(0)));
-    }
-
-    @Override
-    public List<DashboardRankingRow> findStateHospitalBedsRanking(
-            Integer stateId,
-            Integer periodId,
-            Integer limit
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY ROUND(
-                        (COALESCE(SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END), 0) / NULLIF(mi.total_population, 0)) * 1000,
-                        2
-                    ) ASC
-                ) AS ranking_position,
-                m.id AS municipality_id,
-                m.inegi_code AS code,
-                m.name AS name,
-                mi.total_population AS population,
-                COALESCE(SUM(CASE
-                    WHEN it.name = 'total_camas_hospitalizacion'
-                    THEN huid.quantity ELSE 0 END), 0
-                ) AS hospital_beds,
-                ROUND(
-                    (COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0) / NULLIF(mi.total_population, 0)) * 1000,
-                    2
-                ) AS beds_per_1000
-            FROM municipalities m
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = :periodId
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_infrastructure hui
-                ON hui.health_unit_id = hu.id
-               AND hui.period_id = :periodId
-            LEFT JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            LEFT JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            WHERE m.state_id = :stateId
-            GROUP BY m.id, m.inegi_code, m.name, mi.total_population
-            ORDER BY beds_per_1000 ASC
-            LIMIT :limit
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHospitalBedsRankingRow)
+        return indicatorRepository.findStateValues(indicatorCode, year)
+                .stream()
+                .map(value -> chartPoint(value, higherIsBetter))
                 .toList();
     }
 
-    @Override
-    public List<DashboardChartDataPoint> findStateHospitalBedsMainChart(
-            Integer stateId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                m.name AS label,
-                m.inegi_code AS code,
-                ROUND(
-                    (COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0) / NULLIF(mi.total_population, 0)) * 1000,
-                    2
-                ) AS value,
-                mi.total_population AS population,
-                COALESCE(SUM(CASE
-                    WHEN it.name = 'total_camas_hospitalizacion'
-                    THEN huid.quantity ELSE 0 END), 0
-                ) AS hospital_beds
-            FROM municipalities m
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = :periodId
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_infrastructure hui
-                ON hui.health_unit_id = hu.id
-               AND hui.period_id = :periodId
-            LEFT JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            LEFT JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            WHERE m.state_id = :stateId
-            GROUP BY m.id, m.inegi_code, m.name, mi.total_population
-            ORDER BY value ASC
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHospitalBedsChartDataPoint)
-                .toList();
+    private List<DashboardChartDataPoint> municipalityChartByState(Integer stateId, Integer periodId, String indicatorCode, boolean higherIsBetter) {
+        return stateCode(stateId)
+                .map(code -> municipalityChart(code, periodId, indicatorCode, higherIsBetter))
+                .orElse(List.of());
     }
 
-    @Override
-    public List<DashboardChartDataPoint> findStateHospitalBedsSecondaryChart(
-            Integer stateId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                et.name AS label,
-                COUNT(hu.id) AS total_units
-            FROM municipalities m
-            JOIN health_units hu
-                ON hu.municipality_id = m.id
-            JOIN establishment_types et
-                ON et.id = hu.establishment_type_id
-            WHERE m.state_id = :stateId
-            GROUP BY et.id, et.name
-            ORDER BY total_units DESC
-            """)
-                .setParameter("stateId", stateId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        row[0] != null ? row[0].toString() : "not_specified",
-                        null,
-                        toBigDecimal(row[1]),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .toList();
+    private List<DashboardChartDataPoint> municipalityChartBySiblingState(Integer municipalityId, Integer periodId, String indicatorCode, boolean higherIsBetter) {
+        return stateCodeByMunicipality(municipalityId)
+                .map(code -> municipalityChart(code, periodId, indicatorCode, higherIsBetter))
+                .orElse(List.of());
     }
 
-    @Override
-    public List<DashboardChartDataPoint> findStateInfrastructureDistribution(
-            Integer stateId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                it.name AS label,
-                COALESCE(SUM(huid.quantity), 0) AS value
-            FROM health_unit_infrastructure hui
-            JOIN health_units hu
-                ON hu.id = hui.health_unit_id
-            JOIN municipalities m
-                ON m.id = hu.municipality_id
-            JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            WHERE hui.period_id = :periodId
-              AND m.state_id = :stateId
-              AND it.name IN ('total_camas_hospitalizacion', 'total_consultorios')
-            GROUP BY it.id, it.name
-            HAVING value > 0
-            ORDER BY value DESC
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        mapInfrastructureLabel(row[0] != null ? row[0].toString() : null),
-                        row[0] != null ? row[0].toString() : null,
-                        toBigDecimal(row[1]),
-                        null,
-                        null,
-                        row[0] != null && row[0].toString().equals("total_camas_hospitalizacion")
-                                ? toLong(row[1])
-                                : null,
-                        row[0] != null && row[0].toString().equals("total_consultorios")
-                                ? toLong(row[1])
-                                : null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .toList();
-    }
-
-    private StateHospitalBedsMetrics mapStateHospitalBedsMetrics(Object[] row) {
-        return new StateHospitalBedsMetrics(
-                new DashboardTerritory(
-                        toInteger(row[0]),
-                        (String) row[1],
-                        (String) row[2],
-                        "state"
-                ),
-                new DashboardPeriod(
-                        toInteger(row[3]),
-                        toInteger(row[4])
-                ),
-                toBigInteger(row[5]),
-                toLong(row[6]),
-                toBigDecimal(row[7]),
-                toLong(row[8]),
-                toLong(row[9]),
-                toLong(row[10])
-        );
-    }
-
-    // =========================== Municipio ===========================
-    @Override
-    public Optional<MunicipalityHospitalBedsMetrics> findMunicipalityHospitalBedsMetrics(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> result = em.createNativeQuery("""
-            WITH municipality_infra AS (
-                SELECT
-                    hu.municipality_id,
-                    COALESCE(SUM(CASE
-                        WHEN it.name = 'total_camas_hospitalizacion'
-                        THEN huid.quantity ELSE 0 END), 0
-                    ) AS total_hospital_beds,
-                    COALESCE(SUM(CASE
-                        WHEN it.name = 'total_consultorios'
-                        THEN huid.quantity ELSE 0 END), 0
-                    ) AS total_consulting_rooms
-                FROM health_units hu
-                JOIN health_unit_infrastructure hui
-                    ON hui.health_unit_id = hu.id
-                   AND hui.period_id = :periodId
-                JOIN health_unit_infrastructure_details huid
-                    ON huid.health_unit_infrastructure_id = hui.id
-                JOIN infrastructure_types it
-                    ON it.id = huid.infrastructure_type_id
-                WHERE hu.municipality_id = :municipalityId
-                GROUP BY hu.municipality_id
-            ),
-            municipality_hospitals AS (
-                SELECT
-                    hu.municipality_id,
-                    COUNT(DISTINCT hu.id) AS total_hospitals
-                FROM health_units hu
-                JOIN establishment_types et
-                    ON et.id = hu.establishment_type_id
-                JOIN medical_unit_types mut
-                    ON mut.id = hu.medical_unit_type_id
-                WHERE hu.municipality_id = :municipalityId
-                  AND (
-                        et.name = 'DE HOSPITALIZACION'
-                        OR UPPER(mut.name) LIKE '%HOSPITAL%'
-                  )
-                GROUP BY hu.municipality_id
-            ),
-            predominant_care AS (
-                SELECT
-                    ranked.care_level
-                FROM (
-                    SELECT
-                        hu.care_level,
-                        COUNT(*) AS total_units,
-                        ROW_NUMBER() OVER (
-                            ORDER BY COUNT(*) DESC, hu.care_level ASC
-                        ) AS rn
-                    FROM health_units hu
-                    WHERE hu.municipality_id = :municipalityId
-                    GROUP BY hu.care_level
-                ) ranked
-                WHERE ranked.rn = 1
-            )
-            SELECT
-                m.id AS municipality_id,
-                m.inegi_code AS municipality_code,
-                m.name AS municipality_name,
-                p.id AS period_id,
-                p.period_year AS period_year,
-                COALESCE(mh.total_hospitals, 0) AS total_hospitals,
-                COALESCE(mi.total_consulting_rooms, 0) AS total_consulting_rooms,
-                COALESCE(mi.total_hospital_beds, 0) AS total_hospital_beds,
-                COALESCE(pc.care_level, 'not_specified') AS predominant_care_level
-            FROM municipalities m
-            JOIN periods p
-                ON p.id = :periodId
-            LEFT JOIN municipality_infra mi
-                ON mi.municipality_id = m.id
-            LEFT JOIN municipality_hospitals mh
-                ON mh.municipality_id = m.id
-            LEFT JOIN predominant_care pc
-                ON 1 = 1
-            WHERE m.id = :municipalityId
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        if (result.isEmpty()) {
-            return Optional.empty();
+    private List<DashboardChartDataPoint> municipalityChart(String stateCode, Integer periodId, String indicatorCode, boolean higherIsBetter) {
+        Integer year = analysisYear(periodId).orElse(null);
+        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+            return List.of();
         }
 
-        return Optional.of(mapMunicipalityHospitalBedsMetrics(result.get(0)));
+        return indicatorRepository.findMunicipalityValuesByState(indicatorCode, year, stateCode)
+                .stream()
+                .map(value -> chartPoint(value, higherIsBetter))
+                .toList();
     }
 
-    @Override
-    public List<DashboardRankingRow> findMunicipalityHospitalBedsRanking(
-            Integer municipalityId,
-            Integer periodId,
-            Integer limit
+    private DashboardRankingRow rankingRow(
+            TerritoryIndicatorValueDto value,
+            TerritoryIndicatorValueDto population,
+            Long doctors,
+            Long hospitalBeds,
+            Long consultingRooms,
+            TerritoryIndicatorValueDto coverage,
+            Integer rank,
+            boolean higherIsBetter
     ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY
-                        COALESCE(SUM(CASE
-                            WHEN it.name = 'total_camas_hospitalizacion'
-                            THEN huid.quantity ELSE 0 END), 0) ASC,
-                        hu.name ASC
-                ) AS ranking_position,
-                hu.id AS unit_id,
-                hu.clues AS code,
-                hu.name AS name,
-                mut.name AS unit_type,
-                hu.care_level AS care_level,
-                COALESCE(SUM(CASE
-                    WHEN it.name = 'total_camas_hospitalizacion'
-                    THEN huid.quantity ELSE 0 END), 0
-                ) AS hospital_beds,
-                COALESCE(SUM(CASE
-                    WHEN it.name = 'total_consultorios'
-                    THEN huid.quantity ELSE 0 END), 0
-                ) AS consulting_rooms
-            FROM health_units hu
-            JOIN medical_unit_types mut
-                ON mut.id = hu.medical_unit_type_id
-            LEFT JOIN health_unit_infrastructure hui
-                ON hui.health_unit_id = hu.id
-               AND hui.period_id = :periodId
-            LEFT JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            LEFT JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            WHERE hu.municipality_id = :municipalityId
-            GROUP BY hu.id, hu.clues, hu.name, mut.name, hu.care_level
-            ORDER BY hospital_beds ASC, hu.name ASC
-            LIMIT :limit
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapMunicipalityHospitalBedsUnitRankingRow)
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalityHospitalBedsMainChart(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                hu.name AS label,
-                hu.clues AS code,
-                COALESCE(SUM(CASE
-                    WHEN it.name = 'total_camas_hospitalizacion'
-                    THEN huid.quantity ELSE 0 END), 0
-                ) AS hospital_beds,
-                COALESCE(SUM(CASE
-                    WHEN it.name = 'total_consultorios'
-                    THEN huid.quantity ELSE 0 END), 0
-                ) AS consulting_rooms,
-                mut.name AS unit_type,
-                hu.care_level AS care_level
-            FROM health_units hu
-            JOIN medical_unit_types mut
-                ON mut.id = hu.medical_unit_type_id
-            LEFT JOIN health_unit_infrastructure hui
-                ON hui.health_unit_id = hu.id
-               AND hui.period_id = :periodId
-            LEFT JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            LEFT JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            WHERE hu.municipality_id = :municipalityId
-            GROUP BY hu.id, hu.clues, hu.name, mut.name, hu.care_level
-            ORDER BY hospital_beds DESC, hu.name ASC
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapMunicipalityHospitalBedsChartDataPoint)
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalityHospitalBedsSecondaryChart(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                it.name AS infrastructure_type,
-                COALESCE(SUM(huid.quantity), 0) AS total_quantity
-            FROM health_units hu
-            JOIN health_unit_infrastructure hui
-                ON hui.health_unit_id = hu.id
-               AND hui.period_id = :periodId
-            JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            WHERE hu.municipality_id = :municipalityId
-              AND it.name IN ('total_camas_hospitalizacion', 'total_consultorios')
-            GROUP BY it.id, it.name
-            ORDER BY total_quantity DESC
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        mapInfrastructureLabel(row[0] != null ? row[0].toString() : null),
-                        row[0] != null ? row[0].toString() : null,
-                        toBigDecimal(row[1]),
-                        null,
-                        null,
-                        row[0] != null && row[0].toString().equals("total_camas_hospitalizacion")
-                                ? toLong(row[1])
-                                : null,
-                        row[0] != null && row[0].toString().equals("total_consultorios")
-                                ? toLong(row[1])
-                                : null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findCountryInfrastructureDistribution(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                it.name AS label,
-                COALESCE(SUM(huid.quantity), 0) AS value
-            FROM health_unit_infrastructure hui
-            JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            WHERE hui.period_id = :periodId
-              AND it.name IN ('total_camas_hospitalizacion', 'total_consultorios')
-            GROUP BY it.id, it.name
-            HAVING value > 0
-            ORDER BY value DESC
-            """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        mapInfrastructureLabel(row[0] != null ? row[0].toString() : null),
-                        row[0] != null ? row[0].toString() : null,
-                        toBigDecimal(row[1]),
-                        null,
-                        null,
-                        row[0] != null && row[0].toString().equals("total_camas_hospitalizacion")
-                                ? toLong(row[1])
-                                : null,
-                        row[0] != null && row[0].toString().equals("total_consultorios")
-                                ? toLong(row[1])
-                                : null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalityInfrastructureDistribution(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                it.name AS label,
-                COALESCE(SUM(huid.quantity), 0) AS value
-            FROM health_unit_infrastructure hui
-            JOIN health_units hu
-                ON hu.id = hui.health_unit_id
-            JOIN health_unit_infrastructure_details huid
-                ON huid.health_unit_infrastructure_id = hui.id
-            JOIN infrastructure_types it
-                ON it.id = huid.infrastructure_type_id
-            WHERE hui.period_id = :periodId
-              AND hu.municipality_id = :municipalityId
-              AND it.name IN ('total_camas_hospitalizacion', 'total_consultorios')
-            GROUP BY it.id, it.name
-            HAVING value > 0
-            ORDER BY value DESC
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        mapInfrastructureLabel(row[0] != null ? row[0].toString() : null),
-                        row[0] != null ? row[0].toString() : null,
-                        toBigDecimal(row[1]),
-                        null,
-                        null,
-                        row[0] != null && row[0].toString().equals("total_camas_hospitalizacion")
-                                ? toLong(row[1])
-                                : null,
-                        row[0] != null && row[0].toString().equals("total_consultorios")
-                                ? toLong(row[1])
-                                : null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .toList();
-    }
-
-    private MunicipalityHospitalBedsMetrics mapMunicipalityHospitalBedsMetrics(Object[] row) {
-        return new MunicipalityHospitalBedsMetrics(
-                new DashboardTerritory(
-                        toInteger(row[0]),
-                        (String) row[1],
-                        (String) row[2],
-                        "municipality"
-                ),
-                new DashboardPeriod(
-                        toInteger(row[3]),
-                        toInteger(row[4])
-                ),
-                toLong(row[5]),
-                toLong(row[6]),
-                toLong(row[7]),
-                row[8] != null ? row[8].toString() : "not_specified"
-        );
-    }
-
-    private DashboardRankingRow mapMunicipalityHospitalBedsUnitRankingRow(Object[] row) {
+        BigDecimal coverageIndex = coverage == null ? null : coverage.getValue();
         return new DashboardRankingRow(
-                String.valueOf(toInteger(row[1])),
-                toInteger(row[0]),
-                (String) row[2],
-                (String) row[3],
+                String.valueOf(value.getTerritoryId()),
+                rank,
+                value.getTerritoryCode(),
+                value.getTerritoryName(),
+                population == null || population.getValue() == null ? null : population.getValue().toBigInteger(),
+                doctors,
+                hospitalBeds,
+                consultingRooms,
+                coverageIndex,
                 null,
                 null,
-                toLong(row[6]),
-                toLong(row[7]),
-                toBigDecimal(row[6]),
-                null,
-                null,
-                Map.of(
-                        "unitType", row[4] != null ? row[4].toString() : null,
-                        "careLevel", row[5] != null ? row[5].toString() : null
-                )
+                value.getValue(),
+                level(value.getValue(), higherIsBetter),
+                colorToken(value.getValue(), higherIsBetter),
+                metadata(value)
         );
     }
 
-    private DashboardChartDataPoint mapMunicipalityHospitalBedsChartDataPoint(Object[] row) {
+    private boolean rankingNeedsDoctors(String indicatorCode) {
+        return MEDICAL_COVERAGE.equals(indicatorCode) || HEALTHCARE_ACCESS_DEFICIENCY.equals(indicatorCode);
+    }
+
+    private boolean rankingNeedsHospitalBeds(String indicatorCode) {
+        return HOSPITAL_BEDS.equals(indicatorCode);
+    }
+
+    private boolean rankingNeedsCoverageIndex(String indicatorCode) {
+        return HEALTHCARE_ACCESS_DEFICIENCY.equals(indicatorCode);
+    }
+
+    private DashboardChartDataPoint chartPoint(TerritoryIndicatorValueDto value, boolean higherIsBetter) {
         return new DashboardChartDataPoint(
-                (String) row[0],
-                (String) row[1],
-                toBigDecimal(row[2]),
-                null,
-                null,
-                toLong(row[2]),
-                toLong(row[3]),
+                value.getTerritoryName(),
+                value.getTerritoryCode(),
+                value.getValue(),
                 null,
                 null,
                 null,
-                Map.of(
-                        "unitType", row[4] != null ? row[4].toString() : null,
-                        "careLevel", row[5] != null ? row[5].toString() : null
-                )
+                null,
+                value.getValue(),
+                level(value.getValue(), higherIsBetter),
+                colorToken(value.getValue(), higherIsBetter),
+                metadata(value)
         );
     }
 
-    private String mapInfrastructureLabel(String infrastructureType) {
-        if (infrastructureType == null) {
-            return "Not specified";
+    private Map<String, Object> metadata(TerritoryIndicatorValueDto value) {
+        Map<String, Object> extra = new HashMap<>();
+        extra.put("sourceYear", value.getSourceYear());
+        extra.put("unit", value.getUnit());
+        extra.put("availabilityStatus", value.getAvailabilityStatus());
+        extra.put("methodologyNote", value.getMethodologyNote());
+        extra.put("dataSourceName", value.getDataSourceName());
+        return extra;
+    }
+
+    private Map<String, Object> extra(Object... keyValues) {
+        Map<String, Object> map = new java.util.LinkedHashMap<>();
+
+        for (int i = 0; i < keyValues.length; i += 2) {
+            String key = String.valueOf(keyValues[i]);
+            Object value = keyValues[i + 1];
+
+            if (value != null) {
+                map.put(key, value);
+            }
         }
 
-        return switch (infrastructureType) {
-            case "total_camas_hospitalizacion" -> "Hospital beds";
-            case "total_consultorios" -> "Consulting rooms";
-            default -> infrastructureType;
+        return map;
+    }
+
+    private Optional<DashboardPeriod> period(Integer periodId) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT id, period_year
+                FROM periods
+                WHERE id = :periodId
+                """)
+                .setParameter("periodId", periodId)
+                .setMaxResults(1)
+                .getResultList();
+
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Object[] row = (Object[]) rows.get(0);
+        return Optional.of(new DashboardPeriod(toInteger(row[0]), toInteger(row[1])));
+    }
+
+    private Optional<Integer> analysisYear(Integer periodId) {
+        return indicatorRepository.findAnalysisYearByPeriodId(periodId);
+    }
+
+    private Optional<DashboardTerritory> stateTerritory(Integer stateId) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT id, inegi_code, name
+                FROM states
+                WHERE id = :stateId
+                """)
+                .setParameter("stateId", stateId)
+                .setMaxResults(1)
+                .getResultList();
+
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Object[] row = (Object[]) rows.get(0);
+        return Optional.of(new DashboardTerritory(
+                toInteger(row[0]),
+                toString(row[1]),
+                toString(row[2]),
+                "state"
+        ));
+    }
+
+    private Optional<DashboardTerritory> municipalityTerritory(Integer municipalityId) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT id, inegi_code, name
+                FROM municipalities
+                WHERE id = :municipalityId
+                """)
+                .setParameter("municipalityId", municipalityId)
+                .setMaxResults(1)
+                .getResultList();
+
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Object[] row = (Object[]) rows.get(0);
+        return Optional.of(new DashboardTerritory(
+                toInteger(row[0]),
+                toString(row[1]),
+                toString(row[2]),
+                "municipality"
+        ));
+    }
+
+    private BigInteger bigIntegerValue(String level, Integer stateId, Integer municipalityId, Integer year, String indicatorCode) {
+        return indicatorRepository.findOne(level, stateId, municipalityId, year, indicatorCode)
+                .map(TerritoryIndicatorValueDto::getValue)
+                .map(BigDecimal::toBigInteger)
+                .orElse(null);
+    }
+
+    private BigDecimal decimalValue(String level, Integer stateId, Integer municipalityId, Integer year, String indicatorCode) {
+        return indicatorRepository.findOne(level, stateId, municipalityId, year, indicatorCode)
+                .map(TerritoryIndicatorValueDto::getValue)
+                .orElse(null);
+    }
+
+    private Long longValue(String level, Integer stateId, Integer municipalityId, Integer year, String indicatorCode) {
+        return indicatorRepository.findOne(level, stateId, municipalityId, year, indicatorCode)
+                .map(TerritoryIndicatorValueDto::getValue)
+                .map(BigDecimal::longValue)
+                .orElse(null);
+    }
+
+    private Map<String, Long> indicatorLongTotalsByState(String indicatorCode, Integer year) {
+        return indicatorRepository.findStateValues(indicatorCode, year)
+                .stream()
+                .filter(value -> value.getValue() != null)
+                .collect(Collectors.toMap(
+                        TerritoryIndicatorValueDto::getTerritoryCode,
+                        value -> value.getValue().longValue(),
+                        (left, right) -> left
+                ));
+    }
+
+    private Map<String, Long> indicatorLongTotalsByMunicipality(String indicatorCode, Integer year, String stateCode) {
+        return indicatorRepository.findMunicipalityValuesByState(indicatorCode, year, stateCode)
+                .stream()
+                .filter(value -> value.getValue() != null)
+                .collect(Collectors.toMap(
+                        TerritoryIndicatorValueDto::getTerritoryCode,
+                        value -> value.getValue().longValue(),
+                        (left, right) -> left
+                ));
+    }
+
+    private boolean higherIsBetter(String indicatorCode, boolean fallback) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT higher_is_better
+                FROM indicators
+                WHERE code = :indicatorCode
+                """)
+                .setParameter("indicatorCode", indicatorCode)
+                .setMaxResults(1)
+                .getResultList();
+
+        return rows.isEmpty() ? fallback : toBoolean(rows.get(0));
+    }
+
+    private BigDecimal averageValue(List<TerritoryIndicatorValueDto> values) {
+        List<BigDecimal> present = values.stream()
+                .map(TerritoryIndicatorValueDto::getValue)
+                .filter(value -> value != null)
+                .toList();
+
+        if (present.isEmpty()) {
+            return null;
+        }
+
+        BigDecimal sum = present.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        return sum.divide(BigDecimal.valueOf(present.size()), 2, RoundingMode.HALF_UP);
+    }
+
+    private Long countStateValuesBelow(String indicatorCode, Integer year, BigDecimal threshold) {
+        return indicatorRepository.findStateValues(indicatorCode, year)
+                .stream()
+                .filter(value -> value.getValue() != null && value.getValue().compareTo(threshold) < 0)
+                .count();
+    }
+
+    private Long countStateValuesAbove(String indicatorCode, Integer year, BigDecimal threshold) {
+        return indicatorRepository.findStateValues(indicatorCode, year)
+                .stream()
+                .filter(value -> value.getValue() != null && value.getValue().compareTo(threshold) > 0)
+                .count();
+    }
+
+    private Long countMunicipalityValuesBelow(String indicatorCode, Integer year, String stateCode, BigDecimal threshold) {
+        if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+            return 0L;
+        }
+
+        return indicatorRepository.findMunicipalityValuesByState(indicatorCode, year, stateCode)
+                .stream()
+                .filter(value -> value.getValue() != null && value.getValue().compareTo(threshold) < 0)
+                .count();
+    }
+
+    private Long countMunicipalityValuesAbove(String indicatorCode, Integer year, String stateCode, BigDecimal threshold) {
+        if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+            return 0L;
+        }
+
+        return indicatorRepository.findMunicipalityValuesByState(indicatorCode, year, stateCode)
+                .stream()
+                .filter(value -> value.getValue() != null && value.getValue().compareTo(threshold) > 0)
+                .count();
+    }
+
+    private Long countHospitals(Integer stateId, Integer municipalityId) {
+        String sql = healthUnitFilter("""
+                SELECT COUNT(DISTINCT hu.id)
+                FROM health_units hu
+                JOIN municipalities m ON m.id = hu.municipality_id
+                JOIN establishment_types et ON et.id = hu.establishment_type_id
+                JOIN medical_unit_types mut ON mut.id = hu.medical_unit_type_id
+                WHERE (
+                    et.name = 'DE HOSPITALIZACION'
+                    OR UPPER(mut.name) LIKE '%HOSPITAL%'
+                )
+                """, stateId, municipalityId);
+
+        return singleLong(sql, stateId, municipalityId);
+    }
+
+    private List<DashboardChartDataPoint> infrastructureDistribution(Integer periodId, Integer stateId, Integer municipalityId) {
+        String sql = healthUnitFilter("""
+                SELECT
+                    it.name AS label,
+                    it.code AS code,
+                    COALESCE(SUM(huid.quantity), 0) AS value
+                FROM health_units hu
+                JOIN municipalities m ON m.id = hu.municipality_id
+                JOIN health_unit_infrastructure hui ON hui.health_unit_id = hu.id
+                JOIN health_unit_infrastructure_details huid ON huid.health_unit_infrastructure_id = hui.id
+                JOIN infrastructure_types it ON it.id = huid.infrastructure_type_id
+                WHERE hui.period_id = :periodId
+                """, stateId, municipalityId) + """
+                GROUP BY it.name, it.code
+                ORDER BY value DESC
+                """;
+
+        return chartRows(em.createNativeQuery(sql)
+                .setParameter("periodId", periodId)
+                .setParameter("stateId", stateId)
+                .setParameter("municipalityId", municipalityId)
+                .getResultList());
+    }
+
+    private List<DashboardChartDataPoint> chartRows(List<?> rows) {
+        return rows.stream()
+                .map(row -> {
+                    Object[] values = (Object[]) row;
+                    BigDecimal value = toBigDecimalNullable(values[2]);
+                    return new DashboardChartDataPoint(
+                            toString(values[0]),
+                            toString(values[1]),
+                            value,
+                            null,
+                            null,
+                            null,
+                            null,
+                            value,
+                            null,
+                            null,
+                            Map.of()
+                    );
+                })
+                .toList();
+    }
+
+    private String healthUnitFilter(String baseSql, Integer stateId, Integer municipalityId) {
+        return baseSql + """
+                AND (:stateId IS NULL OR m.state_id = :stateId)
+                AND (:municipalityId IS NULL OR hu.municipality_id = :municipalityId)
+                """;
+    }
+
+    private Long singleLong(String sql, Integer stateId, Integer municipalityId) {
+        return toLong(em.createNativeQuery(sql)
+                .setParameter("stateId", stateId)
+                .setParameter("municipalityId", municipalityId)
+                .getSingleResult());
+    }
+
+    private Optional<String> stateCode(Integer stateId) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT inegi_code
+                FROM states
+                WHERE id = :stateId
+                """)
+                .setParameter("stateId", stateId)
+                .setMaxResults(1)
+                .getResultList();
+
+        return rows.isEmpty() ? Optional.empty() : Optional.of(toString(rows.get(0)));
+    }
+
+    private Optional<String> stateCodeByMunicipality(Integer municipalityId) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT s.inegi_code
+                FROM municipalities m
+                JOIN states s ON s.id = m.state_id
+                WHERE m.id = :municipalityId
+                """)
+                .setParameter("municipalityId", municipalityId)
+                .setMaxResults(1)
+                .getResultList();
+
+        return rows.isEmpty() ? Optional.empty() : Optional.of(toString(rows.get(0)));
+    }
+
+    private String predominantCareLevel(Integer municipalityId) {
+        List<?> rows = em.createNativeQuery("""
+                SELECT hu.care_level
+                FROM health_units hu
+                WHERE hu.municipality_id = :municipalityId
+                GROUP BY hu.care_level
+                ORDER BY COUNT(*) DESC
+                """)
+                .setParameter("municipalityId", municipalityId)
+                .setMaxResults(1)
+                .getResultList();
+
+        return rows.isEmpty() ? null : toString(rows.get(0));
+    }
+
+    private BigDecimal averagePerUnit(Long numerator, Long denominator) {
+        if (numerator == null || denominator == null || denominator == 0L) {
+            return null;
+        }
+
+        return BigDecimal.valueOf(numerator)
+                .divide(BigDecimal.valueOf(denominator), 2, RoundingMode.HALF_UP);
+    }
+
+    private int compareValues(BigDecimal left, BigDecimal right, boolean higherIsBetter) {
+        return higherIsBetter ? right.compareTo(left) : left.compareTo(right);
+    }
+
+    private long normalizeLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return 10L;
+        }
+
+        return Math.min(limit, 100);
+    }
+
+    private String level(BigDecimal value, boolean higherIsBetter) {
+        if (value == null) {
+            return "no_data";
+        }
+
+        if (higherIsBetter) {
+            if (value.compareTo(BigDecimal.valueOf(2)) >= 0) {
+                return "good";
+            }
+            if (value.compareTo(BigDecimal.ONE) >= 0) {
+                return "risk";
+            }
+            return "critical";
+        }
+
+        if (value.compareTo(BigDecimal.valueOf(20)) <= 0) {
+            return "good";
+        }
+        if (value.compareTo(BigDecimal.valueOf(40)) < 0) {
+            return "risk";
+        }
+        return "critical";
+    }
+
+    private String colorToken(BigDecimal value, boolean higherIsBetter) {
+        return switch (level(value, higherIsBetter)) {
+            case "good" -> "green";
+            case "risk" -> "yellow";
+            case "critical" -> "red";
+            default -> "neutral";
         };
     }
 
-
-    // =========================== POBLACION VULNERABLE ===========================
-    // =========================== Pais ===========================
-    @Override
-    public Optional<CountryHealthcareAccessDeficiencyMetrics> findCountryHealthcareAccessDeficiencyMetrics(Integer periodId) {
-        List<Object[]> result = em.createNativeQuery("""
-            WITH state_data AS (
-                SELECT
-                    s.id AS state_id,
-                    si.total_population AS population,
-                    si.healthcare_access_deficiency AS vulnerable_population,
-                    ROUND(
-                        (si.healthcare_access_deficiency / NULLIF(si.total_population, 0)) * 100,
-                        2
-                    ) AS deficiency_rate,
-                    COALESCE(SUM(hus.total_doctors), 0) AS doctors
-                FROM states s
-                JOIN state_indicators si
-                    ON si.state_id = s.id
-                   AND si.period_id = :periodId
-                LEFT JOIN municipalities m
-                    ON m.state_id = s.id
-                LEFT JOIN health_units hu
-                    ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                GROUP BY
-                    s.id,
-                    si.total_population,
-                    si.healthcare_access_deficiency
-            )
-            SELECT
-                p.id AS period_id,
-                p.period_year AS period_year,
-                COALESCE(SUM(sd.population), 0) AS total_population,
-                COALESCE(SUM(sd.vulnerable_population), 0) AS vulnerable_population,
-                COALESCE(SUM(CASE WHEN sd.deficiency_rate >= 40 THEN 1 ELSE 0 END), 0) AS priority_states,
-                ROUND(
-                    (COALESCE(SUM(sd.doctors), 0) / NULLIF(SUM(sd.population), 0)) * 1000,
-                    2
-                ) AS medical_coverage_index
-            FROM periods p
-            LEFT JOIN state_data sd ON 1 = 1
-            WHERE p.id = :periodId
-            GROUP BY p.id, p.period_year
-            """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        if (result.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(mapCountryHealthcareAccessDeficiencyMetrics(result.get(0)));
-    }
-
-    @Override
-    public List<DashboardRankingRow> findCountryHealthcareAccessDeficiencyRanking(Integer periodId, Integer limit) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY ROUND((si.healthcare_access_deficiency / NULLIF(si.total_population, 0)) * 100, 2) DESC
-                ) AS ranking_position,
-                s.id AS state_id,
-                s.inegi_code AS code,
-                s.name AS name,
-                si.total_population AS population,
-                COALESCE(SUM(hus.total_doctors), 0) AS doctors,
-                ROUND(
-                    (COALESCE(SUM(hus.total_doctors), 0) / NULLIF(si.total_population, 0)) * 1000,
-                    2
-                ) AS coverage_index,
-                si.healthcare_access_deficiency AS vulnerable_population,
-                ROUND(
-                    (si.healthcare_access_deficiency / NULLIF(si.total_population, 0)) * 100,
-                    2
-                ) AS deficiency_rate
-            FROM states s
-            JOIN state_indicators si
-                ON si.state_id = s.id
-               AND si.period_id = :periodId
-            LEFT JOIN municipalities m
-                ON m.state_id = s.id
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            GROUP BY
-                s.id,
-                s.inegi_code,
-                s.name,
-                si.total_population,
-                si.healthcare_access_deficiency
-            ORDER BY deficiency_rate DESC
-            LIMIT :limit
-            """)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHealthcareAccessDeficiencyRankingRow)
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findCountryHealthcareAccessDeficiencyMainChart(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                s.name AS label,
-                s.inegi_code AS code,
-                si.total_population AS population,
-                COALESCE(SUM(hus.total_doctors), 0) AS doctors,
-                ROUND(
-                    (COALESCE(SUM(hus.total_doctors), 0) / NULLIF(si.total_population, 0)) * 1000,
-                    2
-                ) AS coverage_index,
-                ROUND(
-                    (si.healthcare_access_deficiency / NULLIF(si.total_population, 0)) * 100,
-                    2
-                ) AS deficiency_rate,
-                si.healthcare_access_deficiency AS vulnerable_population
-            FROM states s
-            JOIN state_indicators si
-                ON si.state_id = s.id
-               AND si.period_id = :periodId
-            LEFT JOIN municipalities m
-                ON m.state_id = s.id
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            GROUP BY
-                s.id,
-                s.inegi_code,
-                s.name,
-                si.total_population,
-                si.healthcare_access_deficiency
-            ORDER BY si.total_population DESC
-            """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHealthcareAccessDeficiencyScatterPoint)
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findCountryHealthcareAccessDeficiencySecondaryChart(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                s.name AS label,
-                s.inegi_code AS code,
-                si.healthcare_access_deficiency AS vulnerable_population,
-                ROUND(
-                    (si.healthcare_access_deficiency / NULLIF(si.total_population, 0)) * 100,
-                    2
-                ) AS deficiency_rate,
-                si.total_population AS population
-            FROM states s
-            JOIN state_indicators si
-                ON si.state_id = s.id
-               AND si.period_id = :periodId
-            ORDER BY si.healthcare_access_deficiency DESC
-            """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHealthcareAccessDeficiencyBarPoint)
-                .toList();
-    }
-
-    private CountryHealthcareAccessDeficiencyMetrics mapCountryHealthcareAccessDeficiencyMetrics(Object[] row) {
-        return new CountryHealthcareAccessDeficiencyMetrics(
-                new DashboardPeriod(
-                        toInteger(row[0]),
-                        toInteger(row[1])
-                ),
-                toBigInteger(row[2]),
-                toBigInteger(row[3]),
-                toLong(row[4]),
-                toBigDecimal(row[5])
-        );
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findCountryHealthcareAccessDistribution(Integer periodId) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                'Population with healthcare access deficiency' AS label,
-                COALESCE(SUM(si.healthcare_access_deficiency), 0) AS value
-            FROM state_indicators si
-            WHERE si.period_id = :periodId
-
-            UNION ALL
-
-            SELECT
-                'Population without healthcare access deficiency' AS label,
-                GREATEST(
-                    COALESCE(SUM(si.total_population), 0) - COALESCE(SUM(si.healthcare_access_deficiency), 0),
-                    0
-                ) AS value
-            FROM state_indicators si
-            WHERE si.period_id = :periodId
-            """)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapSimplePiePoint)
-                .toList();
-    }
-
-    private DashboardRankingRow mapHealthcareAccessDeficiencyRankingRow(Object[] row) {
-        BigDecimal deficiencyRate = toBigDecimal(row[8]);
-        String[] classification = classifyHealthcareAccessDeficiency(deficiencyRate);
-
-        return new DashboardRankingRow(
-                String.valueOf(toInteger(row[1])),
-                toInteger(row[0]),
-                (String) row[2],
-                (String) row[3],
-                toBigInteger(row[4]),
-                toLong(row[5]),
-                null,
-                null,
-                deficiencyRate,
-                classification[0],
-                classification[1],
-                Map.of(
-                        "coverageIndex", toBigDecimal(row[6]),
-                        "vulnerablePopulation", toBigInteger(row[7])
-                )
-        );
-    }
-
-    private DashboardChartDataPoint mapHealthcareAccessDeficiencyScatterPoint(Object[] row) {
-        BigDecimal deficiencyRate = toBigDecimal(row[5]);
-        String[] classification = classifyHealthcareAccessDeficiency(deficiencyRate);
-
-        return new DashboardChartDataPoint(
-                (String) row[0],
-                (String) row[1],
-                deficiencyRate,
-                toBigInteger(row[2]),
-                toLong(row[3]),
-                null,
-                null,
-                toBigDecimal(row[4]),
-                classification[0],
-                classification[1],
-                Map.of(
-                        "vulnerablePopulation", toBigInteger(row[6]),
-                        "deficiencyRate", deficiencyRate
-                )
-        );
-    }
-
-    private DashboardChartDataPoint mapHealthcareAccessDeficiencyBarPoint(Object[] row) {
-        BigDecimal deficiencyRate = toBigDecimal(row[3]);
-        String[] classification = classifyHealthcareAccessDeficiency(deficiencyRate);
-
-        return new DashboardChartDataPoint(
-                (String) row[0],
-                (String) row[1],
-                toBigDecimal(row[2]),
-                toBigInteger(row[4]),
-                null,
-                null,
-                null,
-                null,
-                classification[0],
-                classification[1],
-                Map.of(
-                        "deficiencyRate", deficiencyRate,
-                        "vulnerablePopulation", toBigInteger(row[2])
-                )
-        );
-    }
-
-    private String[] classifyHealthcareAccessDeficiency(BigDecimal value) {
+    private Integer toInteger(Object value) {
         if (value == null) {
-            return new String[]{"no_data", "neutral"};
+            return null;
         }
-
-        double number = value.doubleValue();
-
-        if (number <= 20) {
-            return new String[]{"good", "green"};
+        if (value instanceof Number number) {
+            return number.intValue();
         }
+        return Integer.valueOf(value.toString());
+    }
 
-        if (number < 40) {
-            return new String[]{"risk", "yellow"};
+    private Long toLong(Object value) {
+        if (value == null) {
+            return 0L;
         }
-
-        return new String[]{"critical", "red"};
-    }
-
-    // =========================== Estado ===========================
-    @Override
-    public Optional<StateHealthcareAccessDeficiencyMetrics> findStateHealthcareAccessDeficiencyMetrics(
-            Integer stateId,
-            Integer periodId
-    ) {
-        List<Object[]> result = em.createNativeQuery("""
-            WITH municipality_data AS (
-                SELECT
-                    m.id AS municipality_id,
-                    mi.total_population AS population,
-                    mi.healthcare_access_deficiency AS vulnerable_population,
-                    ROUND(
-                        (mi.healthcare_access_deficiency / NULLIF(mi.total_population, 0)) * 100,
-                        2
-                    ) AS deficiency_rate,
-                    COALESCE(SUM(hus.total_doctors), 0) AS doctors
-                FROM municipalities m
-                JOIN municipality_indicators mi
-                    ON mi.municipality_id = m.id
-                   AND mi.period_id = :periodId
-                LEFT JOIN health_units hu
-                    ON hu.municipality_id = m.id
-                LEFT JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                WHERE m.state_id = :stateId
-                GROUP BY
-                    m.id,
-                    mi.total_population,
-                    mi.healthcare_access_deficiency
-            ),
-            state_units AS (
-                SELECT
-                    m.state_id,
-                    COUNT(DISTINCT hu.id) AS total_health_units
-                FROM municipalities m
-                LEFT JOIN health_units hu
-                    ON hu.municipality_id = m.id
-                WHERE m.state_id = :stateId
-                GROUP BY m.state_id
-            )
-            SELECT
-                s.id AS state_id,
-                s.inegi_code AS state_code,
-                s.name AS state_name,
-                p.id AS period_id,
-                p.period_year AS period_year,
-                si.total_population AS total_population,
-                COALESCE(SUM(CASE WHEN md.deficiency_rate >= 40 THEN 1 ELSE 0 END), 0) AS priority_municipalities,
-                ROUND(
-                    (COALESCE(SUM(md.doctors), 0) / NULLIF(si.total_population, 0)) * 1000,
-                    2
-                ) AS medical_coverage_index,
-                COALESCE(su.total_health_units, 0) AS available_infrastructure
-            FROM states s
-            JOIN periods p
-                ON p.id = :periodId
-            JOIN state_indicators si
-                ON si.state_id = s.id
-               AND si.period_id = p.id
-            LEFT JOIN municipality_data md
-                ON 1 = 1
-            LEFT JOIN state_units su
-                ON su.state_id = s.id
-            WHERE s.id = :stateId
-            GROUP BY
-                s.id,
-                s.inegi_code,
-                s.name,
-                p.id,
-                p.period_year,
-                si.total_population,
-                su.total_health_units
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        if (result.isEmpty()) {
-            return Optional.empty();
+        if (value instanceof Number number) {
+            return number.longValue();
         }
-
-        return Optional.of(mapStateHealthcareAccessDeficiencyMetrics(result.get(0)));
+        return Long.valueOf(value.toString());
     }
 
-    @Override
-    public List<DashboardRankingRow> findStateHealthcareAccessDeficiencyRanking(
-            Integer stateId,
-            Integer periodId,
-            Integer limit
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY ROUND((mi.healthcare_access_deficiency / NULLIF(mi.total_population, 0)) * 100, 2) DESC
-                ) AS ranking_position,
-                m.id AS municipality_id,
-                m.inegi_code AS code,
-                m.name AS name,
-                mi.total_population AS population,
-                COALESCE(SUM(hus.total_doctors), 0) AS doctors,
-                ROUND(
-                    (COALESCE(SUM(hus.total_doctors), 0) / NULLIF(mi.total_population, 0)) * 1000,
-                    2
-                ) AS coverage_index,
-                mi.healthcare_access_deficiency AS vulnerable_population,
-                ROUND(
-                    (mi.healthcare_access_deficiency / NULLIF(mi.total_population, 0)) * 100,
-                    2
-                ) AS deficiency_rate
-            FROM municipalities m
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = :periodId
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE m.state_id = :stateId
-            GROUP BY
-                m.id,
-                m.inegi_code,
-                m.name,
-                mi.total_population,
-                mi.healthcare_access_deficiency
-            ORDER BY deficiency_rate DESC
-            LIMIT :limit
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHealthcareAccessDeficiencyRankingRow)
-                .toList();
-    }
-    @Override
-    public List<DashboardChartDataPoint> findStateHealthcareAccessDeficiencyMainChart(
-            Integer stateId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                m.name AS label,
-                m.inegi_code AS code,
-                mi.total_population AS population,
-                COALESCE(SUM(hus.total_doctors), 0) AS doctors,
-                ROUND(
-                    (COALESCE(SUM(hus.total_doctors), 0) / NULLIF(mi.total_population, 0)) * 1000,
-                    2
-                ) AS coverage_index,
-                ROUND(
-                    (mi.healthcare_access_deficiency / NULLIF(mi.total_population, 0)) * 100,
-                    2
-                ) AS deficiency_rate,
-                mi.healthcare_access_deficiency AS vulnerable_population
-            FROM municipalities m
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = :periodId
-            LEFT JOIN health_units hu
-                ON hu.municipality_id = m.id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE m.state_id = :stateId
-            GROUP BY
-                m.id,
-                m.inegi_code,
-                m.name,
-                mi.total_population,
-                mi.healthcare_access_deficiency
-            ORDER BY mi.total_population DESC
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHealthcareAccessDeficiencyScatterPoint)
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findStateHealthcareAccessDeficiencySecondaryChart(
-            Integer stateId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                m.name AS label,
-                m.inegi_code AS code,
-                mi.healthcare_access_deficiency AS vulnerable_population,
-                ROUND(
-                    (mi.healthcare_access_deficiency / NULLIF(mi.total_population, 0)) * 100,
-                    2
-                ) AS deficiency_rate,
-                mi.total_population AS population
-            FROM municipalities m
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = :periodId
-            WHERE m.state_id = :stateId
-            ORDER BY mi.healthcare_access_deficiency DESC
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapHealthcareAccessDeficiencyBarPoint)
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findStateHealthcareAccessDistribution(
-            Integer stateId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                'Population with healthcare access deficiency' AS label,
-                COALESCE(si.healthcare_access_deficiency, 0) AS value
-            FROM state_indicators si
-            WHERE si.period_id = :periodId
-              AND si.state_id = :stateId
-
-            UNION ALL
-
-            SELECT
-                'Population without healthcare access deficiency' AS label,
-                GREATEST(
-                    COALESCE(si.total_population, 0) - COALESCE(si.healthcare_access_deficiency, 0),
-                    0
-                ) AS value
-            FROM state_indicators si
-            WHERE si.period_id = :periodId
-              AND si.state_id = :stateId
-            """)
-                .setParameter("stateId", stateId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapSimplePiePoint)
-                .toList();
-    }
-
-    private StateHealthcareAccessDeficiencyMetrics mapStateHealthcareAccessDeficiencyMetrics(Object[] row) {
-        return new StateHealthcareAccessDeficiencyMetrics(
-                new DashboardTerritory(
-                        toInteger(row[0]),
-                        (String) row[1],
-                        (String) row[2],
-                        "state"
-                ),
-                new DashboardPeriod(
-                        toInteger(row[3]),
-                        toInteger(row[4])
-                ),
-                toBigInteger(row[5]),
-                toLong(row[6]),
-                toBigDecimal(row[7]),
-                toLong(row[8])
-        );
-    }
-
-    // =========================== Municipio ===========================
-    @Override
-    public Optional<MunicipalityHealthcareAccessDeficiencyMetrics> findMunicipalityHealthcareAccessDeficiencyMetrics(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> result = em.createNativeQuery("""
-            SELECT
-                m.id AS municipality_id,
-                m.inegi_code AS municipality_code,
-                m.name AS municipality_name,
-                p.id AS period_id,
-                p.period_year AS period_year,
-                mi.total_population AS total_population,
-                COALESCE(staff.available_doctors, 0) AS available_doctors,
-                COALESCE(units.health_centers, 0) AS health_centers,
-                ROUND(
-                    (COALESCE(staff.available_doctors, 0) / NULLIF(mi.total_population, 0)) * 1000,
-                    2
-                ) AS coverage_index
-            FROM municipalities m
-            JOIN periods p
-                ON p.id = :periodId
-            JOIN municipality_indicators mi
-                ON mi.municipality_id = m.id
-               AND mi.period_id = p.id
-            LEFT JOIN (
-                SELECT
-                    hu.municipality_id,
-                    SUM(hus.total_doctors) AS available_doctors
-                FROM health_units hu
-                JOIN health_unit_staff hus
-                    ON hus.health_unit_id = hu.id
-                   AND hus.period_id = :periodId
-                GROUP BY hu.municipality_id
-            ) staff
-                ON staff.municipality_id = m.id
-            LEFT JOIN (
-                SELECT
-                    hu.municipality_id,
-                    COUNT(DISTINCT hu.id) AS health_centers
-                FROM health_units hu
-                GROUP BY hu.municipality_id
-            ) units
-                ON units.municipality_id = m.id
-            WHERE m.id = :municipalityId
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        if (result.isEmpty()) {
-            return Optional.empty();
+    private BigDecimal toBigDecimalNullable(Object value) {
+        if (value == null) {
+            return null;
         }
-
-        return Optional.of(mapMunicipalityHealthcareAccessDeficiencyMetrics(result.get(0)));
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof BigInteger integer) {
+            return new BigDecimal(integer);
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return new BigDecimal(value.toString());
     }
 
-    @Override
-    public List<DashboardRankingRow> findMunicipalityHealthcareAccessDeficiencyRanking(
-            Integer municipalityId,
-            Integer periodId,
-            Integer limit
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY COALESCE(hus.total_doctors, 0) DESC, hu.name ASC
-                ) AS ranking_position,
-                hu.id AS unit_id,
-                hu.clues AS code,
-                hu.name AS name,
-                COALESCE(hus.total_doctors, 0) AS doctors,
-                mut.name AS unit_type,
-                hu.care_level AS care_level
-            FROM health_units hu
-            JOIN medical_unit_types mut
-                ON mut.id = hu.medical_unit_type_id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE hu.municipality_id = :municipalityId
-            ORDER BY doctors DESC, hu.name ASC
-            LIMIT :limit
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .setParameter("limit", limit)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapMunicipalityHealthcareAccessDeficiencyUnitRankingRow)
-                .toList();
+    private String toString(Object value) {
+        return value == null ? null : value.toString();
     }
 
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalityHealthcareAccessDeficiencyMainChart(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                hu.name AS label,
-                hu.clues AS code,
-                COALESCE(hus.total_doctors, 0) AS doctors,
-                mut.name AS unit_type,
-                hu.care_level AS care_level
-            FROM health_units hu
-            JOIN medical_unit_types mut
-                ON mut.id = hu.medical_unit_type_id
-            LEFT JOIN health_unit_staff hus
-                ON hus.health_unit_id = hu.id
-               AND hus.period_id = :periodId
-            WHERE hu.municipality_id = :municipalityId
-            ORDER BY doctors DESC, hu.name ASC
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        (String) row[0],
-                        (String) row[1],
-                        toBigDecimal(row[2]),
-                        null,
-                        toLong(row[2]),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Map.of(
-                                "unitType", row[3] != null ? row[3].toString() : null,
-                                "careLevel", row[4] != null ? row[4].toString() : null
-                        )
-                ))
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalityHealthcareAccessDeficiencySecondaryChart(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                hu.care_level AS label,
-                COUNT(*) AS total_units
-            FROM health_units hu
-            WHERE hu.municipality_id = :municipalityId
-            GROUP BY hu.care_level
-            ORDER BY total_units DESC
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .getResultList();
-
-        return rows.stream()
-                .map(row -> new DashboardChartDataPoint(
-                        row[0] != null ? row[0].toString() : "not_specified",
-                        null,
-                        toBigDecimal(row[1]),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        Map.of()
-                ))
-                .toList();
-    }
-
-    @Override
-    public List<DashboardChartDataPoint> findMunicipalityHealthcareAccessDistribution(
-            Integer municipalityId,
-            Integer periodId
-    ) {
-        List<Object[]> rows = em.createNativeQuery("""
-            SELECT
-                'Population with healthcare access deficiency' AS label,
-                COALESCE(mi.healthcare_access_deficiency, 0) AS value
-            FROM municipality_indicators mi
-            WHERE mi.period_id = :periodId
-              AND mi.municipality_id = :municipalityId
-
-            UNION ALL
-
-            SELECT
-                'Population without healthcare access deficiency' AS label,
-                GREATEST(
-                    COALESCE(mi.total_population, 0) - COALESCE(mi.healthcare_access_deficiency, 0),
-                    0
-                ) AS value
-            FROM municipality_indicators mi
-            WHERE mi.period_id = :periodId
-              AND mi.municipality_id = :municipalityId
-            """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
-                .getResultList();
-
-        return rows.stream()
-                .map(this::mapSimplePiePoint)
-                .toList();
-    }
-
-    private MunicipalityHealthcareAccessDeficiencyMetrics mapMunicipalityHealthcareAccessDeficiencyMetrics(Object[] row) {
-        return new MunicipalityHealthcareAccessDeficiencyMetrics(
-                new DashboardTerritory(
-                        toInteger(row[0]),
-                        (String) row[1],
-                        (String) row[2],
-                        "municipality"
-                ),
-                new DashboardPeriod(
-                        toInteger(row[3]),
-                        toInteger(row[4])
-                ),
-                toBigInteger(row[5]),
-                toLong(row[6]),
-                toLong(row[7]),
-                toBigDecimal(row[8])
-        );
-    }
-
-    private DashboardRankingRow mapMunicipalityHealthcareAccessDeficiencyUnitRankingRow(Object[] row) {
-        return new DashboardRankingRow(
-                String.valueOf(toInteger(row[1])),
-                toInteger(row[0]),
-                (String) row[2],
-                (String) row[3],
-                null,
-                toLong(row[4]),
-                null,
-                null,
-                toBigDecimal(row[4]),
-                null,
-                null,
-                Map.of(
-                        "unitType", row[5] != null ? row[5].toString() : null,
-                        "careLevel", row[6] != null ? row[6].toString() : null
-                )
-        );
+    private boolean toBoolean(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+        if (value instanceof Number number) {
+            return number.intValue() != 0;
+        }
+        return Boolean.parseBoolean(value.toString());
     }
 }

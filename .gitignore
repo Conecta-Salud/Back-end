@@ -1,4 +1,4 @@
-#Maven
+# Maven
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -6,8 +6,28 @@ pom.xml.versionsBackup
 release.properties
 .flattened-pom.xml
 
-# Firebase Admin SDK credentials
-src/main/resources/*firebase-adminsdk*.json
+# Información
+EXPLICACION_TECNICA_CONECTASALUD_BACKEND.txt
+FUNCIONALIDADES_CONECTASALUD_BACKEND.txt
+
+# Environment files
+.env
+.env.*
+!.env_example
+
+# Runtime/generated files
+uploads/
+*.log
+*.tmp
+*.csv
+*.jar
+*.war
+
+# JSON credentials and generated JSON files
+*.json
+*firebase-adminsdk*.json
+*service-account*.json
+src/main/resources/**/*.json
 
 # Eclipse
 .project
@@ -35,18 +55,14 @@ nb-configuration.xml
 *.swp
 *.swo
 
-# patch
+# Patch
 *.orig
 *.rej
 
-# Local environment
-.env
+*.class
 
 # Plugin directory
 /.quarkus/cli/plugins/
+
 # TLS Certificates
 .certs/
-
-#Credenciales de Firebase
-*-firebase-adminsdk-*.json
-src/main/resources/*.json

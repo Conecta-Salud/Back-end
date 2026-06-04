@@ -39,7 +39,12 @@ public class GetStateMapUseCase {
                         item.getName(),
                         item.getValue(),
                         item.getLevel().name().toLowerCase(),
-                        item.getColorToken().name().toLowerCase()
+                        item.getColorToken().name().toLowerCase(),
+                        item.getSourceYear(),
+                        item.getUnit(),
+                        item.getAvailabilityStatus(),
+                        item.getMethodologyNote(),
+                        item.getDataSourceName()
                 ))
                 .collect(Collectors.toList());
     }

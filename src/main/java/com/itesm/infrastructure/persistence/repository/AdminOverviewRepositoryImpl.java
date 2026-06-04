@@ -40,8 +40,9 @@ public class AdminOverviewRepositoryImpl implements AdminOverviewRepository {
 
                     (
                         SELECT COUNT(*)
-                        FROM export_history
-                    ) AS exported_reports
+                        FROM upload_batches
+                        WHERE status = 'completed'
+                    ) AS completed_upload_batches
                 """)
                 .getSingleResult();
 

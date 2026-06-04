@@ -21,7 +21,7 @@ public class GetAdminOverviewUseCase {
                 metrics.getRegisteredUsers(),
                 metrics.getActiveUsersLast7Days(),
                 metrics.getComparisonsPerformed(),
-                metrics.getExportedReports()
+                metrics.getCompletedUploadBatches()
         );
     }
 }
