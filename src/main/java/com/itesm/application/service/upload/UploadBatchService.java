@@ -26,6 +26,8 @@ import java.util.UUID;
 @ApplicationScoped
 public class UploadBatchService {
 
+    // Orquesta el ciclo de vida de una carga CSV: lote, archivo fisico, validacion,
+    // procesamiento y actualizacion de contadores visibles para administradores.
     private final UploadBatchRepository uploadBatchRepository;
     private final DataUploadRepository dataUploadRepository;
     private final DataUploadErrorRepository dataUploadErrorRepository;
@@ -116,6 +118,8 @@ public class UploadBatchService {
 
         StoredCsvFile storedFile = csvStorageService.store(batch.getId(), originalFileName, mimeType, inputStream);
 
+        // El checksum evita procesar dos veces el mismo contenido dentro del lote,
+        // aunque el archivo tenga otro nombre.
         if (dataUploadRepository.existsChecksumInBatch(batch.getId(), storedFile.getChecksum())) {
             csvStorageService.deleteQuietly(storedFile);
             throw new BadRequestException("DUPLICATED_FILE: A file with the same checksum already exists in this batch");
@@ -182,6 +186,8 @@ public class UploadBatchService {
         uploadBatchRepository.updateStatus(batchId, UploadStatus.processing, null, false);
 
         try {
+            // El servicio solo controla estado y auditoria del lote; la regla de negocio
+            // especifica de cada CSV vive en su procesador especializado.
             CsvProcessingResult processingResult = csvProcessingDispatcher.dispatch(batch, mode, replaceExistingForYear);
             uploadBatchRepository.recalculateCounters(batchId);
             UploadStatus finalStatus = processingResult.status();

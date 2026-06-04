@@ -18,6 +18,8 @@ import java.util.List;
 @ApplicationScoped
 public class CsvProcessingDispatcher {
 
+    // Punto unico de enrutamiento: el sourceType del lote decide que procesador CSV
+    // interpreta los archivos y que tablas/indicadores se actualizan.
     private final DataUploadRepository dataUploadRepository;
     private final PopulationIndicatorsCsvProcessor populationIndicatorsCsvProcessor;
     private final HealthEstablishmentsCsvProcessor healthEstablishmentsCsvProcessor;
@@ -166,6 +168,8 @@ public class CsvProcessingDispatcher {
             return UploadStatus.completed;
         }
 
+        // Si hubo errores pero tambien se persistieron datos, el lote queda en warning:
+        // el admin puede revisar errores sin perder los registros validos.
         return result.valuesUpserted() > 0 ? UploadStatus.warning : UploadStatus.error;
     }
 

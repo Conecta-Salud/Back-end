@@ -15,6 +15,9 @@ import java.util.List;
 @ApplicationScoped
 public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryRepository {
 
+    // Arma la base de datos para comparacion avanzada. Los indicadores agregados
+    // vienen de territory_indicator_values; hospitales se calcula operativo porque
+    // no existe como indicador materializado oficial.
     private final EntityManager em;
 
     public ComparisonSummaryRepositoryImpl(EntityManager em) {
@@ -197,6 +200,8 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
     }
 
     private String indicatorValue(String indicatorCode) {
+        // Devuelve null cuando el indicador no existe o no esta disponible; asi la
+        // capa de aplicacion puede responder value=null sin convertirlo en error.
         return "MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
                 + "AND COALESCE(da.availability_status, tiv.availability_status) NOT IN ('not_available', 'not_applicable') "
                 + "THEN tiv.value END)".formatted(indicatorCode);

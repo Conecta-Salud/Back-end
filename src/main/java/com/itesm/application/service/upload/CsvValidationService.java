@@ -21,6 +21,8 @@ import java.util.List;
 @ApplicationScoped
 public class CsvValidationService {
 
+    // Validacion ligera previa al procesamiento: revisa lectura del archivo y
+    // encabezados requeridos, sin ejecutar reglas completas de negocio.
     private final DataUploadRepository dataUploadRepository;
     private final DataUploadErrorRepository dataUploadErrorRepository;
     private final UploadBatchRepository uploadBatchRepository;
@@ -90,6 +92,8 @@ public class CsvValidationService {
     private ValidationScan scanWithCharsetFallback(DataUploadEntity upload) {
         ValidationScan bestScan = null;
 
+        // Algunos CSV oficiales pueden variar de encoding; se intenta cada charset
+        // permitido por fileRole y se conserva el resultado con menos errores.
         for (Charset charset : csvSchemaRegistry.charsets(upload.getFileRole())) {
             ValidationScan scan = scan(upload, charset);
 
@@ -166,6 +170,8 @@ public class CsvValidationService {
         StringBuilder current = new StringBuilder();
         boolean inQuotes = false;
 
+        // Parser minimo para encabezados CSV: respeta comillas y comillas escapadas
+        // sin introducir una dependencia adicional solo para esta validacion.
         for (int i = 0; i < line.length(); i++) {
             char currentChar = line.charAt(i);
 

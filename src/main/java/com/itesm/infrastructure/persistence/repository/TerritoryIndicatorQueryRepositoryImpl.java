@@ -14,6 +14,8 @@ import java.util.Optional;
 @ApplicationScoped
 public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicatorQueryRepository {
 
+    // Read model central de indicadores: dashboard, mapa, ranking y comparacion
+    // deben leer agregados desde territory_indicator_values mediante este repositorio.
     private final EntityManager em;
 
     public TerritoryIndicatorQueryRepositoryImpl(EntityManager em) {
@@ -170,6 +172,8 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
     }
 
     private String baseSql() {
+        // Mantener aqui los joins comunes reduce el riesgo de que endpoints similares
+        // devuelvan metadata distinta para el mismo indicador.
         return """
                 SELECT
                     tiv.id,

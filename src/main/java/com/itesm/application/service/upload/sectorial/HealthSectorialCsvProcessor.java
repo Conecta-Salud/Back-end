@@ -143,6 +143,8 @@ public class HealthSectorialCsvProcessor {
             UploadProcessingMode mode,
             boolean replaceExistingForYear
     ) {
+        // Procesa datos sectoriales por unidad medica y luego materializa indicadores
+        // agregados, incluyendo tasas que no deben recalcularse en endpoints.
         List<DataUploadEntity> sectorialUploads = uploads.stream()
                 .filter(upload -> upload.getFileRole() == CsvFileRole.sectorial_data)
                 .toList();
@@ -162,6 +164,8 @@ public class HealthSectorialCsvProcessor {
         ProcessingContext context = new ProcessingContext();
 
         if (writeFinalData && (mode == UploadProcessingMode.replace || replaceExistingForYear)) {
+            // El replace limpia solo el periodo/fuente afectado para no modificar
+            // informacion historica de otras cargas.
             healthUnitStaffWriter.deleteByPeriodAndDataSource(periodId, batch.getDataSource().getId());
             healthUnitInfrastructureWriter.deleteByPeriodAndDataSource(periodId, batch.getDataSource().getId());
             healthSectorialIndicatorWriter.deleteExistingValues(sourceYear, batch.getDataSource().getId(), catalog.sectorialIndicatorIds());
@@ -174,6 +178,8 @@ public class HealthSectorialCsvProcessor {
         }
 
         if (writeFinalData && result.staffRowsUpserted() > 0) {
+            // La recalculacion genera total_doctors, total_nurses, beds, rooms y
+            // tasas por territorio usando los valores operativos ya persistidos.
             SectorialIndicatorWriteResult indicatorResult = healthSectorialIndicatorWriter.recalculate(
                     sourceYear,
                     periodId,

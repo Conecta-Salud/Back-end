@@ -159,6 +159,8 @@ public class GetComparisonSummaryUseCase {
 
         List<ComparisonChart> charts = new java.util.ArrayList<>();
 
+        // Las tasas ya vienen materializadas del repositorio; aqui solo se preparan
+        // graficas y clasificaciones para consumo directo del frontend.
         charts.add(buildMedicalCoverageChart(items));
         charts.add(buildDoctorDeficitChart(items));
         charts.add(buildHospitalBedsChart(items));
@@ -312,6 +314,8 @@ public class GetComparisonSummaryUseCase {
         BigDecimal medicalCoverage = calculateMedicalCoverage(item);
         BigDecimal olderAdultsPercentage = safeBigDecimal(item.getPercentageOver60());
 
+        // Puntaje simple de prioridad: combina riesgo medico, capacidad hospitalaria
+        // y envejecimiento poblacional para orientar comparaciones entre territorios.
         BigDecimal medicalRisk = calculateMedicalRisk(medicalCoverage);
         BigDecimal hospitalRisk = calculateHospitalRisk(hospitalsPer100k);
         BigDecimal olderAdultRisk = calculateOlderAdultRisk(olderAdultsPercentage);

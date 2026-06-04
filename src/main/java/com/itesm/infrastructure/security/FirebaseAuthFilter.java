@@ -30,6 +30,8 @@ import java.util.Optional;
 @UnlessBuildProfile("test")
 public class FirebaseAuthFilter implements ContainerRequestFilter {
 
+    // Filtro global: valida Firebase ID Token y lo vincula con el usuario local
+    // activo antes de que llegue a los recursos REST protegidos.
     private static final Logger LOG = Logger.getLogger(FirebaseAuthFilter.class);
     private static final String AUTH_PROVIDER_CONFIGURATION_DETAIL =
             "Revise la configuración del proveedor de autenticación en el servidor.";

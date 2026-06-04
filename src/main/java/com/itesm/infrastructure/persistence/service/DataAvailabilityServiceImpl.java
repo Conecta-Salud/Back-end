@@ -11,6 +11,8 @@ import java.util.Optional;
 @ApplicationScoped
 public class DataAvailabilityServiceImpl implements DataAvailabilityService {
 
+    // Interpreta data_availability como fuente de verdad para saber si un indicador
+    // debe mostrarse o tratarse como no disponible/no aplicable.
     private final EntityManager em;
 
     public DataAvailabilityServiceImpl(EntityManager em) {
@@ -83,6 +85,8 @@ public class DataAvailabilityServiceImpl implements DataAvailabilityService {
         }
 
         String status = value.toString();
+        // estimated y partial se consideran consultables; not_available y
+        // not_applicable se excluyen de endpoints agregados.
         return !"not_available".equals(status) && !"not_applicable".equals(status);
     }
 

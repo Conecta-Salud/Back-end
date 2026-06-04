@@ -107,6 +107,8 @@ public class HealthEstablishmentsCsvProcessor {
             UploadProcessingMode mode,
             boolean replaceExistingForYear
     ) {
+        // Carga el catalogo operativo de unidades medicas y despues recalcula el
+        // indicador agregado health_establishments para dashboard/mapa/comparacion.
         List<DataUploadEntity> establishmentUploads = uploads.stream()
                 .filter(upload -> upload.getFileRole() == CsvFileRole.establishments_catalog)
                 .toList();
@@ -138,6 +140,8 @@ public class HealthEstablishmentsCsvProcessor {
 
         if (writeFinalData && result.healthUnitsUpserted() > 0) {
             ProcessingCatalog catalog = loadCatalog(batch);
+            // El indicador se recalcula desde health_units para dejar un valor
+            // territorial unico en territory_indicator_values.
             int indicatorRows = healthEstablishmentsIndicatorWriter.recalculate(
                     sourceYear,
                     catalog.indicator().id(),

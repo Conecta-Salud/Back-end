@@ -99,6 +99,8 @@ public class PopulationIndicatorsCsvProcessor {
             UploadProcessingMode mode,
             boolean replaceExistingForYear
     ) {
+        // Este procesador transforma datos poblacionales en valores materializados
+        // por territorio y anio. No escribe tablas operativas de salud.
         List<DataUploadEntity> populationUploads = uploads.stream()
                 .filter(upload -> SUPPORTED_ROLES.contains(upload.getFileRole()))
                 .toList();
@@ -129,6 +131,8 @@ public class PopulationIndicatorsCsvProcessor {
         }
 
         if (writeFinalData && result.dataRows() > 0) {
+            // La disponibilidad se actualiza al final para que refleje el resultado
+            // consolidado del lote, no solo el estado de un archivo individual.
             dataAvailabilityWriter.upsert(buildAvailability(catalog.indicators()));
         }
 

@@ -6,6 +6,10 @@ pom.xml.versionsBackup
 release.properties
 .flattened-pom.xml
 
+# Información
+EXPLICACION_TECNICA_CONECTASALUD_BACKEND.txt
+FUNCIONALIDADES_CONECTASALUD_BACKEND.txt
+
 # Environment files
 .env
 .env.*

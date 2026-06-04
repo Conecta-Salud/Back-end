@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepository {
 
+    // Repositorio mixto: usa indicadores materializados para agregados territoriales
+    // y tablas operativas solo para vistas de detalle por unidad/distribuciones.
     private static final String TOTAL_POPULATION = "total_population";
     private static final String PERCENTAGE_OVER_60 = "percentage_over_60";
     private static final String MEDICAL_COVERAGE = "doctors_per_1000";
@@ -457,6 +459,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return List.of();
         }
 
+        // La direccion del ranking se toma del catalogo indicators.higher_is_better;
+        // el parametro recibido queda como respaldo si el catalogo no tiene dato.
         boolean sortHigherIsBetter = higherIsBetter(indicatorCode, higherIsBetter);
         Map<String, TerritoryIndicatorValueDto> population = indicatorRepository.findStateValues(TOTAL_POPULATION, year)
                 .stream()
@@ -548,6 +552,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
     }
 
     private List<DashboardRankingRow> healthUnitDoctorRanking(Integer municipalityId, Integer periodId, Integer limit) {
+        // Este ranking baja al nivel unidad medica; por eso consulta tablas operativas
+        // en lugar de territory_indicator_values.
         List<?> rows = em.createNativeQuery("""
                 SELECT
                     hu.id,

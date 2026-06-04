@@ -17,6 +17,8 @@ import java.util.Set;
 @ApplicationScoped
 public class CsvSchemaRegistry {
 
+    // Catalogo tecnico de contratos CSV: define encabezados y encoding esperados por
+    // fileRole, separado de los procesadores para mantener una sola fuente de reglas.
     private final Map<CsvFileRole, List<String>> requiredHeaders = new EnumMap<>(CsvFileRole.class);
     private final Set<CsvFileRole> partialHeaderRoles = new LinkedHashSet<>();
 
@@ -156,6 +158,8 @@ public class CsvSchemaRegistry {
             return normalizedPresent.contains(normalizedRequired);
         }
 
+        // En archivos oficiales algunos encabezados llegan con textos largos o
+        // variaciones menores; por eso ciertos roles permiten coincidencia parcial.
         if (fileRole == CsvFileRole.establishments_catalog
                 && ("entidad".equals(normalizedRequired) || "municipio".equals(normalizedRequired))) {
             return normalizedPresent.contains(normalizedRequired);
