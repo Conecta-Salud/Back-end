@@ -45,14 +45,14 @@ public class CsvValidationService {
 
     public ValidateUploadResponse validate(Integer uploadId) {
         DataUploadEntity upload = dataUploadRepository.findById(uploadId)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_UPLOAD: Upload not found"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_UPLOAD: archivo de carga no encontrado"));
 
         return validate(upload);
     }
 
     public ValidateUploadResponse validate(DataUploadEntity upload) {
         if (upload == null) {
-            throw new NotFoundException("UNKNOWN_UPLOAD: Upload not found");
+            throw new NotFoundException("UNKNOWN_UPLOAD: archivo de carga no encontrado");
         }
 
         ValidationScan scan = scan(upload);
@@ -68,7 +68,7 @@ public class CsvValidationService {
                 scan.totalRecords(),
                 scan.validRecords(),
                 scan.errors().size(),
-                scan.errors().isEmpty() ? null : "CSV validation found " + scan.errors().size() + " error(s)"
+                scan.errors().isEmpty() ? null : validationSummary(scan.errors().size())
         );
         uploadBatchRepository.recalculateCounters(upload.getBatch().getId());
 
@@ -122,7 +122,7 @@ public class CsvValidationService {
                         null,
                         null,
                         "EMPTY_FILE",
-                        "CSV file is empty or has no header row"
+                        "El archivo CSV está vacío o no contiene fila de encabezados."
                 ));
                 return new ValidationScan(0, 0, errors);
             }
@@ -133,7 +133,7 @@ public class CsvValidationService {
                         missingHeader,
                         null,
                         "MISSING_REQUIRED_HEADER",
-                        "Required CSV header is missing: " + missingHeader
+                        "Falta el encabezado requerido del CSV: " + missingHeader
                 ));
             }
 
@@ -153,10 +153,14 @@ public class CsvValidationService {
                     null,
                     null,
                     "UPLOAD_STORAGE_ERROR",
-                    "Could not read stored CSV file"
+                    "No fue posible leer el archivo CSV almacenado."
             ));
             return new ValidationScan(0, 0, errors);
         }
+    }
+
+    private String validationSummary(int errorCount) {
+        return "La validación CSV encontró " + errorCount + " error(es).";
     }
 
     private boolean hasHeaderOrStorageErrors(ValidationScan scan) {

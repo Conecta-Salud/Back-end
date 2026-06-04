@@ -36,7 +36,7 @@ public class InstitutionCatalogWriter {
                 .executeUpdate();
 
         Integer id = findIdByName(safeName)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_INSTITUTION: Institution was not found after insert"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_INSTITUTION: no se encontró la institución después de insertarla"));
 
         return new CatalogWriteResult(id, true);
     }
@@ -56,7 +56,7 @@ public class InstitutionCatalogWriter {
 
     private String requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + fieldName + " is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + fieldName + " es obligatorio");
         }
 
         return value.trim();

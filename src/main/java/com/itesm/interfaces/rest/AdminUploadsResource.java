@@ -190,20 +190,20 @@ public class AdminUploadsResource {
 
     private void assertAdmin() {
         if (authenticatedUserContext.getCurrentUser().getRole() != UserRole.admin) {
-            throw new ForbiddenException("USER_NOT_ADMIN: Only administrators can access upload administration");
+            throw new ForbiddenException("USER_NOT_ADMIN: solo administradores pueden acceder a la administración de cargas");
         }
     }
 
     private InputPart requiredPart(MultipartFormDataInput input, String name) {
         if (input == null) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: multipart body is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: el cuerpo multipart es obligatorio");
         }
 
         Map<String, List<InputPart>> form = input.getFormDataMap();
         List<InputPart> parts = form.get(name);
 
         if (parts == null || parts.isEmpty()) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + name + " is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + name + " es obligatorio");
         }
 
         return parts.get(0);
@@ -216,12 +216,12 @@ public class AdminUploadsResource {
             String value = part.getBody(String.class, null);
 
             if (value == null || value.isBlank()) {
-                throw new BadRequestException("REQUIRED_FIELD_MISSING: " + name + " is required");
+                throw new BadRequestException("REQUIRED_FIELD_MISSING: " + name + " es obligatorio");
             }
 
             return value.trim();
         } catch (IOException e) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + name + " is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + name + " es obligatorio");
         }
     }
 
@@ -229,7 +229,7 @@ public class AdminUploadsResource {
         String contentDisposition = filePart.getHeaders().getFirst("Content-Disposition");
 
         if (contentDisposition == null || contentDisposition.isBlank()) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: file name is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: el nombre del archivo es obligatorio");
         }
 
         for (String token : contentDisposition.split(";")) {
@@ -248,7 +248,7 @@ public class AdminUploadsResource {
             }
         }
 
-        throw new BadRequestException("REQUIRED_FIELD_MISSING: file name is required");
+        throw new BadRequestException("REQUIRED_FIELD_MISSING: el nombre del archivo es obligatorio");
     }
 
     private UUID currentUserId() {

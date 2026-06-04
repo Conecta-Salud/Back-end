@@ -29,7 +29,7 @@ public class DataUploadRepositoryImpl implements DataUploadRepository {
         UploadBatchEntity batch = em.find(UploadBatchEntity.class, batchId);
 
         if (batch == null) {
-            throw new NotFoundException("UNKNOWN_BATCH: Upload batch not found");
+            throw new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado");
         }
 
         upload.setBatch(batch);
@@ -134,7 +134,7 @@ public class DataUploadRepositoryImpl implements DataUploadRepository {
         DataUploadEntity upload = em.find(DataUploadEntity.class, uploadId);
 
         if (upload == null) {
-            throw new NotFoundException("UNKNOWN_UPLOAD: Upload not found");
+            throw new NotFoundException("UNKNOWN_UPLOAD: archivo de carga no encontrado");
         }
 
         upload.setStatus(UploadStatus.valueOf(status));

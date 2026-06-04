@@ -25,6 +25,12 @@ public interface UploadBatchRepository {
             int size
     );
 
+    boolean existsBySourceTypeSourceYearAndBatchVersion(
+            UploadSourceType sourceType,
+            Short sourceYear,
+            String batchVersion
+    );
+
     void updateStatus(Integer batchId, UploadStatus status, String errorDetail, boolean processed);
 
     void recalculateCounters(Integer batchId);

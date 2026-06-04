@@ -52,11 +52,11 @@ public class UploadBatchRepositoryImpl implements UploadBatchRepository {
         DataSourceEntity dataSource = em.find(DataSourceEntity.class, dataSourceId);
 
         if (user == null) {
-            throw new NotFoundException("UNKNOWN_USER: Authenticated user not found");
+            throw new NotFoundException("UNKNOWN_USER: usuario autenticado no encontrado");
         }
 
         if (dataSource == null) {
-            throw new NotFoundException("UNKNOWN_DATA_SOURCE: Data source not found");
+            throw new NotFoundException("UNKNOWN_DATA_SOURCE: fuente de datos no encontrada");
         }
 
         batch.setUser(user);
@@ -135,6 +135,31 @@ public class UploadBatchRepositoryImpl implements UploadBatchRepository {
     }
 
     @Override
+    public boolean existsBySourceTypeSourceYearAndBatchVersion(
+            UploadSourceType sourceType,
+            Short sourceYear,
+            String batchVersion
+    ) {
+        if (sourceType == null || sourceYear == null || batchVersion == null || batchVersion.isBlank()) {
+            return false;
+        }
+
+        Long count = em.createQuery("""
+                        SELECT COUNT(b.id)
+                        FROM UploadBatchEntity b
+                        WHERE b.sourceType = :sourceType
+                          AND b.sourceYear = :sourceYear
+                          AND b.batchVersion = :batchVersion
+                        """, Long.class)
+                .setParameter("sourceType", sourceType)
+                .setParameter("sourceYear", sourceYear)
+                .setParameter("batchVersion", batchVersion.trim())
+                .getSingleResult();
+
+        return count != null && count > 0;
+    }
+
+    @Override
     @Transactional
     public void updateStatus(Integer batchId, UploadStatus status, String errorDetail, boolean processed) {
         UploadBatchEntity batch = requireBatch(batchId);
@@ -173,7 +198,7 @@ public class UploadBatchRepositoryImpl implements UploadBatchRepository {
         UploadBatchEntity batch = em.find(UploadBatchEntity.class, batchId);
 
         if (batch == null) {
-            throw new NotFoundException("UNKNOWN_BATCH: Upload batch not found");
+            throw new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado");
         }
 
         return batch;

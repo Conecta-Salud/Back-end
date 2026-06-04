@@ -33,7 +33,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
         DataUploadEntity upload = em.find(DataUploadEntity.class, uploadId);
 
         if (upload == null) {
-            throw new NotFoundException("UNKNOWN_UPLOAD: Upload not found");
+            throw new NotFoundException("UNKNOWN_UPLOAD: archivo de carga no encontrado");
         }
 
         deleteByUploadId(uploadId);
@@ -51,7 +51,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
         DataUploadEntity upload = em.find(DataUploadEntity.class, uploadId);
 
         if (upload == null) {
-            throw new NotFoundException("UNKNOWN_UPLOAD: Upload not found");
+            throw new NotFoundException("UNKNOWN_UPLOAD: archivo de carga no encontrado");
         }
 
         for (UploadErrorDraft draft : errors) {

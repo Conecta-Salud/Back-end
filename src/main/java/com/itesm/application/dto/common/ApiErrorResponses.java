@@ -19,6 +19,7 @@ public final class ApiErrorResponses {
             "MISSING_REQUIRED_HEADER",
             "DUPLICATED_FILE",
             "DUPLICATED_FILE_ROLE_IN_BATCH",
+            "DUPLICATED_BATCH_VERSION",
             "EXPECTED_FILES_EXCEEDED",
             "INVALID_FILE_ROLE",
             "INVALID_FILE_ROLE_FOR_SOURCE_TYPE",
@@ -70,6 +71,7 @@ public final class ApiErrorResponses {
             Map.entry("MISSING_REQUIRED_HEADER", "El archivo CSV no contiene todos los encabezados requeridos."),
             Map.entry("DUPLICATED_FILE", "Este archivo ya fue cargado en el lote."),
             Map.entry("DUPLICATED_FILE_ROLE_IN_BATCH", "Ya existe un archivo con ese rol en el lote."),
+            Map.entry("DUPLICATED_BATCH_VERSION", "Ya existe un lote de carga con esa versión para el tipo de fuente y año seleccionados."),
             Map.entry("EXPECTED_FILES_EXCEEDED", "El lote ya alcanzó el número esperado de archivos."),
             Map.entry("INVALID_FILE_ROLE", "El rol del archivo no es válido."),
             Map.entry("INVALID_FILE_ROLE_FOR_SOURCE_TYPE", "El tipo de archivo no corresponde con el tipo de carga seleccionado."),
@@ -109,6 +111,7 @@ public final class ApiErrorResponses {
             Map.entry("INVALID_UPLOAD_STATUS", "El archivo solo puede validarse cuando está pendiente, en advertencia o en error."),
             Map.entry("BATCH_HAS_ERRORS", "El lote tiene errores de validación. Revise la tabla de errores antes de procesar."),
             Map.entry("DUPLICATED_FILE", "Ya existe un archivo con el mismo contenido dentro de este lote."),
+            Map.entry("DUPLICATED_BATCH_VERSION", "Cambia la versión del lote o usa el lote existente."),
             Map.entry("EXPECTED_FILES_EXCEEDED", "El número de archivos cargados ya alcanzó el máximo esperado para este lote.")
     );
 

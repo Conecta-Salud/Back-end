@@ -168,9 +168,9 @@ public class PopulationIndicatorsCsvProcessor {
             String headerLine = reader.readLine();
 
             if (headerLine == null || headerLine.isBlank()) {
-                UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "CSV file is empty or has no header row");
+                UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "El archivo CSV está vacío o no contiene fila de encabezados.");
                 dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, "CSV processing found 1 error(s)");
+                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, processingSummary(1));
                 return new PopulationProcessingResult(1, 0, 0, 0, 0, 1);
             }
 
@@ -180,10 +180,10 @@ public class PopulationIndicatorsCsvProcessor {
 
             if (!missingHeaders.isEmpty()) {
                 List<UploadErrorDraft> errors = missingHeaders.stream()
-                        .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Required CSV header is missing: " + header))
+                        .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Falta el encabezado requerido del CSV: " + header))
                         .toList();
                 dataUploadErrorRepository.appendErrors(upload.getId(), errors);
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
+                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), processingSummary(errors.size()));
                 return new PopulationProcessingResult(1, 0, 0, 0, 0, errors.size());
             }
 
@@ -240,14 +240,14 @@ public class PopulationIndicatorsCsvProcessor {
                     dataRows,
                     validRecords,
                     errorRecords,
-                    errorRecords == 0 ? null : "CSV processing found " + errorRecords + " error(s)"
+                    errorRecords == 0 ? null : processingSummary(errorRecords)
             );
 
             return new PopulationProcessingResult(1, dataRows, skippedRows, unsupportedPeriodRows, persistedValues, errorRecords);
         } catch (IOException e) {
-            UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "Could not read stored CSV file");
+            UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "No fue posible leer el archivo CSV almacenado.");
             dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "Could not read stored CSV file");
+            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "No fue posible leer el archivo CSV almacenado.");
             return new PopulationProcessingResult(1, dataRows, skippedRows, unsupportedPeriodRows, writeFinalData ? valuesUpserted : 0, errorRecords + 1);
         }
     }
@@ -342,7 +342,7 @@ public class PopulationIndicatorsCsvProcessor {
                     "Población total",
                     row.getTotalPopulationRaw(),
                     "INVALID_NUMERIC_VALUE",
-                    "Población total must be an integer value"
+                    "Población total debe ser un valor entero."
             ));
             totalPopulation = null;
         }
@@ -400,7 +400,7 @@ public class PopulationIndicatorsCsvProcessor {
                         columnName,
                         rawValue,
                         "LEVEL_NOT_SUPPORTED",
-                        indicatorCode + " is not available at municipality level and was ignored"
+                        indicatorCode + " no está disponible a nivel municipal y fue ignorado."
                 ));
             }
             return;
@@ -652,11 +652,11 @@ public class PopulationIndicatorsCsvProcessor {
                 .toList();
 
         if (!missingIndicators.isEmpty()) {
-            throw new NotFoundException("UNKNOWN_INDICATOR: Missing indicators " + missingIndicators);
+            throw new NotFoundException("UNKNOWN_INDICATOR: faltan indicadores " + missingIndicators);
         }
 
         if (batch.getDataSource() == null || batch.getDataSource().getId() == null) {
-            throw new NotFoundException("UNKNOWN_DATA_SOURCE: Upload batch has no data source");
+            throw new NotFoundException("UNKNOWN_DATA_SOURCE: el lote de carga no tiene fuente de datos");
         }
 
         return new ProcessingCatalog(
@@ -672,6 +672,10 @@ public class PopulationIndicatorsCsvProcessor {
         if (writeFinalData && !chunk.values().isEmpty()) {
             territoryIndicatorValueWriter.upsert(chunk.values());
         }
+    }
+
+    private String processingSummary(int errorRecords) {
+        return "El procesamiento CSV encontró " + errorRecords + " error(es).";
     }
 
     private void updateUpload(
@@ -712,7 +716,7 @@ public class PopulationIndicatorsCsvProcessor {
 
     private String safeErrorMessage(RuntimeException exception) {
         if (exception.getMessage() == null || exception.getMessage().isBlank()) {
-            return "Territory catalog upsert failed";
+            return "No fue posible actualizar el catálogo territorial.";
         }
 
         return exception.getMessage();

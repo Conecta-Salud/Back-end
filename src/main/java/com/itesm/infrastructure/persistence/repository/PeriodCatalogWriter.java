@@ -44,7 +44,7 @@ public class PeriodCatalogWriter {
                 .executeUpdate();
 
         return findPeriodId(year)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_PERIOD: Period was not found after insert"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_PERIOD: no se encontró el periodo después de insertarlo"));
     }
 
     public Optional<Integer> findPeriodId(short year) {

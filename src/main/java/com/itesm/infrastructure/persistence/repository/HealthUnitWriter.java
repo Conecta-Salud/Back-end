@@ -180,7 +180,7 @@ public class HealthUnitWriter {
                 .executeUpdate();
 
         return findIdByClues(value.clues())
-                .orElseThrow(() -> new jakarta.ws.rs.NotFoundException("UNKNOWN_HEALTH_UNIT: Health unit was not found after insert"));
+                .orElseThrow(() -> new jakarta.ws.rs.NotFoundException("UNKNOWN_HEALTH_UNIT: no se encontró la unidad de salud después de insertarla"));
     }
 
     private Integer toInteger(Object value) {

@@ -114,14 +114,14 @@ public class HealthEstablishmentsCsvProcessor {
                 .toList();
 
         if (establishmentUploads.isEmpty()) {
-            throw new BadRequestException("INVALID_FILE_ROLE: health establishments processing requires fileRole=establishments_catalog");
+            throw new BadRequestException("INVALID_FILE_ROLE: el procesamiento de establecimientos requiere fileRole=establishments_catalog");
         }
 
         boolean writeFinalData = mode != UploadProcessingMode.validate_only;
         Short sourceYear = batch.getSourceYear();
 
         if (sourceYear == null) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: sourceYear is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: sourceYear es obligatorio");
         }
 
         if (writeFinalData) {
@@ -180,9 +180,9 @@ public class HealthEstablishmentsCsvProcessor {
             String headerLine = reader.readLine();
 
             if (headerLine == null || headerLine.isBlank()) {
-                UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "CSV file is empty or has no header row");
+                UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "El archivo CSV está vacío o no contiene fila de encabezados.");
                 dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, "CSV processing found 1 error(s)");
+                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, processingSummary(1, 0));
                 return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, 1, 0, 0);
             }
 
@@ -192,10 +192,10 @@ public class HealthEstablishmentsCsvProcessor {
 
             if (!missingHeaders.isEmpty()) {
                 List<UploadErrorDraft> errors = missingHeaders.stream()
-                        .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Required CSV header is missing: " + header))
+                        .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Falta el encabezado requerido del CSV: " + header))
                         .toList();
                 dataUploadErrorRepository.appendErrors(upload.getId(), errors);
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
+                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), processingSummary(errors.size(), 0));
                 return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, errors.size(), 0, 0);
             }
 
@@ -266,9 +266,9 @@ public class HealthEstablishmentsCsvProcessor {
                     coordinateWarnings
             );
         } catch (IOException e) {
-            UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "Could not read stored CSV file");
+            UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "No fue posible leer el archivo CSV almacenado.");
             dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + warningRecords + 1, "Could not read stored CSV file");
+            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + warningRecords + 1, "No fue posible leer el archivo CSV almacenado.");
 
             return new HealthEstablishmentProcessingResult(
                     1,
@@ -315,7 +315,7 @@ public class HealthEstablishmentsCsvProcessor {
                     "CLUES",
                     clues,
                     "DUPLICATED_CLUES_IN_FILE",
-                    "CLUES is duplicated in this file and was skipped"
+                    "CLUES está duplicado en este archivo y la fila fue omitida."
             ));
             return new RowProcessingResult(null, errors, false, 0);
         }
@@ -388,7 +388,7 @@ public class HealthEstablishmentsCsvProcessor {
         String value = optionalText(rawValue);
 
         if (value == null) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "REQUIRED_FIELD_MISSING", columnName + " is required"));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "REQUIRED_FIELD_MISSING", columnName + " es obligatorio."));
         }
 
         return value;
@@ -406,19 +406,19 @@ public class HealthEstablishmentsCsvProcessor {
         String rawValue = row.getStateCodeRaw();
 
         if (rawValue == null || rawValue.isBlank()) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "REQUIRED_FIELD_MISSING", "State code is required"));
+            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "REQUIRED_FIELD_MISSING", "La clave de estado es obligatoria."));
             return null;
         }
 
         String value = rawValue.trim();
         if (!value.matches("\\d{1,2}")) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "INVALID_STATE_CODE", "State code must have 1 or 2 digits"));
+            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "INVALID_STATE_CODE", "La clave de estado debe tener 1 o 2 dígitos."));
             return null;
         }
 
         String normalized = value.length() == 1 ? "0" + value : value;
         if ("00".equals(normalized)) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "INVALID_STATE_CODE", "State code 00 is not valid for health units"));
+            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "INVALID_STATE_CODE", "La clave de estado 00 no es válida para unidades de salud."));
             return null;
         }
 
@@ -429,7 +429,7 @@ public class HealthEstablishmentsCsvProcessor {
         String rawValue = row.getMunicipalityCodeRaw();
 
         if (rawValue == null || rawValue.isBlank()) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "REQUIRED_FIELD_MISSING", "Municipality code is required"));
+            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "REQUIRED_FIELD_MISSING", "La clave de municipio es obligatoria."));
             return null;
         }
 
@@ -439,7 +439,7 @@ public class HealthEstablishmentsCsvProcessor {
 
         String value = rawValue.trim();
         if (!value.matches("\\d{1,5}")) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "INVALID_MUNICIPALITY_CODE", "Municipality code must be numeric"));
+            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe ser numérica."));
             return null;
         }
 
@@ -449,7 +449,7 @@ public class HealthEstablishmentsCsvProcessor {
         }
 
         if (localMunicipalityCode.length() > 3) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "INVALID_MUNICIPALITY_CODE", "Municipality code must be 3 digits or a 5-digit INEGI code matching the state"));
+            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe tener 3 dígitos o ser una clave INEGI de 5 dígitos correspondiente al estado."));
             return null;
         }
 
@@ -483,7 +483,7 @@ public class HealthEstablishmentsCsvProcessor {
                 "NIVEL ATENCION",
                 rawValue,
                 "INVALID_CARE_LEVEL",
-                "Care level is unknown and was stored as not_specified"
+                "El nivel de atención no se reconoció y se guardó como no especificado."
         ));
         return CareLevel.not_specified;
     }
@@ -558,11 +558,11 @@ public class HealthEstablishmentsCsvProcessor {
         IndicatorMetadata indicator = indicators.get(INDICATOR_CODE);
 
         if (indicator == null) {
-            throw new NotFoundException("UNKNOWN_INDICATOR: Missing required indicator: " + INDICATOR_CODE);
+            throw new NotFoundException("UNKNOWN_INDICATOR: falta el indicador requerido: " + INDICATOR_CODE);
         }
 
         if (batch.getDataSource() == null || batch.getDataSource().getId() == null) {
-            throw new NotFoundException("UNKNOWN_DATA_SOURCE: Upload batch has no data source");
+            throw new NotFoundException("UNKNOWN_DATA_SOURCE: el lote de carga no tiene fuente de datos");
         }
 
         return new ProcessingCatalog(indicator);
@@ -703,14 +703,14 @@ public class HealthEstablishmentsCsvProcessor {
 
     private String processingSummary(int errorRecords, int warningRecords) {
         if (errorRecords == 0) {
-            return "CSV processing found " + warningRecords + " warning(s)";
+            return "El procesamiento CSV encontró " + warningRecords + " advertencia(s).";
         }
 
         if (warningRecords == 0) {
-            return "CSV processing found " + errorRecords + " error(s)";
+            return "El procesamiento CSV encontró " + errorRecords + " error(es).";
         }
 
-        return "CSV processing found " + errorRecords + " error(s) and " + warningRecords + " warning(s)";
+        return "El procesamiento CSV encontró " + errorRecords + " error(es) y " + warningRecords + " advertencia(s).";
     }
 
     private UploadStatus statusFor(int errorRecords, int warningRecords, int healthUnitsUpserted) {

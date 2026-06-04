@@ -150,12 +150,12 @@ public class HealthSectorialCsvProcessor {
                 .toList();
 
         if (sectorialUploads.isEmpty()) {
-            throw new BadRequestException("INVALID_FILE_ROLE: health sectorial processing requires fileRole=sectorial_data");
+            throw new BadRequestException("INVALID_FILE_ROLE: el procesamiento sectorial requiere fileRole=sectorial_data");
         }
 
         Short sourceYear = batch.getSourceYear();
         if (sourceYear == null) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: sourceYear is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: sourceYear es obligatorio");
         }
 
         boolean writeFinalData = mode != UploadProcessingMode.validate_only;
@@ -222,9 +222,9 @@ public class HealthSectorialCsvProcessor {
         try (BufferedReader reader = Files.newBufferedReader(path, SOURCE_CHARSET)) {
             String headerLine = reader.readLine();
             if (headerLine == null || headerLine.isBlank()) {
-                UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "CSV file is empty or has no header row");
+                UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "El archivo CSV está vacío o no contiene fila de encabezados.");
                 dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, "CSV processing found 1 error(s)");
+                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, processingSummary(1));
                 return new HealthSectorialProcessingResult(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1);
             }
 
@@ -232,10 +232,10 @@ public class HealthSectorialCsvProcessor {
             List<String> missingHeaders = csvAdapter.missingHeaders(columns);
             if (!missingHeaders.isEmpty()) {
                 List<UploadErrorDraft> errors = missingHeaders.stream()
-                        .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Required CSV header is missing: " + header))
+                        .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Falta el encabezado requerido del CSV: " + header))
                         .toList();
                 dataUploadErrorRepository.appendErrors(upload.getId(), errors);
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), "CSV processing found " + errors.size() + " error(s)");
+                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), processingSummary(errors.size()));
                 return new HealthSectorialProcessingResult(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, errors.size());
             }
 
@@ -295,15 +295,15 @@ public class HealthSectorialCsvProcessor {
             int persistedRows = staffRowsUpserted + infrastructureRowsUpserted;
             UploadStatus status = statusFor(errorRecords, persistedRows);
             updateUpload(upload.getId(), status, dataRows, validRecords, errorRecords,
-                    errorRecords == 0 ? null : "CSV processing found " + errorRecords + " error(s)");
+                    errorRecords == 0 ? null : processingSummary(errorRecords));
 
             return new HealthSectorialProcessingResult(1, dataRows, skippedRows, validRecords,
                     staffRowsUpserted, specialtyRowsUpserted, infrastructureRowsUpserted,
                     infrastructureDetailRowsUpserted, writeFinalData ? minimalHealthUnitsCreated : 0, 0, errorRecords);
         } catch (IOException e) {
-            UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "Could not read stored CSV file");
+            UploadErrorDraft error = error(null, null, null, "UPLOAD_STORAGE_ERROR", "No fue posible leer el archivo CSV almacenado.");
             dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "Could not read stored CSV file");
+            updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "No fue posible leer el archivo CSV almacenado.");
             return new HealthSectorialProcessingResult(1, dataRows, skippedRows, validRecords,
                     staffRowsUpserted, specialtyRowsUpserted, infrastructureRowsUpserted,
                     infrastructureDetailRowsUpserted, minimalHealthUnitsCreated, 0, errorRecords + 1);
@@ -455,7 +455,7 @@ public class HealthSectorialCsvProcessor {
                 .filter(code -> !indicators.containsKey(code))
                 .collect(Collectors.toSet());
         if (!missingIndicators.isEmpty()) {
-            throw new NotFoundException("UNKNOWN_INDICATOR: Missing indicators " + missingIndicators);
+            throw new NotFoundException("UNKNOWN_INDICATOR: faltan indicadores " + missingIndicators);
         }
 
         Map<String, Integer> indicatorIds = indicators.entrySet().stream()
@@ -466,7 +466,7 @@ public class HealthSectorialCsvProcessor {
                 .filter(code -> !infrastructureTypeIds.containsKey(code))
                 .collect(Collectors.toSet());
         if (!missingInfrastructureTypes.isEmpty()) {
-            throw new NotFoundException("UNKNOWN_INFRASTRUCTURE_TYPE: Missing infrastructure types " + missingInfrastructureTypes);
+            throw new NotFoundException("UNKNOWN_INFRASTRUCTURE_TYPE: faltan tipos de infraestructura " + missingInfrastructureTypes);
         }
 
         return new ProcessingCatalog(indicators, indicatorIds, specialtyIds, infrastructureTypeIds);
@@ -477,7 +477,7 @@ public class HealthSectorialCsvProcessor {
                 .filter(code -> !specialtyIdsByCode.containsKey(code))
                 .collect(Collectors.toSet());
         if (!missing.isEmpty()) {
-            throw new NotFoundException("UNKNOWN_SPECIALTY: Missing specialties " + missing);
+            throw new NotFoundException("UNKNOWN_SPECIALTY: faltan especialidades " + missing);
         }
     }
 
@@ -662,6 +662,10 @@ public class HealthSectorialCsvProcessor {
             return UploadStatus.completed;
         }
         return rowsUpserted > 0 ? UploadStatus.warning : UploadStatus.error;
+    }
+
+    private String processingSummary(int errorRecords) {
+        return "El procesamiento CSV encontró " + errorRecords + " error(es).";
     }
 
     private String sourceFileForIndicators(UploadBatchEntity batch, List<DataUploadEntity> uploads) {

@@ -100,7 +100,7 @@ public class CsvSchemaRegistry {
         List<String> headers = requiredHeaders.get(fileRole);
 
         if (headers == null) {
-            throw new BadRequestException("INVALID_FILE_ROLE: CSV file role is not supported");
+            throw new BadRequestException("INVALID_FILE_ROLE: el rol del archivo CSV no es soportado");
         }
 
         return headers;

@@ -68,13 +68,13 @@ public class CsvStorageService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
         } catch (IOException e) {
-            throw new BadRequestException("UPLOAD_STORAGE_ERROR: Could not store uploaded CSV file");
+            throw new BadRequestException("UPLOAD_STORAGE_ERROR: no fue posible guardar el archivo CSV cargado");
         }
     }
 
     public Path resolveStoredPath(String storedFileName) {
         if (storedFileName == null || storedFileName.isBlank()) {
-            throw new BadRequestException("UNKNOWN_UPLOAD: Upload file path is missing");
+            throw new BadRequestException("UNKNOWN_UPLOAD: falta la ruta del archivo de carga");
         }
 
         Path root = storageRoot();
@@ -123,7 +123,7 @@ public class CsvStorageService {
 
                 if (totalBytes > maxFileSizeBytes) {
                     Files.deleteIfExists(target);
-                    throw new BadRequestException("FILE_TOO_LARGE: CSV file exceeds maximum allowed size");
+                    throw new BadRequestException("FILE_TOO_LARGE: el archivo CSV excede el tamaño máximo permitido");
                 }
 
                 output.write(buffer, 0, read);
@@ -139,14 +139,14 @@ public class CsvStorageService {
 
     private String sanitizeOriginalFileName(String originalFileName) {
         if (originalFileName == null || originalFileName.isBlank()) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: file name is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: el nombre del archivo es obligatorio");
         }
 
         String fileName = Paths.get(originalFileName).getFileName().toString();
         String sanitized = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
 
         if (sanitized.isBlank()) {
-            throw new BadRequestException("INVALID_FILE_NAME: file name is invalid");
+            throw new BadRequestException("INVALID_FILE_NAME: el nombre del archivo no es válido");
         }
 
         return sanitized;
@@ -154,7 +154,7 @@ public class CsvStorageService {
 
     private void validateCsvExtension(String fileName) {
         if (!fileName.toLowerCase(Locale.ROOT).endsWith(".csv")) {
-            throw new BadRequestException("INVALID_FILE_TYPE: Only .csv files are accepted");
+            throw new BadRequestException("INVALID_FILE_TYPE: solo se aceptan archivos .csv");
         }
     }
 }

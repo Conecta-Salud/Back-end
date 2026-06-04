@@ -40,7 +40,7 @@ public class TerritoryCatalogWriter {
 
         insertState(safeCode, safeName);
         return findStateIdByCode(safeCode)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_TERRITORY: State was not found after insert"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_TERRITORY: no se encontró el estado después de insertarlo"));
     }
 
     @Transactional
@@ -67,7 +67,7 @@ public class TerritoryCatalogWriter {
 
         insertMunicipality(stateId, safeMunicipalityCode, safeMunicipalityName);
         Integer municipalityId = findMunicipalityIdByCode(safeMunicipalityCode)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_TERRITORY: Municipality was not found after insert"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_TERRITORY: no se encontró el municipio después de insertarlo"));
 
         return new MunicipalityCatalogResult(stateId, municipalityId);
     }
@@ -216,7 +216,7 @@ public class TerritoryCatalogWriter {
 
     private String requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + fieldName + " is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + fieldName + " es obligatorio");
         }
 
         return value.trim();

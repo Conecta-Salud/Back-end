@@ -36,7 +36,7 @@ public class MedicalUnitTypeCatalogWriter {
                 .executeUpdate();
 
         Integer id = findIdByName(safeName)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_MEDICAL_UNIT_TYPE: Medical unit type was not found after insert"));
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_MEDICAL_UNIT_TYPE: no se encontró el tipo de unidad médica después de insertarlo"));
 
         return new CatalogWriteResult(id, true);
     }
@@ -56,7 +56,7 @@ public class MedicalUnitTypeCatalogWriter {
 
     private String requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + fieldName + " is required");
+            throw new BadRequestException("REQUIRED_FIELD_MISSING: " + fieldName + " es obligatorio");
         }
 
         return value.trim();
