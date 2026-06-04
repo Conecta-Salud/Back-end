@@ -427,7 +427,7 @@ public class PopulationIndicatorsCsvProcessor {
         String rawPeriod = row.getPeriodRaw();
 
         if (!hasText(rawPeriod)) {
-            errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "REQUIRED_FIELD_MISSING", "Periodos is required"));
+            errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "REQUIRED_FIELD_MISSING", "Periodos es obligatorio."));
             return null;
         }
 
@@ -435,13 +435,13 @@ public class PopulationIndicatorsCsvProcessor {
             short period = Short.parseShort(rawPeriod.trim());
 
             if (!TARGET_ANALYSIS_YEARS.contains(period)) {
-                errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "INVALID_YEAR", "Periodos must be one of 2018, 2020, 2022, 2024"));
+                errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "INVALID_YEAR", "Periodos debe ser 2018, 2020, 2022 o 2024."));
                 return null;
             }
 
             return period;
         } catch (NumberFormatException e) {
-            errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "INVALID_YEAR", "Periodos must be numeric"));
+            errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "INVALID_YEAR", "Periodos debe ser numérico."));
             return null;
         }
     }
@@ -454,7 +454,7 @@ public class PopulationIndicatorsCsvProcessor {
         String rawArea = row.getGeographicAreaRaw();
 
         if (!hasText(rawArea)) {
-            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "Area geografica is required"));
+            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "Área geográfica es obligatoria."));
             return null;
         }
 
@@ -463,7 +463,7 @@ public class PopulationIndicatorsCsvProcessor {
         String name = tokens.length > 1 ? tokens[1].trim() : null;
 
         if (!code.matches("\\d{2}|\\d{5}")) {
-            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "INVALID_TERRITORY_CODE", "Territory code must have 2 or 5 digits"));
+            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "INVALID_TERRITORY_CODE", "La clave territorial debe tener 2 o 5 dígitos."));
             return null;
         }
 
@@ -473,7 +473,7 @@ public class PopulationIndicatorsCsvProcessor {
 
         if (code.length() == 2) {
             if (!hasText(name)) {
-                errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "State name is required"));
+                errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "El nombre del estado es obligatorio."));
                 return null;
             }
 
@@ -500,7 +500,7 @@ public class PopulationIndicatorsCsvProcessor {
         String stateCode = code.substring(0, 2);
 
         if (!hasText(name)) {
-            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "Municipality name is required"));
+            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "El nombre del municipio es obligatorio."));
             return null;
         }
 
@@ -531,7 +531,7 @@ public class PopulationIndicatorsCsvProcessor {
             List<UploadErrorDraft> errors
     ) {
         if (!hasText(rawValue)) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "MISSING_VALUE", columnName + " is empty"));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "MISSING_VALUE", columnName + " está vacío."));
             return null;
         }
 
@@ -558,7 +558,7 @@ public class PopulationIndicatorsCsvProcessor {
         try {
             return new BigDecimal(rawValue.trim().replace(",", ""));
         } catch (RuntimeException e) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_NUMERIC_VALUE", columnName + " must be numeric"));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_NUMERIC_VALUE", columnName + " debe ser numérico."));
             return null;
         }
     }

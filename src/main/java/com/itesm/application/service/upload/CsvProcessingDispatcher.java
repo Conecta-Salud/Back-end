@@ -52,7 +52,9 @@ public class CsvProcessingDispatcher {
 
         return new CsvProcessingResult(
                 result.status(),
-                result.message() + " mode=" + mode.name() + ", replaceExistingForYear=" + replaceExistingForYear
+                result.message()
+                        + " Modo=" + processingModeLabel(mode)
+                        + ", reemplazar registros del año=" + yesNo(replaceExistingForYear)
         );
     }
 
@@ -71,19 +73,19 @@ public class CsvProcessingDispatcher {
 
         return new CsvProcessingResult(
                 statusFor(result),
-                "Population indicators processed: "
+            "Datos poblacionales procesados: "
                 + result.filesProcessed()
-                + " files, "
+                + " archivo(s), "
                 + result.dataRows()
-                + " data rows, "
+                + " filas de datos, "
                 + result.skippedRows()
-                + " metadata rows skipped, "
+                + " filas de metadatos omitidas, "
                 + result.unsupportedPeriodRows()
-                + " unsupported period rows skipped, "
+                + " filas con periodo no soportado omitidas, "
                 + result.valuesUpserted()
-                + " values upserted, "
+                + " valores insertados/actualizados, "
                 + result.errorRecords()
-                + " errors."
+                + " errores."
         );
     }
 
@@ -102,25 +104,25 @@ public class CsvProcessingDispatcher {
 
         return new CsvProcessingResult(
                 statusFor(result),
-                "Health establishments processed: "
+            "Establecimientos procesados: "
                 + result.filesProcessed()
-                + " files, "
+                + " archivo(s), "
                 + result.dataRows()
-                + " rows, "
+                + " filas, "
                 + result.skippedRows()
-                + " skipped rows, "
+                + " filas omitidas, "
                 + result.healthUnitsUpserted()
-                + " health units upserted, "
+                + " unidades de salud insertadas/actualizadas, "
                 + result.catalogValuesChanged()
-                + " catalog values created/updated, "
+                + " valores de catálogo creados/actualizados, "
                 + result.territorialIndicatorsUpserted()
-                + " territorial indicators upserted, "
+                + " indicadores territoriales actualizados, "
                 + result.coordinateWarnings()
-                + " coordinate warnings, "
+                + " advertencias de coordenadas, "
                 + result.warningRecords()
-                + " non-blocking warnings, "
+                + " advertencias no bloqueantes, "
                 + result.errorRecords()
-                + " errors."
+                + " errores."
         );
     }
 
@@ -139,28 +141,40 @@ public class CsvProcessingDispatcher {
 
         return new CsvProcessingResult(
                 statusFor(result),
-                "Health sectorial processed: "
+            "Datos sectoriales procesados: "
                 + result.filesProcessed()
-                + " files, "
+                + " archivo(s), "
                 + result.dataRows()
-                + " rows, "
+                + " filas, "
                 + result.skippedRows()
-                + " skipped rows, "
+                + " filas omitidas, "
                 + result.staffRowsUpserted()
-                + " staff rows upserted, "
+                + " registros de personal insertados/actualizados, "
                 + result.specialtyRowsUpserted()
-                + " specialty rows upserted, "
+                + " registros de especialidades insertados/actualizados, "
                 + result.infrastructureRowsUpserted()
-                + " infrastructure rows upserted, "
+                + " registros de infraestructura insertados/actualizados, "
                 + result.infrastructureDetailRowsUpserted()
-                + " infrastructure detail rows upserted, "
+                + " detalles de infraestructura insertados/actualizados, "
                 + result.minimalHealthUnitsCreated()
-                + " minimal health units created, "
+                + " unidades mínimas de salud creadas, "
                 + result.territorialIndicatorsUpserted()
-                + " territorial indicators upserted, "
+                + " indicadores territoriales actualizados, "
                 + result.errorRecords()
-                + " errors."
+                + " errores."
         );
+    }
+
+    private String processingModeLabel(UploadProcessingMode mode) {
+        return switch (mode) {
+            case validate_only -> "solo validar";
+            case upsert -> "insertar/actualizar";
+            case replace -> "reemplazar";
+        };
+    }
+
+    private String yesNo(boolean value) {
+        return value ? "sí" : "no";
     }
 
     private UploadStatus statusFor(PopulationProcessingResult result) {

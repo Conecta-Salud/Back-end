@@ -65,46 +65,51 @@ public final class ApiErrorResponses {
 
     private static final Map<String, String> MESSAGES = Map.ofEntries(
             Map.entry("INVALID_FILE_TYPE", "Solo se permiten archivos CSV."),
-            Map.entry("FILE_TOO_LARGE", "El archivo excede el tamaÃ±o mÃ¡ximo permitido."),
-            Map.entry("EMPTY_FILE", "El archivo CSV estÃ¡ vacÃ­o."),
+            Map.entry("FILE_TOO_LARGE", "El archivo excede el tamaño máximo permitido."),
+            Map.entry("EMPTY_FILE", "El archivo CSV está vacío."),
             Map.entry("MISSING_REQUIRED_HEADER", "El archivo CSV no contiene todos los encabezados requeridos."),
             Map.entry("DUPLICATED_FILE", "Este archivo ya fue cargado en el lote."),
             Map.entry("DUPLICATED_FILE_ROLE_IN_BATCH", "Ya existe un archivo con ese rol en el lote."),
-            Map.entry("EXPECTED_FILES_EXCEEDED", "El lote ya alcanzÃ³ el nÃºmero esperado de archivos."),
-            Map.entry("INVALID_FILE_ROLE", "El rol del archivo no es vÃ¡lido."),
+            Map.entry("EXPECTED_FILES_EXCEEDED", "El lote ya alcanzó el número esperado de archivos."),
+            Map.entry("INVALID_FILE_ROLE", "El rol del archivo no es válido."),
             Map.entry("INVALID_FILE_ROLE_FOR_SOURCE_TYPE", "El tipo de archivo no corresponde con el tipo de carga seleccionado."),
-            Map.entry("INVALID_SOURCE_TYPE", "El tipo de carga no es vÃ¡lido."),
-            Map.entry("INVALID_BATCH_STATUS", "El estado actual del lote no permite esta operaciÃ³n."),
-            Map.entry("INVALID_UPLOAD_STATUS", "El estado actual del archivo no permite esta operaciÃ³n."),
-            Map.entry("INVALID_PROCESSING_MODE", "El modo de procesamiento no es vÃ¡lido."),
-            Map.entry("INVALID_YEAR", "El aÃ±o proporcionado no es vÃ¡lido."),
-            Map.entry("INVALID_NUMERIC_VALUE", "El archivo contiene un valor numerico invalido."),
+            Map.entry("INVALID_SOURCE_TYPE", "El tipo de carga no es válido."),
+            Map.entry("INVALID_BATCH_STATUS", "El estado actual del lote no permite esta operación."),
+            Map.entry("INVALID_UPLOAD_STATUS", "El estado actual del archivo no permite esta operación."),
+            Map.entry("INVALID_PROCESSING_MODE", "El modo de procesamiento no es válido."),
+            Map.entry("INVALID_YEAR", "El año proporcionado no es válido."),
+            Map.entry("INVALID_NUMERIC_VALUE", "El archivo contiene un valor numérico inválido."),
             Map.entry("REQUIRED_FIELD_MISSING", "Falta un campo requerido."),
             Map.entry("BATCH_HAS_ERRORS", "El lote contiene errores y no puede procesarse con failOnErrors activado."),
-            Map.entry("UNKNOWN_BATCH", "No se encontrÃ³ el lote de carga solicitado."),
-            Map.entry("UNKNOWN_UPLOAD", "No se encontrÃ³ el archivo de carga solicitado."),
-            Map.entry("UNKNOWN_DATA_SOURCE", "No se encontrÃ³ la fuente de datos solicitada."),
-            Map.entry("UNKNOWN_USER", "No se encontrÃ³ el usuario solicitado."),
-            Map.entry("UNKNOWN_INDICATOR", "No se encontrÃ³ el indicador solicitado."),
-            Map.entry("UNKNOWN_SPECIALTY", "No se encontro la especialidad requerida."),
-            Map.entry("UNKNOWN_INFRASTRUCTURE_TYPE", "No se encontro el tipo de infraestructura requerido."),
-            Map.entry("UNKNOWN_PERIOD", "No se encontro el periodo solicitado."),
-            Map.entry("UNKNOWN_HEALTH_UNIT", "No se encontro la unidad de salud solicitada."),
+            Map.entry("UNKNOWN_BATCH", "No se encontró el lote de carga solicitado."),
+            Map.entry("UNKNOWN_UPLOAD", "No se encontró el archivo de carga solicitado."),
+            Map.entry("UNKNOWN_DATA_SOURCE", "No se encontró la fuente de datos solicitada."),
+            Map.entry("UNKNOWN_USER", "No se encontró el usuario solicitado."),
+            Map.entry("UNKNOWN_INDICATOR", "No se encontró el indicador solicitado."),
+            Map.entry("UNKNOWN_SPECIALTY", "No se encontró la especialidad requerida."),
+            Map.entry("UNKNOWN_INFRASTRUCTURE_TYPE", "No se encontró el tipo de infraestructura requerido."),
+            Map.entry("UNKNOWN_PERIOD", "No se encontró el periodo solicitado."),
+            Map.entry("UNKNOWN_HEALTH_UNIT", "No se encontró la unidad de salud solicitada."),
             Map.entry("USER_NOT_ADMIN", "El usuario autenticado no tiene permisos de administrador."),
             Map.entry("ACCESS_DENIED", "Acceso denegado."),
-            Map.entry("UNAUTHENTICATED", "No se encontrÃ³ una sesiÃ³n autenticada."),
-            Map.entry("INVALID_TOKEN", "El token de autenticaciÃ³n no es vÃ¡lido."),
+            Map.entry("UNAUTHENTICATED", "No se encontró una sesión autenticada."),
+            Map.entry("INVALID_TOKEN", "El token de autenticación no es válido."),
             Map.entry(AUTH_PROVIDER_CONFIGURATION_ERROR, "El servicio de autenticación no está configurado correctamente."),
-            Map.entry("INVALID_FILE_NAME", "El nombre del archivo no es vÃ¡lido."),
-            Map.entry("INVALID_STATUS", "El estado solicitado no es vÃ¡lido."),
+            Map.entry("INVALID_FILE_NAME", "El nombre del archivo no es válido."),
+            Map.entry("INVALID_STATUS", "El estado solicitado no es válido."),
             Map.entry("UPLOAD_STORAGE_ERROR", "No fue posible guardar o leer el archivo cargado."),
-            Map.entry("BAD_REQUEST", "La solicitud no es vÃ¡lida."),
-            Map.entry("NOT_FOUND", "No se encontrÃ³ el recurso solicitado."),
-            Map.entry(INTERNAL_SERVER_ERROR, "OcurriÃ³ un error interno inesperado.")
+            Map.entry("BAD_REQUEST", "La solicitud no es válida."),
+            Map.entry("NOT_FOUND", "No se encontró el recurso solicitado."),
+            Map.entry(INTERNAL_SERVER_ERROR, "Ocurrió un error interno inesperado.")
     );
 
-    private static final Map<String, String> DEFAULT_DETAILS = Map.of(
-            AUTH_PROVIDER_CONFIGURATION_ERROR, "Revise la configuración del proveedor de autenticación en el servidor."
+    private static final Map<String, String> DEFAULT_DETAILS = Map.ofEntries(
+            Map.entry(AUTH_PROVIDER_CONFIGURATION_ERROR, "Revise la configuración del proveedor de autenticación en el servidor."),
+            Map.entry("INVALID_BATCH_STATUS", "El lote solo puede procesarse cuando está pendiente o en advertencia."),
+            Map.entry("INVALID_UPLOAD_STATUS", "El archivo solo puede validarse cuando está pendiente, en advertencia o en error."),
+            Map.entry("BATCH_HAS_ERRORS", "El lote tiene errores de validación. Revise la tabla de errores antes de procesar."),
+            Map.entry("DUPLICATED_FILE", "Ya existe un archivo con el mismo contenido dentro de este lote."),
+            Map.entry("EXPECTED_FILES_EXCEEDED", "El número de archivos cargados ya alcanzó el máximo esperado para este lote.")
     );
 
     private ApiErrorResponses() {
@@ -207,17 +212,39 @@ public final class ApiErrorResponses {
     }
 
     private static String detailFor(String code, String detail) {
-        if (AUTH_PROVIDER_CONFIGURATION_ERROR.equals(code)) {
-            return DEFAULT_DETAILS.get(code);
+        String defaultDetail = DEFAULT_DETAILS.get(code);
+
+        if (defaultDetail != null) {
+            return defaultDetail;
         }
 
         String sanitizedDetail = blankToNull(detail);
 
         if (sanitizedDetail != null) {
-            return sanitizedDetail;
+            return translateKnownDetail(sanitizedDetail);
         }
 
-        return DEFAULT_DETAILS.get(code);
+        return null;
+    }
+
+    private static String translateKnownDetail(String detail) {
+        return switch (detail) {
+            case "Batch can only be processed while pending or warning" ->
+                    "El lote solo puede procesarse cuando está pendiente o en advertencia.";
+            case "Files can only be uploaded to pending or warning batches" ->
+                    "Solo se pueden subir archivos a lotes pendientes o en advertencia.";
+            case "Upload can only be validated while pending, warning or error" ->
+                    "El archivo solo puede validarse cuando está pendiente, en advertencia o en error.";
+            case "Batch has no uploaded files" ->
+                    "El lote no tiene archivos cargados.";
+            case "A file with the same checksum already exists in this batch" ->
+                    "Ya existe un archivo con el mismo contenido dentro de este lote.";
+            case "CSV file exceeds maximum allowed size" ->
+                    "El archivo CSV excede el tamaño máximo permitido.";
+            case "Only .csv files are accepted" ->
+                    "Solo se aceptan archivos .csv.";
+            default -> detail;
+        };
     }
 
     private static boolean isBlank(String value) {

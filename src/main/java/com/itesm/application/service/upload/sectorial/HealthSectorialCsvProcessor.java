@@ -339,7 +339,7 @@ public class HealthSectorialCsvProcessor {
         Map<String, Integer> specialtyQuantities = parseSpecialties(row, errors);
 
         if (clues != null && !seenClues.add(clues)) {
-            errors.add(error(row.getCsvRowNumber(), "CLUES", clues, "DUPLICATED_CLUES_IN_FILE", "CLUES is duplicated in this file and was skipped"));
+            errors.add(error(row.getCsvRowNumber(), "CLUES", clues, "DUPLICATED_CLUES_IN_FILE", "CLUES está duplicado en este archivo y la fila fue omitida."));
             return RowProcessingResult.invalid(errors);
         }
 
@@ -517,11 +517,11 @@ public class HealthSectorialCsvProcessor {
         try {
             short year = Short.parseShort(value.trim());
             if (!Short.valueOf(year).equals(expectedYear)) {
-                errors.add(error(row.getCsvRowNumber(), "ANO", row.getYearRaw(), "INVALID_YEAR", "CSV row year does not match upload batch sourceYear"));
+                errors.add(error(row.getCsvRowNumber(), "ANO", row.getYearRaw(), "INVALID_YEAR", "El año de la fila no coincide con el año fuente del lote."));
             }
             return year;
         } catch (RuntimeException e) {
-            errors.add(error(row.getCsvRowNumber(), "ANO", row.getYearRaw(), "INVALID_YEAR", "ANO must be numeric"));
+            errors.add(error(row.getCsvRowNumber(), "ANO", row.getYearRaw(), "INVALID_YEAR", "AÑO debe ser numérico."));
             return null;
         }
     }
@@ -529,7 +529,7 @@ public class HealthSectorialCsvProcessor {
     private String required(HealthSectorialCsvRow row, String columnName, String rawValue, List<UploadErrorDraft> errors) {
         String value = optionalText(rawValue);
         if (value == null) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "REQUIRED_FIELD_MISSING", columnName + " is required"));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "REQUIRED_FIELD_MISSING", columnName + " es obligatorio."));
         }
         return value;
     }
@@ -542,12 +542,12 @@ public class HealthSectorialCsvProcessor {
             String normalized = rawValue.trim().replace(",", "");
             BigDecimal decimal = new BigDecimal(normalized);
             if (decimal.compareTo(BigDecimal.ZERO) < 0) {
-                errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_NUMERIC_VALUE", columnName + " must be greater than or equal to zero"));
+                errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_NUMERIC_VALUE", columnName + " debe ser mayor o igual a cero."));
                 return 0;
             }
             return decimal.intValue();
         } catch (RuntimeException e) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_NUMERIC_VALUE", columnName + " must be numeric"));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_NUMERIC_VALUE", columnName + " debe ser numérico."));
             return 0;
         }
     }
@@ -563,17 +563,17 @@ public class HealthSectorialCsvProcessor {
     private String normalizeStateCode(HealthSectorialCsvRow row, List<UploadErrorDraft> errors) {
         String rawValue = row.getStateCodeRaw();
         if (rawValue == null || rawValue.isBlank()) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "REQUIRED_FIELD_MISSING", "State code is required"));
+            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "REQUIRED_FIELD_MISSING", "La clave de estado es obligatoria."));
             return null;
         }
         String value = rawValue.trim();
         if (!value.matches("\\d{1,2}")) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "INVALID_STATE_CODE", "State code must have 1 or 2 digits"));
+            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "INVALID_STATE_CODE", "La clave de estado debe tener 1 o 2 dígitos."));
             return null;
         }
         String normalized = value.length() == 1 ? "0" + value : value;
         if ("00".equals(normalized)) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "INVALID_STATE_CODE", "State code 00 is not valid for health units"));
+            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "INVALID_STATE_CODE", "La clave de estado 00 no es válida para unidades de salud."));
             return null;
         }
         return normalized;
@@ -582,7 +582,7 @@ public class HealthSectorialCsvProcessor {
     private String normalizeMunicipalityCode(HealthSectorialCsvRow row, String stateCode, List<UploadErrorDraft> errors) {
         String rawValue = row.getMunicipalityCodeRaw();
         if (rawValue == null || rawValue.isBlank()) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "REQUIRED_FIELD_MISSING", "Municipality code is required"));
+            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "REQUIRED_FIELD_MISSING", "La clave de municipio es obligatoria."));
             return null;
         }
         if (stateCode == null) {
@@ -590,7 +590,7 @@ public class HealthSectorialCsvProcessor {
         }
         String value = rawValue.trim();
         if (!value.matches("\\d{1,5}")) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "INVALID_MUNICIPALITY_CODE", "Municipality code must be numeric"));
+            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe ser numérica."));
             return null;
         }
         String localCode = value;
@@ -598,7 +598,7 @@ public class HealthSectorialCsvProcessor {
             localCode = value.substring(2);
         }
         if (localCode.length() > 3) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "INVALID_MUNICIPALITY_CODE", "Municipality code must be 3 digits or a 5-digit INEGI code matching the state"));
+            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe tener 3 dígitos o ser una clave INEGI de 5 dígitos correspondiente al estado."));
             return null;
         }
         return stateCode + leftPad(localCode, 3);

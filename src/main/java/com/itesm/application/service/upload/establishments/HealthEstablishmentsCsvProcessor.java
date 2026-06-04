@@ -503,13 +503,13 @@ public class HealthEstablishmentsCsvProcessor {
         try {
             BigDecimal value = new BigDecimal(rawValue.trim());
             if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
-                errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_COORDINATE", columnName + " is outside the valid range"));
+                errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_COORDINATE", columnName + " está fuera del rango válido."));
                 return null;
             }
 
             return value;
         } catch (RuntimeException e) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_COORDINATE", columnName + " must be numeric"));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_COORDINATE", columnName + " debe ser numérico."));
             return null;
         }
     }
