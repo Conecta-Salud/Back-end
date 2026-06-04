@@ -113,17 +113,21 @@ public class CsvSchemaRegistry {
     }
 
     public Charset charset(CsvFileRole fileRole) {
+        return charsets(fileRole).get(0);
+    }
+
+    public List<Charset> charsets(CsvFileRole fileRole) {
         if (fileRole == CsvFileRole.population_indicators
                 || fileRole == CsvFileRole.population_municipal_base
                 || fileRole == CsvFileRole.population_state_national_indicators) {
-            return StandardCharsets.UTF_16LE;
+            return List.of(StandardCharsets.UTF_16LE);
         }
 
         if (fileRole == CsvFileRole.establishments_catalog) {
-            return Charset.forName("windows-1252");
+            return List.of(StandardCharsets.UTF_8, Charset.forName("windows-1252"));
         }
 
-        return StandardCharsets.UTF_8;
+        return List.of(StandardCharsets.UTF_8);
     }
 
     public boolean usesPartialHeaderMatch(CsvFileRole fileRole) {

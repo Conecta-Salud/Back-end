@@ -12,6 +12,7 @@ import jakarta.ws.rs.NotFoundException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -79,10 +80,36 @@ public class CsvValidationService {
     }
 
     private ValidationScan scan(DataUploadEntity upload) {
+        if (upload.getFileRole() != null && csvSchemaRegistry.charsets(upload.getFileRole()).size() > 1) {
+            return scanWithCharsetFallback(upload);
+        }
+
+        return scan(upload, csvSchemaRegistry.charset(upload.getFileRole()));
+    }
+
+    private ValidationScan scanWithCharsetFallback(DataUploadEntity upload) {
+        ValidationScan bestScan = null;
+
+        for (Charset charset : csvSchemaRegistry.charsets(upload.getFileRole())) {
+            ValidationScan scan = scan(upload, charset);
+
+            if (!hasHeaderOrStorageErrors(scan)) {
+                return scan;
+            }
+
+            if (bestScan == null || scan.errors().size() < bestScan.errors().size()) {
+                bestScan = scan;
+            }
+        }
+
+        return bestScan == null ? new ValidationScan(0, 0, List.of()) : bestScan;
+    }
+
+    private ValidationScan scan(DataUploadEntity upload, Charset charset) {
         Path path = csvStorageService.resolveStoredPath(upload.getStoredFileName());
         List<UploadErrorDraft> errors = new ArrayList<>();
 
-        try (BufferedReader reader = Files.newBufferedReader(path, csvSchemaRegistry.charset(upload.getFileRole()))) {
+        try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
             String headerLine = reader.readLine();
 
             if (headerLine == null || headerLine.isBlank()) {
@@ -126,6 +153,12 @@ public class CsvValidationService {
             ));
             return new ValidationScan(0, 0, errors);
         }
+    }
+
+    private boolean hasHeaderOrStorageErrors(ValidationScan scan) {
+        return scan.errors().stream()
+                .anyMatch(error -> "MISSING_REQUIRED_HEADER".equals(error.getErrorCode())
+                        || "UPLOAD_STORAGE_ERROR".equals(error.getErrorCode()));
     }
 
     private List<String> parseCsvLine(String line) {

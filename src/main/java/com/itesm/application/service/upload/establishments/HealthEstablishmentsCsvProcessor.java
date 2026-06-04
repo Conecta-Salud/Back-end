@@ -34,6 +34,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
@@ -51,7 +52,7 @@ public class HealthEstablishmentsCsvProcessor {
     private static final int CHUNK_SIZE = 500;
     private static final String INDICATOR_CODE = "health_establishments";
     private static final String METHODOLOGY_NOTE = "Conteo de establecimientos de salud registrados en el catalogo DGIS.";
-    private static final Charset SOURCE_CHARSET = Charset.forName("windows-1252");
+    private static final List<Charset> SOURCE_CHARSETS = List.of(StandardCharsets.UTF_8, Charset.forName("windows-1252"));
 
     private final CsvStorageService csvStorageService;
     private final DataUploadRepository dataUploadRepository;
@@ -158,7 +159,7 @@ public class HealthEstablishmentsCsvProcessor {
         int healthUnitsUpserted = 0;
         int catalogValuesChanged = 0;
 
-        try (BufferedReader reader = Files.newBufferedReader(path, SOURCE_CHARSET)) {
+        try (BufferedReader reader = Files.newBufferedReader(path, detectSourceCharset(path))) {
             String headerLine = reader.readLine();
 
             if (headerLine == null || headerLine.isBlank()) {
@@ -409,16 +410,17 @@ public class HealthEstablishmentsCsvProcessor {
             return null;
         }
 
-        if (value.length() <= 3) {
-            return stateCode + leftPad(value, 3);
-        }
-
+        String localMunicipalityCode = value;
         if (value.length() == 5 && value.startsWith(stateCode)) {
-            return value;
+            localMunicipalityCode = value.substring(2);
         }
 
-        errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "INVALID_MUNICIPALITY_CODE", "Municipality code must be 3 digits or a 5-digit INEGI code matching the state"));
-        return null;
+        if (localMunicipalityCode.length() > 3) {
+            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "INVALID_MUNICIPALITY_CODE", "Municipality code must be 3 digits or a 5-digit INEGI code matching the state"));
+            return null;
+        }
+
+        return stateCode + leftPad(localMunicipalityCode, 3);
     }
 
     private CareLevel normalizeCareLevel(HealthEstablishmentCsvRow row, List<UploadErrorDraft> errors) {
@@ -563,6 +565,40 @@ public class HealthEstablishmentsCsvProcessor {
             String errorMessage
     ) {
         return new UploadErrorDraft(csvRowNumber, columnName, rawValue, errorCode, errorMessage);
+    }
+
+    private Charset detectSourceCharset(Path path) {
+        Charset bestCharset = SOURCE_CHARSETS.get(0);
+        int bestMissingHeaderCount = Integer.MAX_VALUE;
+
+        for (Charset charset : SOURCE_CHARSETS) {
+            try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
+                String headerLine = reader.readLine();
+                if (headerLine == null || headerLine.isBlank()) {
+                    return charset;
+                }
+
+                HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns =
+                        csvAdapter.detectColumns(csvAdapter.parseCsvLine(headerLine));
+                int missingHeaderCount = csvAdapter.missingHeaders(columns).size();
+                while (reader.readLine() != null) {
+                    // Drain the reader to verify the selected charset can decode the whole file.
+                }
+
+                if (missingHeaderCount == 0) {
+                    return charset;
+                }
+
+                if (missingHeaderCount < bestMissingHeaderCount) {
+                    bestCharset = charset;
+                    bestMissingHeaderCount = missingHeaderCount;
+                }
+            } catch (IOException ignored) {
+                // Try the next configured charset. The caller will handle read failures for the chosen charset.
+            }
+        }
+
+        return bestCharset;
     }
 
     private UploadStatus statusFor(int errorRecords, int healthUnitsUpserted) {
