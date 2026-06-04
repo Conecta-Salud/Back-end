@@ -180,7 +180,8 @@ public class PopulationIndicatorsCsvProcessor {
                 PopulationIndicatorsCsvRow row = csvAdapter.toRow(
                         csvRowNumber,
                         csvAdapter.parseCsvLine(line),
-                        columns
+                        columns,
+                        upload.getFileRole()
                 );
 
                 if (isMetadataRow(row)) {

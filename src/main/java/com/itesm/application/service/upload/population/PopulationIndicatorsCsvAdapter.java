@@ -55,14 +55,25 @@ public class PopulationIndicatorsCsvAdapter {
     }
 
     public PopulationIndicatorsCsvRow toRow(int csvRowNumber, List<String> values, PopulationIndicatorsColumns columns) {
+        return toRow(csvRowNumber, values, columns, CsvFileRole.population_indicators);
+    }
+
+    public PopulationIndicatorsCsvRow toRow(
+            int csvRowNumber,
+            List<String> values,
+            PopulationIndicatorsColumns columns,
+            CsvFileRole fileRole
+    ) {
+        List<String> normalizedValues = normalizeValues(values, fileRole);
+
         return new PopulationIndicatorsCsvRow(
                 csvRowNumber,
-                valueAt(values, columns.periodIndex()),
-                valueAt(values, columns.geographicAreaIndex()),
-                valueAt(values, columns.totalPopulationIndex()),
-                valueAt(values, columns.percentageOver60Index()),
-                valueAt(values, columns.healthcareAccessDeficiencyIndex()),
-                valueAt(values, columns.totalPovertyPopulationIndex())
+                valueAt(normalizedValues, columns.periodIndex()),
+                valueAt(normalizedValues, columns.geographicAreaIndex()),
+                valueAt(normalizedValues, columns.totalPopulationIndex()),
+                valueAt(normalizedValues, columns.percentageOver60Index()),
+                valueAt(normalizedValues, columns.healthcareAccessDeficiencyIndex()),
+                valueAt(normalizedValues, columns.totalPovertyPopulationIndex())
         );
     }
 
@@ -135,6 +146,83 @@ public class PopulationIndicatorsCsvAdapter {
 
         String value = values.get(index);
         return value == null ? null : value.trim();
+    }
+
+    private List<String> normalizeValues(List<String> values, CsvFileRole fileRole) {
+        if (fileRole != CsvFileRole.population_municipal_base || values == null || values.size() <= 4) {
+            return values;
+        }
+
+        List<String> trimmedValues = new ArrayList<>(values);
+        while (trimmedValues.size() > 4 && isBlank(trimmedValues.get(trimmedValues.size() - 1))) {
+            trimmedValues.remove(trimmedValues.size() - 1);
+        }
+
+        if (trimmedValues.size() <= 4) {
+            return trimmedValues;
+        }
+
+        int percentageIndex = findRightmostNumericIndex(trimmedValues, trimmedValues.size() - 1);
+        if (percentageIndex < 0) {
+            return values;
+        }
+
+        int totalPopulationIndex = findRightmostNumericIndex(trimmedValues, percentageIndex - 1);
+        if (totalPopulationIndex <= 1) {
+            return values;
+        }
+
+        String geographicArea = joinGeographicArea(trimmedValues, 1, totalPopulationIndex);
+        if (geographicArea.isBlank()) {
+            return values;
+        }
+
+        return List.of(
+                trimmedValues.get(0),
+                geographicArea,
+                trimmedValues.get(totalPopulationIndex),
+                trimmedValues.get(percentageIndex)
+        );
+    }
+
+    private int findRightmostNumericIndex(List<String> values, int startIndex) {
+        for (int i = startIndex; i >= 0; i--) {
+            if (isNumeric(values.get(i))) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private String joinGeographicArea(List<String> values, int startInclusive, int endExclusive) {
+        List<String> areaParts = new ArrayList<>();
+
+        for (int i = startInclusive; i < endExclusive; i++) {
+            String value = values.get(i);
+            if (value != null && !value.isBlank()) {
+                areaParts.add(value.trim());
+            }
+        }
+
+        return String.join(", ", areaParts);
+    }
+
+    private boolean isNumeric(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        try {
+            new java.math.BigDecimal(value.trim().replace(",", ""));
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private boolean requiresCountryStateIndicators(CsvFileRole fileRole) {

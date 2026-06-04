@@ -4,6 +4,7 @@ import com.itesm.application.dto.admin.uploads.*;
 import com.itesm.application.dto.common.PageResponseDto;
 import com.itesm.domain.models.common.PageResult;
 import com.itesm.domain.models.upload.CsvFileRole;
+import com.itesm.domain.models.upload.UploadErrorRow;
 import com.itesm.domain.models.upload.UploadProcessingMode;
 import com.itesm.domain.models.upload.UploadSourceType;
 import com.itesm.domain.models.upload.UploadStatus;
@@ -272,6 +273,21 @@ public class UploadBatchService {
         );
     }
 
+    public PageResponseDto<UploadErrorResponse> findBatchErrors(Integer batchId, int page, int size) {
+        uploadBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: Upload batch not found"));
+
+        PageResult<UploadErrorRow> result = dataUploadErrorRepository.findByBatchId(batchId, page, size);
+
+        return new PageResponseDto<>(
+                result.getItems().stream().map(this::toErrorResponse).toList(),
+                result.getTotalItems(),
+                result.getPage(),
+                result.getSize(),
+                result.getTotalPages()
+        );
+    }
+
     private void assertCanUploadFile(UploadBatchEntity batch) {
         UploadStatus status = batch.getStatus();
 
@@ -376,11 +392,25 @@ public class UploadBatchService {
         return new UploadErrorResponse(
                 error.getId(),
                 error.getDataUpload() == null ? null : error.getDataUpload().getId(),
+                error.getDataUpload() == null ? null : error.getDataUpload().getOriginalFileName(),
                 error.getCsvRowNumber(),
                 error.getColumnName(),
                 error.getRawValue(),
                 error.getErrorCode(),
                 error.getErrorMessage()
+        );
+    }
+
+    private UploadErrorResponse toErrorResponse(UploadErrorRow error) {
+        return new UploadErrorResponse(
+                error.id(),
+                error.uploadId(),
+                error.originalFileName(),
+                error.csvRowNumber(),
+                error.columnName(),
+                error.rawValue(),
+                error.errorCode(),
+                error.errorMessage()
         );
     }
 

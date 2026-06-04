@@ -2,6 +2,7 @@ package com.itesm.infrastructure.persistence.repository;
 
 import com.itesm.domain.models.common.PageResult;
 import com.itesm.domain.models.upload.UploadErrorDraft;
+import com.itesm.domain.models.upload.UploadErrorRow;
 import com.itesm.domain.repository.DataUploadErrorRepository;
 import com.itesm.infrastructure.persistence.entity.DataUploadEntity;
 import com.itesm.infrastructure.persistence.entity.DataUploadErrorEntity;
@@ -93,6 +94,44 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
     }
 
     @Override
+    public PageResult<UploadErrorRow> findByBatchId(Integer batchId, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = normalizePageSize(size);
+
+        List<?> rows = em.createNativeQuery("""
+                        SELECT
+                            e.id,
+                            e.data_upload_id,
+                            u.original_file_name,
+                            e.csv_row_number,
+                            e.column_name,
+                            e.raw_value,
+                            e.error_code,
+                            e.error_message
+                        FROM data_upload_errors e
+                        JOIN data_uploads u ON u.id = e.data_upload_id
+                        WHERE u.batch_id = :batchId
+                        ORDER BY u.id ASC, e.csv_row_number ASC, e.id ASC
+                        LIMIT :limit OFFSET :offset
+                        """)
+                .setParameter("batchId", batchId)
+                .setParameter("limit", safeSize)
+                .setParameter("offset", safePage * safeSize)
+                .getResultList();
+
+        List<UploadErrorRow> items = rows.stream()
+                .map(this::toUploadErrorRow)
+                .toList();
+
+        return new PageResult<>(
+                items,
+                countByBatchId(batchId),
+                safePage,
+                safeSize
+        );
+    }
+
+    @Override
     public long countByUploadId(Integer uploadId) {
         return em.createQuery("""
                         SELECT COUNT(e)
@@ -101,6 +140,63 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
                         """, Long.class)
                 .setParameter("uploadId", uploadId)
                 .getSingleResult();
+    }
+
+    @Override
+    public long countByBatchId(Integer batchId) {
+        Object count = em.createNativeQuery("""
+                        SELECT COUNT(*)
+                        FROM data_upload_errors e
+                        JOIN data_uploads u ON u.id = e.data_upload_id
+                        WHERE u.batch_id = :batchId
+                        """)
+                .setParameter("batchId", batchId)
+                .getSingleResult();
+
+        return toLong(count);
+    }
+
+    private UploadErrorRow toUploadErrorRow(Object row) {
+        Object[] columns = (Object[]) row;
+
+        return new UploadErrorRow(
+                toLong(columns[0]),
+                toInteger(columns[1]),
+                toStringValue(columns[2]),
+                toInteger(columns[3]),
+                toStringValue(columns[4]),
+                toStringValue(columns[5]),
+                toStringValue(columns[6]),
+                toStringValue(columns[7])
+        );
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+
+        return Long.valueOf(value.toString());
+    }
+
+    private Integer toInteger(Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+
+        return Integer.valueOf(value.toString());
+    }
+
+    private String toStringValue(Object value) {
+        return value == null ? null : value.toString();
     }
 
     private int normalizePageSize(int size) {

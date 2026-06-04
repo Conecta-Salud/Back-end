@@ -118,6 +118,17 @@ public class AdminUploadsResource {
     }
 
     @GET
+    @Path("/batches/{batchId}/errors")
+    public PageResponseDto<UploadErrorResponse> findBatchErrors(
+            @PathParam("batchId") Integer batchId,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("50") int size
+    ) {
+        assertAdmin();
+        return uploadBatchService.findBatchErrors(batchId, page, size);
+    }
+
+    @GET
     @Path("/{uploadId}/errors")
     public PageResponseDto<UploadErrorResponse> findUploadErrors(
             @PathParam("uploadId") Integer uploadId,
