@@ -67,6 +67,10 @@ public class InstitutionCatalogWriter {
             return number.intValue();
         }
 
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 }

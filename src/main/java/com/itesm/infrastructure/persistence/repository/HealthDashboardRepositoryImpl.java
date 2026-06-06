@@ -134,7 +134,11 @@ public class HealthDashboardRepositoryImpl implements HealthDashboardRepository 
         if (value instanceof Short) return ((Short) value).intValue();
         if (value instanceof BigInteger) return ((BigInteger) value).intValue();
         if (value instanceof BigDecimal) return ((BigDecimal) value).intValue();
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private Long toLong(Object value) {
@@ -143,6 +147,10 @@ public class HealthDashboardRepositoryImpl implements HealthDashboardRepository 
         if (value instanceof Integer) return ((Integer) value).longValue();
         if (value instanceof BigInteger) return ((BigInteger) value).longValue();
         if (value instanceof BigDecimal) return ((BigDecimal) value).longValue();
-        return Long.valueOf(value.toString());
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 }

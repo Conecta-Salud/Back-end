@@ -150,7 +150,11 @@ public class CountryDashboardRepositoryImpl implements CountryDashboardRepositor
         if (value instanceof Number number) {
             return number.intValue();
         }
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private Long toLong(Object value) {
@@ -160,6 +164,10 @@ public class CountryDashboardRepositoryImpl implements CountryDashboardRepositor
         if (value instanceof Number number) {
             return number.longValue();
         }
-        return Long.valueOf(value.toString());
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 }
