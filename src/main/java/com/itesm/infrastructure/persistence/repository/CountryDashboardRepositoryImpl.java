@@ -111,9 +111,9 @@ public class CountryDashboardRepositoryImpl implements CountryDashboardRepositor
     }
 
     private String indicatorValue(String indicatorCode) {
-        return "MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
+        return ("MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
                 + "AND COALESCE(da.availability_status, tiv.availability_status) NOT IN ('not_available', 'not_applicable') "
-                + "THEN tiv.value END)".formatted(indicatorCode);
+                + "THEN tiv.value END)").formatted(indicatorCode);
     }
 
     private HealthDashboard mapToHealthDashboard(Object[] row) {
