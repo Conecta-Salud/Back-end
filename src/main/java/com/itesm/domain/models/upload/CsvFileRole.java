@@ -1,5 +1,6 @@
 package com.itesm.domain.models.upload;
 
+@SuppressWarnings("java:S115")
 public enum CsvFileRole {
     population_indicators,
     population_municipal_base,

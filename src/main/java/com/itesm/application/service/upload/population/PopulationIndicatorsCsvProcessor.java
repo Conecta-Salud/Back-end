@@ -173,56 +173,26 @@ public class PopulationIndicatorsCsvProcessor {
         int valuesUpserted = 0;
 
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_16LE)) {
-            String headerLine = reader.readLine();
-
-            if (headerLine == null || headerLine.isBlank()) {
-                UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "El archivo CSV está vacío o no contiene fila de encabezados.");
-                dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, processingSummary(1));
-                return new PopulationProcessingResult(1, 0, 0, 0, 0, 1);
+            HeaderValidationResult headerValidation = validateHeaders(upload.getId(), reader.readLine(), upload.getFileRole());
+            if (headerValidation.failure() != null) {
+                return headerValidation.failure();
             }
-
-            PopulationIndicatorsCsvAdapter.PopulationIndicatorsColumns columns =
-                    csvAdapter.detectColumns(csvAdapter.parseCsvLine(headerLine));
-            List<String> missingHeaders = csvAdapter.missingHeaders(columns, upload.getFileRole());
-
-            if (!missingHeaders.isEmpty()) {
-                List<UploadErrorDraft> errors = missingHeaders.stream()
-                        .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Falta el encabezado requerido del CSV: " + header))
-                        .toList();
-                dataUploadErrorRepository.appendErrors(upload.getId(), errors);
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), processingSummary(errors.size()));
-                return new PopulationProcessingResult(1, 0, 0, 0, 0, errors.size());
-            }
+            PopulationIndicatorsCsvAdapter.PopulationIndicatorsColumns columns = headerValidation.columns();
 
             String line;
             int csvRowNumber = 1;
             while ((line = reader.readLine()) != null) {
                 csvRowNumber++;
 
-                if (line.isBlank()) {
-                    continue;
-                }
-
-                PopulationIndicatorsCsvRow row = csvAdapter.toRow(
-                        csvRowNumber,
-                        csvAdapter.parseCsvLine(line),
-                        columns,
-                        upload.getFileRole()
-                );
-
-                if (isMetadataRow(row)) {
-                    skippedRows++;
-                    continue;
-                }
-
-                if (isUnsupportedPeriodForRole(row.getPeriodRaw(), upload.getFileRole())) {
-                    unsupportedPeriodRows++;
+                DataLineResult lineResult = parseDataLine(csvRowNumber, line, columns, upload.getFileRole());
+                skippedRows += lineResult.skippedRows();
+                unsupportedPeriodRows += lineResult.unsupportedPeriodRows();
+                if (lineResult.row() == null) {
                     continue;
                 }
 
                 dataRows++;
-                RowProcessingResult rowResult = processRow(batch, upload, row, catalog, context, upload.getFileRole());
+                RowProcessingResult rowResult = processRow(batch, upload, lineResult.row(), catalog, context, upload.getFileRole());
                 chunk.values().addAll(rowResult.values());
                 chunk.errors().addAll(rowResult.errors());
                 valuesUpserted += rowResult.values().size();
@@ -258,6 +228,58 @@ public class PopulationIndicatorsCsvProcessor {
             updateUpload(upload.getId(), UploadStatus.error, dataRows, validRecords, errorRecords + 1, "No fue posible leer el archivo CSV almacenado.");
             return new PopulationProcessingResult(1, dataRows, skippedRows, unsupportedPeriodRows, writeFinalData ? valuesUpserted : 0, errorRecords + 1);
         }
+    }
+
+    private HeaderValidationResult validateHeaders(Integer uploadId, String headerLine, CsvFileRole fileRole) {
+        if (headerLine == null || headerLine.isBlank()) {
+            UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "El archivo CSV está vacío o no contiene fila de encabezados.");
+            dataUploadErrorRepository.appendErrors(uploadId, List.of(error));
+            updateUpload(uploadId, UploadStatus.error, 0, 0, 1, processingSummary(1));
+            return new HeaderValidationResult(null, new PopulationProcessingResult(1, 0, 0, 0, 0, 1));
+        }
+
+        PopulationIndicatorsCsvAdapter.PopulationIndicatorsColumns columns =
+                csvAdapter.detectColumns(csvAdapter.parseCsvLine(headerLine));
+        List<String> missingHeaders = csvAdapter.missingHeaders(columns, fileRole);
+
+        if (!missingHeaders.isEmpty()) {
+            List<UploadErrorDraft> errors = missingHeaders.stream()
+                    .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Falta el encabezado requerido del CSV: " + header))
+                    .toList();
+            dataUploadErrorRepository.appendErrors(uploadId, errors);
+            updateUpload(uploadId, UploadStatus.error, 0, 0, errors.size(), processingSummary(errors.size()));
+            return new HeaderValidationResult(null, new PopulationProcessingResult(1, 0, 0, 0, 0, errors.size()));
+        }
+
+        return new HeaderValidationResult(columns, null);
+    }
+
+    private DataLineResult parseDataLine(
+            int csvRowNumber,
+            String line,
+            PopulationIndicatorsCsvAdapter.PopulationIndicatorsColumns columns,
+            CsvFileRole fileRole
+    ) {
+        if (line.isBlank()) {
+            return new DataLineResult(null, 0, 0);
+        }
+
+        PopulationIndicatorsCsvRow row = csvAdapter.toRow(
+                csvRowNumber,
+                csvAdapter.parseCsvLine(line),
+                columns,
+                fileRole
+        );
+
+        if (isMetadataRow(row)) {
+            return new DataLineResult(null, 1, 0);
+        }
+
+        if (isUnsupportedPeriodForRole(row.getPeriodRaw(), fileRole)) {
+            return new DataLineResult(null, 0, 1);
+        }
+
+        return new DataLineResult(row, 0, 0);
     }
     private RowProcessingResult processRow(
             UploadBatchEntity batch,
@@ -876,6 +898,19 @@ public class PopulationIndicatorsCsvProcessor {
             indicators.values().forEach(indicator -> ids.add(indicator.id()));
             return ids;
         }
+    }
+
+    private record HeaderValidationResult(
+            PopulationIndicatorsCsvAdapter.PopulationIndicatorsColumns columns,
+            PopulationProcessingResult failure
+    ) {
+    }
+
+    private record DataLineResult(
+            PopulationIndicatorsCsvRow row,
+            int skippedRows,
+            int unsupportedPeriodRows
+    ) {
     }
 
     private record TerritoryReference(

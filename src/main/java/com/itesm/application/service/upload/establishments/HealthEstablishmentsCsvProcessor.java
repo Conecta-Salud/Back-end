@@ -184,52 +184,25 @@ public class HealthEstablishmentsCsvProcessor {
         int catalogValuesChanged = 0;
 
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            String headerLine = reader.readLine();
-
-            if (headerLine == null || headerLine.isBlank()) {
-                UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "El archivo CSV está vacío o no contiene fila de encabezados.");
-                dataUploadErrorRepository.appendErrors(upload.getId(), List.of(error));
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, 1, processingSummary(1, 0));
-                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, 1, 0, 0);
+            HeaderValidationResult headerValidation = validateHeaders(upload.getId(), reader.readLine());
+            if (headerValidation.failure() != null) {
+                return headerValidation.failure();
             }
-
-            HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns =
-                    csvAdapter.detectColumns(csvAdapter.parseCsvLine(headerLine));
-            List<String> missingHeaders = csvAdapter.missingHeaders(columns);
-
-            if (!missingHeaders.isEmpty()) {
-                List<UploadErrorDraft> errors = missingHeaders.stream()
-                        .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Falta el encabezado requerido del CSV: " + header))
-                        .toList();
-                dataUploadErrorRepository.appendErrors(upload.getId(), errors);
-                updateUpload(upload.getId(), UploadStatus.error, 0, 0, errors.size(), processingSummary(errors.size(), 0));
-                return new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, errors.size(), 0, 0);
-            }
+            HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns = headerValidation.columns();
 
             String line;
             int csvRowNumber = 1;
             while ((line = readCsvRecord(reader)) != null) {
                 csvRowNumber++;
 
-                if (line.isBlank()) {
-                    skippedRows++;
-                    continue;
-                }
-
-                List<String> values = csvAdapter.parseCsvLine(line);
-                if (csvAdapter.isBlankRow(values)) {
-                    skippedRows++;
-                    continue;
-                }
-
-                HealthEstablishmentCsvRow row = csvAdapter.toRow(csvRowNumber, values, columns);
-                if (isSkippableRow(row)) {
-                    skippedRows++;
+                DataLineResult lineResult = parseDataLine(csvRowNumber, line, columns);
+                skippedRows += lineResult.skippedRows();
+                if (lineResult.row() == null) {
                     continue;
                 }
 
                 dataRows++;
-                RowProcessingResult rowResult = processRow(batch, row, context, writeFinalData);
+                RowProcessingResult rowResult = processRow(batch, lineResult.row(), context, writeFinalData);
                 chunk.errors().addAll(rowResult.errors());
                 rowResult.healthUnitOptional().ifPresent(chunk.healthUnits()::add);
                 errorRecords += countBlockingIssues(rowResult.errors());
@@ -289,6 +262,52 @@ public class HealthEstablishmentsCsvProcessor {
                     coordinateWarnings
             );
         }
+    }
+
+    private HeaderValidationResult validateHeaders(Integer uploadId, String headerLine) {
+        if (headerLine == null || headerLine.isBlank()) {
+            UploadErrorDraft error = error(1, null, null, "EMPTY_FILE", "El archivo CSV está vacío o no contiene fila de encabezados.");
+            dataUploadErrorRepository.appendErrors(uploadId, List.of(error));
+            updateUpload(uploadId, UploadStatus.error, 0, 0, 1, processingSummary(1, 0));
+            return new HeaderValidationResult(null, new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, 1, 0, 0));
+        }
+
+        HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns =
+                csvAdapter.detectColumns(csvAdapter.parseCsvLine(headerLine));
+        List<String> missingHeaders = csvAdapter.missingHeaders(columns);
+
+        if (!missingHeaders.isEmpty()) {
+            List<UploadErrorDraft> errors = missingHeaders.stream()
+                    .map(header -> error(1, header, null, "MISSING_REQUIRED_HEADER", "Falta el encabezado requerido del CSV: " + header))
+                    .toList();
+            dataUploadErrorRepository.appendErrors(uploadId, errors);
+            updateUpload(uploadId, UploadStatus.error, 0, 0, errors.size(), processingSummary(errors.size(), 0));
+            return new HeaderValidationResult(null, new HealthEstablishmentProcessingResult(1, 0, 0, 0, 0, 0, errors.size(), 0, 0));
+        }
+
+        return new HeaderValidationResult(columns, null);
+    }
+
+    private DataLineResult parseDataLine(
+            int csvRowNumber,
+            String line,
+            HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns
+    ) {
+        if (line.isBlank()) {
+            return new DataLineResult(null, 1);
+        }
+
+        List<String> values = csvAdapter.parseCsvLine(line);
+        if (csvAdapter.isBlankRow(values)) {
+            return new DataLineResult(null, 1);
+        }
+
+        HealthEstablishmentCsvRow row = csvAdapter.toRow(csvRowNumber, values, columns);
+        if (isSkippableRow(row)) {
+            return new DataLineResult(null, 1);
+        }
+
+        return new DataLineResult(row, 0);
     }
 
     private RowProcessingResult processRow(
@@ -757,6 +776,18 @@ public class HealthEstablishmentsCsvProcessor {
 
     private interface CatalogEnsurer {
         CatalogWriteResult ensure(String name);
+    }
+
+    private record HeaderValidationResult(
+            HealthEstablishmentsCsvAdapter.HealthEstablishmentsColumns columns,
+            HealthEstablishmentProcessingResult failure
+    ) {
+    }
+
+    private record DataLineResult(
+            HealthEstablishmentCsvRow row,
+            int skippedRows
+    ) {
     }
 
     private record ProcessingContext(
