@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 
 public class TerritoryIndicatorValueDto {
 
+    private static final String MUNICIPALITY_LEVEL = "municipality";
+
     private final Long id;
     private final String territoryLevel;
     private final Integer stateId;
@@ -178,14 +180,14 @@ public class TerritoryIndicatorValueDto {
     }
 
     public Integer getTerritoryId() {
-        return "municipality".equals(territoryLevel) ? municipalityId : stateId;
+        return MUNICIPALITY_LEVEL.equals(territoryLevel) ? municipalityId : stateId;
     }
 
     public String getTerritoryCode() {
-        return "municipality".equals(territoryLevel) ? municipalityCode : stateCode;
+        return MUNICIPALITY_LEVEL.equals(territoryLevel) ? municipalityCode : stateCode;
     }
 
     public String getTerritoryName() {
-        return "municipality".equals(territoryLevel) ? municipalityName : stateName;
+        return MUNICIPALITY_LEVEL.equals(territoryLevel) ? municipalityName : stateName;
     }
 }

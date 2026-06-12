@@ -15,6 +15,17 @@ import java.util.Set;
 public class HealthSectorialIndicatorWriter {
 
     private static final String METHODOLOGY_NOTE = "Agregado territorial calculado desde BD Abiertos Sectorial DGIS.";
+    private static final String TOTAL_DOCTORS_CODE = "total_doctors";
+    private static final String TOTAL_NURSES_CODE = "total_nurses";
+    private static final String HOSPITAL_BEDS_CODE = "hospital_beds";
+    private static final String ANALYSIS_YEAR_PARAMETER = "analysisYear";
+    private static final String DATA_SOURCE_ID_PARAMETER = "dataSourceId";
+    private static final String INDICATOR_ID_PARAMETER = "indicatorId";
+    private static final String SOURCE_FILE_PARAMETER = "sourceFile";
+    private static final String AVAILABILITY_STATUS_PARAMETER = "availabilityStatus";
+    private static final String METHODOLOGY_NOTE_PARAMETER = "methodologyNote";
+    private static final String PERIOD_ID_PARAMETER = "periodId";
+    private static final String INFRASTRUCTURE_TYPE_ID_PARAMETER = "infrastructureTypeId";
 
     private final EntityManager em;
 
@@ -36,21 +47,21 @@ public class HealthSectorialIndicatorWriter {
         }
 
         Set<Integer> sectorialIndicatorIds = Set.of(
-                indicatorIds.get("total_doctors"),
-                indicatorIds.get("total_nurses"),
-                indicatorIds.get("hospital_beds"),
+                indicatorIds.get(TOTAL_DOCTORS_CODE),
+                indicatorIds.get(TOTAL_NURSES_CODE),
+                indicatorIds.get(HOSPITAL_BEDS_CODE),
                 indicatorIds.get("consulting_rooms"),
                 indicatorIds.get("doctors_per_1000"),
                 indicatorIds.get("beds_per_1000")
         );
         deleteExistingValues(analysisYear, dataSourceId, sectorialIndicatorIds);
 
-        upsertStaffAggregate(analysisYear, periodId, dataSourceId, sourceFile, indicatorIds.get("total_doctors"), "total_doctors");
-        upsertStaffAggregate(analysisYear, periodId, dataSourceId, sourceFile, indicatorIds.get("total_nurses"), "total_nurses");
-        upsertInfrastructureAggregate(analysisYear, periodId, dataSourceId, sourceFile, indicatorIds.get("hospital_beds"), infrastructureTypeIds.get("total_camas_hospitalizacion"));
+        upsertStaffAggregate(analysisYear, periodId, dataSourceId, sourceFile, indicatorIds.get(TOTAL_DOCTORS_CODE), TOTAL_DOCTORS_CODE);
+        upsertStaffAggregate(analysisYear, periodId, dataSourceId, sourceFile, indicatorIds.get(TOTAL_NURSES_CODE), TOTAL_NURSES_CODE);
+        upsertInfrastructureAggregate(analysisYear, periodId, dataSourceId, sourceFile, indicatorIds.get(HOSPITAL_BEDS_CODE), infrastructureTypeIds.get("total_camas_hospitalizacion"));
         upsertInfrastructureAggregate(analysisYear, periodId, dataSourceId, sourceFile, indicatorIds.get("consulting_rooms"), infrastructureTypeIds.get("total_consultorios"));
-        upsertRate(analysisYear, dataSourceId, sourceFile, indicatorIds.get("doctors_per_1000"), indicatorIds.get("total_doctors"), indicatorIds.get("total_population"));
-        upsertRate(analysisYear, dataSourceId, sourceFile, indicatorIds.get("beds_per_1000"), indicatorIds.get("hospital_beds"), indicatorIds.get("total_population"));
+        upsertRate(analysisYear, dataSourceId, sourceFile, indicatorIds.get("doctors_per_1000"), indicatorIds.get(TOTAL_DOCTORS_CODE), indicatorIds.get("total_population"));
+        upsertRate(analysisYear, dataSourceId, sourceFile, indicatorIds.get("beds_per_1000"), indicatorIds.get(HOSPITAL_BEDS_CODE), indicatorIds.get("total_population"));
 
         AvailableLevelsResult availableLevels = findAvailableLevels(analysisYear, dataSourceId, sectorialIndicatorIds);
         return new SectorialIndicatorWriteResult(availableLevels.rowCount(), availableLevels.levelsByIndicatorCode());
@@ -68,8 +79,8 @@ public class HealthSectorialIndicatorWriter {
                           AND data_source_id = :dataSourceId
                           AND indicator_id IN (:indicatorIds)
                         """)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
                 .setParameter("indicatorIds", indicatorIds)
                 .executeUpdate();
     }
@@ -107,13 +118,13 @@ public class HealthSectorialIndicatorWriter {
                             data_source_id = VALUES(data_source_id), source_file = VALUES(source_file),
                             availability_status = VALUES(availability_status), methodology_note = VALUES(methodology_note)
                         """.formatted(staffColumn))
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
-                .setParameter("periodId", periodId)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .executeUpdate();
     }
 
@@ -139,13 +150,13 @@ public class HealthSectorialIndicatorWriter {
                             data_source_id = VALUES(data_source_id), source_file = VALUES(source_file),
                             availability_status = VALUES(availability_status), methodology_note = VALUES(methodology_note)
                         """.formatted(staffColumn))
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
-                .setParameter("periodId", periodId)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .executeUpdate();
     }
 
@@ -172,13 +183,13 @@ public class HealthSectorialIndicatorWriter {
                             data_source_id = VALUES(data_source_id), source_file = VALUES(source_file),
                             availability_status = VALUES(availability_status), methodology_note = VALUES(methodology_note)
                         """.formatted(staffColumn))
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
-                .setParameter("periodId", periodId)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .executeUpdate();
     }
 
@@ -217,14 +228,14 @@ public class HealthSectorialIndicatorWriter {
                             data_source_id = VALUES(data_source_id), source_file = VALUES(source_file),
                             availability_status = VALUES(availability_status), methodology_note = VALUES(methodology_note)
                         """)
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
-                .setParameter("periodId", periodId)
-                .setParameter("infrastructureTypeId", infrastructureTypeId)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(INFRASTRUCTURE_TYPE_ID_PARAMETER, infrastructureTypeId)
                 .executeUpdate();
     }
 
@@ -252,14 +263,14 @@ public class HealthSectorialIndicatorWriter {
                             data_source_id = VALUES(data_source_id), source_file = VALUES(source_file),
                             availability_status = VALUES(availability_status), methodology_note = VALUES(methodology_note)
                         """)
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
-                .setParameter("periodId", periodId)
-                .setParameter("infrastructureTypeId", infrastructureTypeId)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(INFRASTRUCTURE_TYPE_ID_PARAMETER, infrastructureTypeId)
                 .executeUpdate();
     }
 
@@ -288,14 +299,14 @@ public class HealthSectorialIndicatorWriter {
                             data_source_id = VALUES(data_source_id), source_file = VALUES(source_file),
                             availability_status = VALUES(availability_status), methodology_note = VALUES(methodology_note)
                         """)
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
-                .setParameter("periodId", periodId)
-                .setParameter("infrastructureTypeId", infrastructureTypeId)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(INFRASTRUCTURE_TYPE_ID_PARAMETER, infrastructureTypeId)
                 .executeUpdate();
     }
 
@@ -336,11 +347,11 @@ public class HealthSectorialIndicatorWriter {
                             availability_status = VALUES(availability_status), methodology_note = VALUES(methodology_note)
                         """)
                 .setParameter("rateIndicatorId", rateIndicatorId)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
                 .setParameter("populationIndicatorId", populationIndicatorId)
                 .setParameter("numeratorIndicatorId", numeratorIndicatorId)
                 .executeUpdate();
@@ -356,8 +367,8 @@ public class HealthSectorialIndicatorWriter {
                           AND tiv.indicator_id IN (:indicatorIds)
                         GROUP BY i.code, tiv.territory_level
                         """)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("dataSourceId", dataSourceId)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
                 .setParameter("indicatorIds", indicatorIds)
                 .getResultList();
 

@@ -43,6 +43,14 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
     private static final String TOTAL_DOCTORS = "total_doctors";
     private static final String HOSPITAL_BEDS_TOTAL = "hospital_beds";
     private static final String CONSULTING_ROOMS = "consulting_rooms";
+    private static final String COUNTRY_LEVEL = "country";
+    private static final String STATE_LEVEL = "state";
+    private static final String MUNICIPALITY_LEVEL = "municipality";
+    private static final String PERIOD_ID_PARAMETER = "periodId";
+    private static final String STATE_ID_PARAMETER = "stateId";
+    private static final String MUNICIPALITY_ID_PARAMETER = "municipalityId";
+    private static final String NEUTRAL_COLOR = "neutral";
+    private static final String CRITICAL_LEVEL = "critical";
 
     private final EntityManager em;
     private final TerritoryIndicatorQueryRepository indicatorRepository;
@@ -69,7 +77,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                         "SELECT COUNT(s) FROM StateEntity s WHERE s.id = :stateId",
                         Long.class
                 )
-                .setParameter("stateId", stateId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
                 .getSingleResult();
 
         return count > 0;
@@ -81,7 +89,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                         "SELECT COUNT(m) FROM MunicipalityEntity m WHERE m.id = :municipalityId",
                         Long.class
                 )
-                .setParameter("municipalityId", municipalityId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
                 .getSingleResult();
 
         return count > 0;
@@ -93,9 +101,9 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             Integer year = period.getPeriodYear();
             return new CountryMedicalCoverageMetrics(
                     period,
-                    bigIntegerValue("country", null, null, year, TOTAL_POPULATION),
-                    longValue("country", null, null, year, TOTAL_DOCTORS),
-                    decimalValue("country", null, null, year, MEDICAL_COVERAGE),
+                    bigIntegerValue(COUNTRY_LEVEL, null, null, year, TOTAL_POPULATION),
+                    longValue(COUNTRY_LEVEL, null, null, year, TOTAL_DOCTORS),
+                    decimalValue(COUNTRY_LEVEL, null, null, year, MEDICAL_COVERAGE),
                     countStateValuesBelow(MEDICAL_COVERAGE, year, BigDecimal.ONE),
                     averageValue(indicatorRepository.findStateValues(MEDICAL_COVERAGE, year))
             );
@@ -131,7 +139,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 GROUP BY sp.name
                 ORDER BY value DESC
                 """)
-                .setParameter("periodId", periodId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .getResultList());
     }
 
@@ -143,9 +151,9 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return new StateMedicalCoverageMetrics(
                     territory,
                     period,
-                    bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
-                    longValue("state", stateId, null, year, TOTAL_DOCTORS),
-                    decimalValue("state", stateId, null, year, MEDICAL_COVERAGE),
+                    bigIntegerValue(STATE_LEVEL, stateId, null, year, TOTAL_POPULATION),
+                    longValue(STATE_LEVEL, stateId, null, year, TOTAL_DOCTORS),
+                    decimalValue(STATE_LEVEL, stateId, null, year, MEDICAL_COVERAGE),
                     countMunicipalityValuesBelow(MEDICAL_COVERAGE, year, stateCode, BigDecimal.ONE),
                     averageValue(indicatorRepository.findMunicipalityValuesByState(MEDICAL_COVERAGE, year, stateCode))
             );
@@ -184,8 +192,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 GROUP BY sp.name
                 ORDER BY value DESC
                 """)
-                .setParameter("periodId", periodId)
-                .setParameter("stateId", stateId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
                 .getResultList());
     }
 
@@ -196,10 +204,10 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return new MunicipalityMedicalCoverageMetrics(
                     territory,
                     period,
-                    bigIntegerValue("municipality", null, municipalityId, year, TOTAL_POPULATION),
-                    longValue("municipality", null, municipalityId, year, TOTAL_DOCTORS),
-                    decimalValue("municipality", null, municipalityId, year, MEDICAL_COVERAGE),
-                    longValue("municipality", null, municipalityId, year, CONSULTING_ROOMS),
+                    bigIntegerValue(MUNICIPALITY_LEVEL, null, municipalityId, year, TOTAL_POPULATION),
+                    longValue(MUNICIPALITY_LEVEL, null, municipalityId, year, TOTAL_DOCTORS),
+                    decimalValue(MUNICIPALITY_LEVEL, null, municipalityId, year, MEDICAL_COVERAGE),
+                    longValue(MUNICIPALITY_LEVEL, null, municipalityId, year, CONSULTING_ROOMS),
                     countHospitals(null, municipalityId)
             );
         }));
@@ -236,8 +244,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 GROUP BY sp.name
                 ORDER BY value DESC
                 """)
-                .setParameter("periodId", periodId)
-                .setParameter("municipalityId", municipalityId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
                 .getResultList());
     }
 
@@ -246,12 +254,12 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
         return period(periodId).map(period -> {
             Integer year = period.getPeriodYear();
             Long hospitals = countHospitals(null, null);
-            Long beds = longValue("country", null, null, year, HOSPITAL_BEDS_TOTAL);
+            Long beds = longValue(COUNTRY_LEVEL, null, null, year, HOSPITAL_BEDS_TOTAL);
             return new CountryHospitalBedsMetrics(
                     period,
-                    bigIntegerValue("country", null, null, year, TOTAL_POPULATION),
+                    bigIntegerValue(COUNTRY_LEVEL, null, null, year, TOTAL_POPULATION),
                     beds,
-                    decimalValue("country", null, null, year, HOSPITAL_BEDS),
+                    decimalValue(COUNTRY_LEVEL, null, null, year, HOSPITAL_BEDS),
                     countStateValuesBelow(HOSPITAL_BEDS, year, BigDecimal.ONE),
                     hospitals,
                     averagePerUnit(beds, hospitals)
@@ -282,12 +290,12 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return new StateHospitalBedsMetrics(
                     territory,
                     period,
-                    bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
-                    longValue("state", stateId, null, year, HOSPITAL_BEDS_TOTAL),
-                    decimalValue("state", stateId, null, year, HOSPITAL_BEDS),
+                    bigIntegerValue(STATE_LEVEL, stateId, null, year, TOTAL_POPULATION),
+                    longValue(STATE_LEVEL, stateId, null, year, HOSPITAL_BEDS_TOTAL),
+                    decimalValue(STATE_LEVEL, stateId, null, year, HOSPITAL_BEDS),
                     countMunicipalityValuesBelow(HOSPITAL_BEDS, year, stateCode, BigDecimal.ONE),
                     countHospitals(stateId, null),
-                    longValue("state", stateId, null, year, CONSULTING_ROOMS)
+                    longValue(STATE_LEVEL, stateId, null, year, CONSULTING_ROOMS)
             );
         }));
     }
@@ -318,8 +326,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 territory,
                 period,
                 countHospitals(null, municipalityId),
-                longValue("municipality", null, municipalityId, period.getPeriodYear(), CONSULTING_ROOMS),
-                longValue("municipality", null, municipalityId, period.getPeriodYear(), HOSPITAL_BEDS_TOTAL),
+                longValue(MUNICIPALITY_LEVEL, null, municipalityId, period.getPeriodYear(), CONSULTING_ROOMS),
+                longValue(MUNICIPALITY_LEVEL, null, municipalityId, period.getPeriodYear(), HOSPITAL_BEDS_TOTAL),
                 predominantCareLevel(municipalityId)
         )));
     }
@@ -355,10 +363,10 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             Integer year = period.getPeriodYear();
             return new CountryHealthcareAccessDeficiencyMetrics(
                     period,
-                    bigIntegerValue("country", null, null, year, TOTAL_POPULATION),
-                    bigIntegerValue("country", null, null, year, HEALTHCARE_ACCESS_DEFICIENCY),
+                    bigIntegerValue(COUNTRY_LEVEL, null, null, year, TOTAL_POPULATION),
+                    bigIntegerValue(COUNTRY_LEVEL, null, null, year, HEALTHCARE_ACCESS_DEFICIENCY),
                     countStateValuesAbove(HEALTHCARE_ACCESS_DEFICIENCY, year, BigDecimal.ZERO),
-                    decimalValue("country", null, null, year, MEDICAL_COVERAGE)
+                    decimalValue(COUNTRY_LEVEL, null, null, year, MEDICAL_COVERAGE)
             );
         });
     }
@@ -390,10 +398,10 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return new StateHealthcareAccessDeficiencyMetrics(
                     territory,
                     period,
-                    bigIntegerValue("state", stateId, null, year, TOTAL_POPULATION),
+                    bigIntegerValue(STATE_LEVEL, stateId, null, year, TOTAL_POPULATION),
                     countMunicipalityValuesAbove(HEALTHCARE_ACCESS_DEFICIENCY, year, territory.getCode(), BigDecimal.ZERO),
-                    decimalValue("state", stateId, null, year, MEDICAL_COVERAGE),
-                    longValue("state", stateId, null, year, HEALTH_ESTABLISHMENTS)
+                    decimalValue(STATE_LEVEL, stateId, null, year, MEDICAL_COVERAGE),
+                    longValue(STATE_LEVEL, stateId, null, year, HEALTH_ESTABLISHMENTS)
             );
         }));
     }
@@ -425,10 +433,10 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             return new MunicipalityHealthcareAccessDeficiencyMetrics(
                     territory,
                     period,
-                    bigIntegerValue("municipality", null, municipalityId, year, TOTAL_POPULATION),
-                    longValue("municipality", null, municipalityId, year, TOTAL_DOCTORS),
-                    longValue("municipality", null, municipalityId, year, HEALTH_ESTABLISHMENTS),
-                    decimalValue("municipality", null, municipalityId, year, MEDICAL_COVERAGE)
+                    bigIntegerValue(MUNICIPALITY_LEVEL, null, municipalityId, year, TOTAL_POPULATION),
+                    longValue(MUNICIPALITY_LEVEL, null, municipalityId, year, TOTAL_DOCTORS),
+                    longValue(MUNICIPALITY_LEVEL, null, municipalityId, year, HEALTH_ESTABLISHMENTS),
+                    decimalValue(MUNICIPALITY_LEVEL, null, municipalityId, year, MEDICAL_COVERAGE)
             );
         }));
     }
@@ -455,7 +463,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     private List<DashboardRankingRow> stateRanking(Integer periodId, String indicatorCode, Integer limit, boolean higherIsBetter) {
         Integer year = analysisYear(periodId).orElse(null);
-        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, "state", year)) {
+        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, STATE_LEVEL, year)) {
             return List.of();
         }
 
@@ -511,7 +519,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     private List<DashboardRankingRow> municipalityRanking(String stateCode, Integer periodId, String indicatorCode, Integer limit, boolean higherIsBetter) {
         Integer year = analysisYear(periodId).orElse(null);
-        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, MUNICIPALITY_LEVEL, year)) {
             return List.of();
         }
 
@@ -570,8 +578,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 WHERE hu.municipality_id = :municipalityId
                 ORDER BY total_doctors DESC, hu.name ASC
                 """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .setMaxResults((int) normalizeLimit(limit))
                 .getResultList();
 
@@ -596,7 +604,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                             careLevel,
                             BigDecimal.valueOf(doctors),
                             null,
-                            "neutral",
+                            NEUTRAL_COLOR,
                             extra(
                                     "unitType", unitType,
                                     "careLevel", careLevel
@@ -628,8 +636,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 GROUP BY hu.id, hu.clues, hu.name, mut.name, hu.care_level
                 ORDER BY hospital_beds DESC, consulting_rooms DESC, hu.name ASC
                 """)
-                .setParameter("municipalityId", municipalityId)
-                .setParameter("periodId", periodId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .setMaxResults((int) normalizeLimit(limit))
                 .getResultList();
 
@@ -655,7 +663,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                             careLevel,
                             BigDecimal.valueOf(hospitalBeds),
                             null,
-                            "neutral",
+                            NEUTRAL_COLOR,
                             extra(
                                     "unitType", unitType,
                                     "careLevel", careLevel
@@ -667,7 +675,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     private List<DashboardChartDataPoint> stateChart(Integer periodId, String indicatorCode, boolean higherIsBetter) {
         Integer year = analysisYear(periodId).orElse(null);
-        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, "state", year)) {
+        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, STATE_LEVEL, year)) {
             return List.of();
         }
 
@@ -691,7 +699,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     private List<DashboardChartDataPoint> municipalityChart(String stateCode, Integer periodId, String indicatorCode, boolean higherIsBetter) {
         Integer year = analysisYear(periodId).orElse(null);
-        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+        if (year == null || !dataAvailabilityService.isIndicatorAvailable(indicatorCode, MUNICIPALITY_LEVEL, year)) {
             return List.of();
         }
 
@@ -790,7 +798,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 FROM periods
                 WHERE id = :periodId
                 """)
-                .setParameter("periodId", periodId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .setMaxResults(1)
                 .getResultList();
 
@@ -812,7 +820,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 FROM states
                 WHERE id = :stateId
                 """)
-                .setParameter("stateId", stateId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
                 .setMaxResults(1)
                 .getResultList();
 
@@ -825,7 +833,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 toInteger(row[0]),
                 toString(row[1]),
                 toString(row[2]),
-                "state"
+                STATE_LEVEL
         ));
     }
 
@@ -835,7 +843,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 FROM municipalities
                 WHERE id = :municipalityId
                 """)
-                .setParameter("municipalityId", municipalityId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
                 .setMaxResults(1)
                 .getResultList();
 
@@ -848,7 +856,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 toInteger(row[0]),
                 toString(row[1]),
                 toString(row[2]),
-                "municipality"
+                MUNICIPALITY_LEVEL
         ));
     }
 
@@ -936,7 +944,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
     }
 
     private Long countMunicipalityValuesBelow(String indicatorCode, Integer year, String stateCode, BigDecimal threshold) {
-        if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+        if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, MUNICIPALITY_LEVEL, year)) {
             return 0L;
         }
 
@@ -947,7 +955,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
     }
 
     private Long countMunicipalityValuesAbove(String indicatorCode, Integer year, String stateCode, BigDecimal threshold) {
-        if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, "municipality", year)) {
+        if (!dataAvailabilityService.isIndicatorAvailable(indicatorCode, MUNICIPALITY_LEVEL, year)) {
             return 0L;
         }
 
@@ -991,9 +999,9 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 """;
 
         return chartRows(em.createNativeQuery(sql)
-                .setParameter("periodId", periodId)
-                .setParameter("stateId", stateId)
-                .setParameter("municipalityId", municipalityId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
                 .getResultList());
     }
 
@@ -1028,8 +1036,8 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
 
     private Long singleLong(String sql, Integer stateId, Integer municipalityId) {
         return toLong(em.createNativeQuery(sql)
-                .setParameter("stateId", stateId)
-                .setParameter("municipalityId", municipalityId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
                 .getSingleResult());
     }
 
@@ -1039,7 +1047,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 FROM states
                 WHERE id = :stateId
                 """)
-                .setParameter("stateId", stateId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
                 .setMaxResults(1)
                 .getResultList();
 
@@ -1053,7 +1061,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 JOIN states s ON s.id = m.state_id
                 WHERE m.id = :municipalityId
                 """)
-                .setParameter("municipalityId", municipalityId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
                 .setMaxResults(1)
                 .getResultList();
 
@@ -1068,7 +1076,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
                 GROUP BY hu.care_level
                 ORDER BY COUNT(*) DESC
                 """)
-                .setParameter("municipalityId", municipalityId)
+                .setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId)
                 .setMaxResults(1)
                 .getResultList();
 
@@ -1108,7 +1116,7 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
             if (value.compareTo(BigDecimal.ONE) >= 0) {
                 return "risk";
             }
-            return "critical";
+            return CRITICAL_LEVEL;
         }
 
         if (value.compareTo(BigDecimal.valueOf(20)) <= 0) {
@@ -1117,15 +1125,15 @@ public class DashboardSummaryRepositoryImpl implements DashboardSummaryRepositor
         if (value.compareTo(BigDecimal.valueOf(40)) < 0) {
             return "risk";
         }
-        return "critical";
+        return CRITICAL_LEVEL;
     }
 
     private String colorToken(BigDecimal value, boolean higherIsBetter) {
         return switch (level(value, higherIsBetter)) {
             case "good" -> "green";
             case "risk" -> "yellow";
-            case "critical" -> "red";
-            default -> "neutral";
+            case CRITICAL_LEVEL -> "red";
+            default -> NEUTRAL_COLOR;
         };
     }
 

@@ -12,6 +12,9 @@ import java.util.Optional;
 @ApplicationScoped
 public class TerritoryCatalogWriter {
 
+    private static final String INEGI_CODE_PARAMETER = "inegiCode";
+    private static final String STATE_ID_PARAMETER = "stateId";
+
     private final EntityManager em;
 
     public TerritoryCatalogWriter(EntityManager em) {
@@ -82,7 +85,7 @@ public class TerritoryCatalogWriter {
                         FROM states
                         WHERE inegi_code = :inegiCode
                         """)
-                .setParameter("inegiCode", inegiCode.trim())
+                .setParameter(INEGI_CODE_PARAMETER, inegiCode.trim())
                 .setMaxResults(1)
                 .getResultList();
 
@@ -101,7 +104,7 @@ public class TerritoryCatalogWriter {
                         FROM states
                         WHERE inegi_code = :inegiCode
                         """)
-                .setParameter("inegiCode", inegiCode.trim())
+                .setParameter(INEGI_CODE_PARAMETER, inegiCode.trim())
                 .setMaxResults(1)
                 .getResultList();
 
@@ -120,7 +123,7 @@ public class TerritoryCatalogWriter {
                         FROM municipalities
                         WHERE inegi_code = :inegiCode
                         """)
-                .setParameter("inegiCode", inegiCode.trim())
+                .setParameter(INEGI_CODE_PARAMETER, inegiCode.trim())
                 .setMaxResults(1)
                 .getResultList();
 
@@ -135,7 +138,7 @@ public class TerritoryCatalogWriter {
                         FROM states
                         WHERE inegi_code = :inegiCode
                         """)
-                .setParameter("inegiCode", inegiCode)
+                .setParameter(INEGI_CODE_PARAMETER, inegiCode)
                 .setMaxResults(1)
                 .getResultList();
 
@@ -153,7 +156,7 @@ public class TerritoryCatalogWriter {
                         FROM municipalities
                         WHERE inegi_code = :inegiCode
                         """)
-                .setParameter("inegiCode", inegiCode)
+                .setParameter(INEGI_CODE_PARAMETER, inegiCode)
                 .setMaxResults(1)
                 .getResultList();
 
@@ -175,7 +178,7 @@ public class TerritoryCatalogWriter {
                         VALUES (:name, :inegiCode)
                         """)
                 .setParameter("name", name)
-                .setParameter("inegiCode", inegiCode)
+                .setParameter(INEGI_CODE_PARAMETER, inegiCode)
                 .executeUpdate();
     }
 
@@ -186,7 +189,7 @@ public class TerritoryCatalogWriter {
                         WHERE id = :stateId
                         """)
                 .setParameter("name", name)
-                .setParameter("stateId", stateId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
                 .executeUpdate();
     }
 
@@ -195,9 +198,9 @@ public class TerritoryCatalogWriter {
                         INSERT INTO municipalities (state_id, name, inegi_code)
                         VALUES (:stateId, :name, :inegiCode)
                         """)
-                .setParameter("stateId", stateId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
                 .setParameter("name", name)
-                .setParameter("inegiCode", inegiCode)
+                .setParameter(INEGI_CODE_PARAMETER, inegiCode)
                 .executeUpdate();
     }
 
@@ -208,7 +211,7 @@ public class TerritoryCatalogWriter {
                             name = :name
                         WHERE id = :municipalityId
                         """)
-                .setParameter("stateId", stateId)
+                .setParameter(STATE_ID_PARAMETER, stateId)
                 .setParameter("name", name)
                 .setParameter("municipalityId", municipalityId)
                 .executeUpdate();

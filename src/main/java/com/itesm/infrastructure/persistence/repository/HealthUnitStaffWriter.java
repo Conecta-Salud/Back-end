@@ -12,6 +12,9 @@ import java.util.Set;
 @ApplicationScoped
 public class HealthUnitStaffWriter {
 
+    private static final String PERIOD_ID_PARAMETER = "periodId";
+    private static final String DATA_SOURCE_ID_PARAMETER = "dataSourceId";
+
     private final EntityManager em;
 
     public HealthUnitStaffWriter(EntityManager em) {
@@ -49,10 +52,10 @@ public class HealthUnitStaffWriter {
                                 source_file = VALUES(source_file)
                             """)
                     .setParameter("healthUnitId", value.healthUnitId())
-                    .setParameter("periodId", value.periodId())
+                    .setParameter(PERIOD_ID_PARAMETER, value.periodId())
                     .setParameter("totalDoctors", value.totalDoctors())
                     .setParameter("totalNurses", value.totalNurses())
-                    .setParameter("dataSourceId", value.dataSourceId())
+                    .setParameter(DATA_SOURCE_ID_PARAMETER, value.dataSourceId())
                     .setParameter("sourceFile", value.sourceFile())
                     .executeUpdate();
         }
@@ -71,7 +74,7 @@ public class HealthUnitStaffWriter {
                         WHERE period_id = :periodId
                           AND health_unit_id IN (:healthUnitIds)
                         """)
-                .setParameter("periodId", periodId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .setParameter("healthUnitIds", healthUnitIds)
                 .getResultList();
 
@@ -97,8 +100,8 @@ public class HealthUnitStaffWriter {
                         WHERE hus.period_id = :periodId
                           AND hus.data_source_id = :dataSourceId
                         """)
-                .setParameter("periodId", periodId)
-                .setParameter("dataSourceId", dataSourceId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
                 .executeUpdate();
 
         em.createNativeQuery("""
@@ -106,8 +109,8 @@ public class HealthUnitStaffWriter {
                         WHERE period_id = :periodId
                           AND data_source_id = :dataSourceId
                         """)
-                .setParameter("periodId", periodId)
-                .setParameter("dataSourceId", dataSourceId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
                 .executeUpdate();
     }
 

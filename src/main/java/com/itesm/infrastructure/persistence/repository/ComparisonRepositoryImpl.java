@@ -14,6 +14,8 @@ import java.util.List;
 @ApplicationScoped
 public class ComparisonRepositoryImpl implements ComparisonRepository {
 
+    private static final String VALUES_PARAMETER = "values";
+
     private final EntityManager em;
     private final TerritoryIndicatorQueryRepository territoryIndicatorQueryRepository;
 
@@ -27,22 +29,22 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
 
     @Override
     public List<TerritoryComparison> compareStates(Integer periodId, List<Integer> stateIds) {
-        return compareStatesByFilter(periodId, "s.id IN (:values)", "values", stateIds);
+        return compareStatesByFilter(periodId, "s.id IN (:values)", VALUES_PARAMETER, stateIds);
     }
 
     @Override
     public List<TerritoryComparison> compareStatesByCodes(Integer periodId, List<String> stateCodes) {
-        return compareStatesByFilter(periodId, "s.inegi_code IN (:values)", "values", stateCodes);
+        return compareStatesByFilter(periodId, "s.inegi_code IN (:values)", VALUES_PARAMETER, stateCodes);
     }
 
     @Override
     public List<TerritoryComparison> compareMunicipalities(Integer periodId, List<Integer> municipalityIds) {
-        return compareMunicipalitiesByFilter(periodId, "m.id IN (:values)", "values", municipalityIds);
+        return compareMunicipalitiesByFilter(periodId, "m.id IN (:values)", VALUES_PARAMETER, municipalityIds);
     }
 
     @Override
     public List<TerritoryComparison> compareMunicipalitiesByCodes(Integer periodId, List<String> municipalityCodes) {
-        return compareMunicipalitiesByFilter(periodId, "m.inegi_code IN (:values)", "values", municipalityCodes);
+        return compareMunicipalitiesByFilter(periodId, "m.inegi_code IN (:values)", VALUES_PARAMETER, municipalityCodes);
     }
 
     private List<TerritoryComparison> compareStatesByFilter(

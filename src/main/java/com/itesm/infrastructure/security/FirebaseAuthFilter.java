@@ -35,6 +35,7 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
     private static final Logger LOG = Logger.getLogger(FirebaseAuthFilter.class);
     private static final String AUTH_PROVIDER_CONFIGURATION_DETAIL =
             "Revise la configuración del proveedor de autenticación en el servidor.";
+    private static final String UNAUTHENTICATED_ERROR_CODE = "UNAUTHENTICATED";
 
     @Inject
     UserRepository userRepository;
@@ -53,14 +54,14 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
         String authHeader = requestContext.getHeaders().getFirst("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            abortUnauthorized(requestContext, "UNAUTHENTICATED", "Missing or invalid Authorization header");
+            abortUnauthorized(requestContext, UNAUTHENTICATED_ERROR_CODE, "Missing or invalid Authorization header");
             return;
         }
 
         String idToken = authHeader.substring("Bearer ".length()).trim();
 
         if (idToken.isBlank()) {
-            abortUnauthorized(requestContext, "UNAUTHENTICATED", "Empty Firebase token");
+            abortUnauthorized(requestContext, UNAUTHENTICATED_ERROR_CODE, "Empty Firebase token");
             return;
         }
 
@@ -71,14 +72,14 @@ public class FirebaseAuthFilter implements ContainerRequestFilter {
 
             if (userOptional.isEmpty()) {
                 LOG.warnf("No database user found for firebase_uuid=%s", decodedToken.getUid());
-                abortUnauthorized(requestContext, "UNAUTHENTICATED", "User not registered in database");
+                abortUnauthorized(requestContext, UNAUTHENTICATED_ERROR_CODE, "User not registered in database");
                 return;
             }
 
             User user = userOptional.get();
 
             if (!user.isActive()) {
-                abortUnauthorized(requestContext, "UNAUTHENTICATED", "User is inactive");
+                abortUnauthorized(requestContext, UNAUTHENTICATED_ERROR_CODE, "User is inactive");
                 return;
             }
 

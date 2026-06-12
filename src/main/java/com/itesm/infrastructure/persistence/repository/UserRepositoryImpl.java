@@ -24,6 +24,9 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase<UserEntity, UUID> {
 
+    private static final String USER_WITH_DEPARTMENT_GRAPH = "User.withDepartment";
+    private static final String LOAD_GRAPH_HINT = "jakarta.persistence.loadgraph";
+
     @Inject
     EntityManager em;
 
@@ -34,14 +37,14 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
 
     @Override
     public Optional<User> findByFirebaseUuid(String firebaseUuid) {
-        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
+        EntityGraph<?> graph = em.getEntityGraph(USER_WITH_DEPARTMENT_GRAPH);
 
         List<UserEntity> result = em.createQuery(
                         "SELECT u FROM UserEntity u WHERE u.firebaseUuid = :firebaseUuid",
                         UserEntity.class
                 )
                 .setParameter("firebaseUuid", firebaseUuid)
-                .setHint("jakarta.persistence.loadgraph", graph)
+                .setHint(LOAD_GRAPH_HINT, graph)
                 .getResultList();
 
         if (result.isEmpty()) {
@@ -69,14 +72,14 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
 
     @Override
     public User findUserById(UUID userId) {
-        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
+        EntityGraph<?> graph = em.getEntityGraph(USER_WITH_DEPARTMENT_GRAPH);
 
         List<UserEntity> result = em.createQuery(
                         "SELECT u FROM UserEntity u WHERE u.id = :userId",
                         UserEntity.class
                 )
                 .setParameter("userId", userId)
-                .setHint("jakarta.persistence.loadgraph", graph)
+                .setHint(LOAD_GRAPH_HINT, graph)
                 .getResultList();
 
         if (result.isEmpty()) {
@@ -88,13 +91,13 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
 
     @Override
     public List<User> findAllUsers() {
-        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
+        EntityGraph<?> graph = em.getEntityGraph(USER_WITH_DEPARTMENT_GRAPH);
 
         List<UserEntity> result = em.createQuery(
                         "SELECT u FROM UserEntity u ORDER BY u.firstName ASC, u.lastName ASC",
                         UserEntity.class
                 )
-                .setHint("jakarta.persistence.loadgraph", graph)
+                .setHint(LOAD_GRAPH_HINT, graph)
                 .getResultList();
 
         return result.stream()
@@ -138,10 +141,10 @@ public class UserRepositoryImpl implements UserRepository, PanacheRepositoryBase
             JOIN u.department d
             """ + whereClause;
 
-        EntityGraph<?> graph = em.getEntityGraph("User.withDepartment");
+        EntityGraph<?> graph = em.getEntityGraph(USER_WITH_DEPARTMENT_GRAPH);
 
         TypedQuery<UserEntity> dataQuery = em.createQuery(selectJpql, UserEntity.class)
-                .setHint("jakarta.persistence.loadgraph", graph);
+                .setHint(LOAD_GRAPH_HINT, graph);
 
         TypedQuery<Long> countQuery = em.createQuery(countJpql, Long.class);
 

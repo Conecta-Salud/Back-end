@@ -12,6 +12,9 @@ import java.util.Set;
 @ApplicationScoped
 public class HealthUnitInfrastructureWriter {
 
+    private static final String PERIOD_ID_PARAMETER = "periodId";
+    private static final String DATA_SOURCE_ID_PARAMETER = "dataSourceId";
+
     private final EntityManager em;
 
     public HealthUnitInfrastructureWriter(EntityManager em) {
@@ -43,8 +46,8 @@ public class HealthUnitInfrastructureWriter {
                                 source_file = VALUES(source_file)
                             """)
                     .setParameter("healthUnitId", value.healthUnitId())
-                    .setParameter("periodId", value.periodId())
-                    .setParameter("dataSourceId", value.dataSourceId())
+                    .setParameter(PERIOD_ID_PARAMETER, value.periodId())
+                    .setParameter(DATA_SOURCE_ID_PARAMETER, value.dataSourceId())
                     .setParameter("sourceFile", value.sourceFile())
                     .executeUpdate();
         }
@@ -63,7 +66,7 @@ public class HealthUnitInfrastructureWriter {
                         WHERE period_id = :periodId
                           AND health_unit_id IN (:healthUnitIds)
                         """)
-                .setParameter("periodId", periodId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .setParameter("healthUnitIds", healthUnitIds)
                 .getResultList();
 
@@ -89,8 +92,8 @@ public class HealthUnitInfrastructureWriter {
                         WHERE hui.period_id = :periodId
                           AND hui.data_source_id = :dataSourceId
                         """)
-                .setParameter("periodId", periodId)
-                .setParameter("dataSourceId", dataSourceId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
                 .executeUpdate();
 
         em.createNativeQuery("""
@@ -98,8 +101,8 @@ public class HealthUnitInfrastructureWriter {
                         WHERE period_id = :periodId
                           AND data_source_id = :dataSourceId
                         """)
-                .setParameter("periodId", periodId)
-                .setParameter("dataSourceId", dataSourceId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
                 .executeUpdate();
     }
 

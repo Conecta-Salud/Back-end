@@ -22,12 +22,16 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class HealthUnitRepositoryImpl implements HealthUnitRepository, PanacheRepositoryBase<HealthUnitEntity, Integer> {
 
+    private static final String SUMMARY_GRAPH = "HealthUnit.summary";
+    private static final String LOAD_GRAPH_HINT = "jakarta.persistence.loadgraph";
+    private static final String HEALTH_UNIT_ID_PARAMETER = "healthUnitId";
+
     @Inject
     EntityManager em;
 
     @Override
     public List<HealthUnitSummary> findSummaryByStateId(Integer stateId) {
-        EntityGraph<?> graph = em.getEntityGraph("HealthUnit.summary");
+        EntityGraph<?> graph = em.getEntityGraph(SUMMARY_GRAPH);
 
         List<HealthUnitEntity> result = em.createQuery(
                         "SELECT u FROM HealthUnitEntity u " +
@@ -36,7 +40,7 @@ public class HealthUnitRepositoryImpl implements HealthUnitRepository, PanacheRe
                         HealthUnitEntity.class
                 )
                 .setParameter("stateId", stateId)
-                .setHint("jakarta.persistence.loadgraph", graph)
+                .setHint(LOAD_GRAPH_HINT, graph)
                 .getResultList();
 
         return result.stream()
@@ -46,7 +50,7 @@ public class HealthUnitRepositoryImpl implements HealthUnitRepository, PanacheRe
 
     @Override
     public List<HealthUnitSummary> findSummaryByMunicipalityId(Integer municipalityId) {
-        EntityGraph<?> graph = em.getEntityGraph("HealthUnit.summary");
+        EntityGraph<?> graph = em.getEntityGraph(SUMMARY_GRAPH);
 
         List<HealthUnitEntity> result = em.createQuery(
                         "SELECT u FROM HealthUnitEntity u " +
@@ -55,7 +59,7 @@ public class HealthUnitRepositoryImpl implements HealthUnitRepository, PanacheRe
                         HealthUnitEntity.class
                 )
                 .setParameter("municipalityId", municipalityId)
-                .setHint("jakarta.persistence.loadgraph", graph)
+                .setHint(LOAD_GRAPH_HINT, graph)
                 .getResultList();
 
         return result.stream()
@@ -65,14 +69,14 @@ public class HealthUnitRepositoryImpl implements HealthUnitRepository, PanacheRe
 
     @Override
     public Optional<HealthUnitDetail> findDetailByIdAndPeriodId(Integer healthUnitId, Integer periodId) {
-        EntityGraph<?> graph = em.getEntityGraph("HealthUnit.summary");
+        EntityGraph<?> graph = em.getEntityGraph(SUMMARY_GRAPH);
 
         List<HealthUnitEntity> result = em.createQuery(
                         "SELECT u FROM HealthUnitEntity u WHERE u.id = :healthUnitId",
                         HealthUnitEntity.class
                 )
-                .setParameter("healthUnitId", healthUnitId)
-                .setHint("jakarta.persistence.loadgraph", graph)
+                .setParameter(HEALTH_UNIT_ID_PARAMETER, healthUnitId)
+                .setHint(LOAD_GRAPH_HINT, graph)
                 .getResultList();
 
         if (result.isEmpty()) {
@@ -100,7 +104,7 @@ public class HealthUnitRepositoryImpl implements HealthUnitRepository, PanacheRe
                 AND hus.period_id = :periodId
             WHERE hu.id = :healthUnitId
             """)
-                .setParameter("healthUnitId", healthUnitId)
+                .setParameter(HEALTH_UNIT_ID_PARAMETER, healthUnitId)
                 .setParameter("periodId", periodId)
                 .getSingleResult();
 
@@ -129,7 +133,7 @@ public class HealthUnitRepositoryImpl implements HealthUnitRepository, PanacheRe
                 ON it.id = huid.infrastructure_type_id
             WHERE hu.id = :healthUnitId
             """)
-                .setParameter("healthUnitId", healthUnitId)
+                .setParameter(HEALTH_UNIT_ID_PARAMETER, healthUnitId)
                 .setParameter("periodId", periodId)
                 .getSingleResult();
 

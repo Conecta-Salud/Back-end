@@ -14,6 +14,13 @@ import java.util.Optional;
 @ApplicationScoped
 public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicatorQueryRepository {
 
+    private static final String STATE_LEVEL = "state";
+    private static final String MUNICIPALITY_LEVEL = "municipality";
+    private static final String ANALYSIS_YEAR_PARAMETER = "analysisYear";
+    private static final String INDICATOR_CODE_PARAMETER = "indicatorCode";
+    private static final String STATE_ID_PARAMETER = "stateId";
+    private static final String MUNICIPALITY_ID_PARAMETER = "municipalityId";
+
     // Read model central de indicadores: dashboard, mapa, ranking y comparacion
     // deben leer agregados desde territory_indicator_values mediante este repositorio.
     private final EntityManager em;
@@ -55,9 +62,9 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
                   AND i.code = :indicatorCode
                 """);
 
-        if ("state".equals(territoryLevel)) {
+        if (STATE_LEVEL.equals(territoryLevel)) {
             sql.append(" AND tiv.state_id = :stateId ");
-        } else if ("municipality".equals(territoryLevel)) {
+        } else if (MUNICIPALITY_LEVEL.equals(territoryLevel)) {
             sql.append(" AND tiv.municipality_id = :municipalityId ");
         } else {
             sql.append(" AND tiv.state_id IS NULL AND tiv.municipality_id IS NULL ");
@@ -65,13 +72,13 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
 
         Query query = em.createNativeQuery(sql.toString())
                 .setParameter("territoryLevel", territoryLevel)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("indicatorCode", indicatorCode);
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(INDICATOR_CODE_PARAMETER, indicatorCode);
 
-        if ("state".equals(territoryLevel)) {
-            query.setParameter("stateId", stateId);
-        } else if ("municipality".equals(territoryLevel)) {
-            query.setParameter("municipalityId", municipalityId);
+        if (STATE_LEVEL.equals(territoryLevel)) {
+            query.setParameter(STATE_ID_PARAMETER, stateId);
+        } else if (MUNICIPALITY_LEVEL.equals(territoryLevel)) {
+            query.setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId);
         }
 
         List<?> rows = query.setMaxResults(1).getResultList();
@@ -96,9 +103,9 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
                   AND tiv.analysis_year = :analysisYear
                 """);
 
-        if ("state".equals(territoryLevel)) {
+        if (STATE_LEVEL.equals(territoryLevel)) {
             sql.append(" AND tiv.state_id = :stateId ");
-        } else if ("municipality".equals(territoryLevel)) {
+        } else if (MUNICIPALITY_LEVEL.equals(territoryLevel)) {
             sql.append(" AND tiv.municipality_id = :municipalityId ");
         } else {
             sql.append(" AND tiv.state_id IS NULL AND tiv.municipality_id IS NULL ");
@@ -108,12 +115,12 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
 
         Query query = em.createNativeQuery(sql.toString())
                 .setParameter("territoryLevel", territoryLevel)
-                .setParameter("analysisYear", analysisYear);
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear);
 
-        if ("state".equals(territoryLevel)) {
-            query.setParameter("stateId", stateId);
-        } else if ("municipality".equals(territoryLevel)) {
-            query.setParameter("municipalityId", municipalityId);
+        if (STATE_LEVEL.equals(territoryLevel)) {
+            query.setParameter(STATE_ID_PARAMETER, stateId);
+        } else if (MUNICIPALITY_LEVEL.equals(territoryLevel)) {
+            query.setParameter(MUNICIPALITY_ID_PARAMETER, municipalityId);
         }
 
         return mapRows(query.getResultList());
@@ -132,8 +139,8 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
                 """;
 
         return mapRows(em.createNativeQuery(sql)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("indicatorCode", indicatorCode)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(INDICATOR_CODE_PARAMETER, indicatorCode)
                 .getResultList());
     }
 
@@ -152,8 +159,8 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
                 """;
 
         return mapRows(em.createNativeQuery(sql)
-                .setParameter("analysisYear", analysisYear)
-                .setParameter("indicatorCode", indicatorCode)
+                .setParameter(ANALYSIS_YEAR_PARAMETER, analysisYear)
+                .setParameter(INDICATOR_CODE_PARAMETER, indicatorCode)
                 .setParameter("stateCode", stateCode)
                 .getResultList());
     }
