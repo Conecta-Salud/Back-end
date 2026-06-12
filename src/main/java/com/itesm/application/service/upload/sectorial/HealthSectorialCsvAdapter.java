@@ -106,26 +106,26 @@ public class HealthSectorialCsvAdapter {
         StringBuilder current = new StringBuilder();
         boolean inQuotes = false;
 
-        for (int i = 0; i < line.length(); i++) {
+        int i = 0;
+        while (i < line.length()) {
             char currentChar = line.charAt(i);
 
             if (currentChar == '"') {
                 if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
                     current.append('"');
-                    i++;
+                    i += 2;
                 } else {
                     inQuotes = !inQuotes;
+                    i++;
                 }
-                continue;
-            }
-
-            if (currentChar == ',' && !inQuotes) {
+            } else if (currentChar == ',' && !inQuotes) {
                 values.add(current.toString());
                 current.setLength(0);
-                continue;
+                i++;
+            } else {
+                current.append(currentChar);
+                i++;
             }
-
-            current.append(currentChar);
         }
 
         values.add(current.toString());

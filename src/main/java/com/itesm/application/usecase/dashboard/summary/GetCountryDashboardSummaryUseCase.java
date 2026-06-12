@@ -19,6 +19,19 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class GetCountryDashboardSummaryUseCase {
 
+    private static final String COUNTRY_NAME = "MÉXICO";
+    private static final String COUNTRY_TYPE = "country";
+    private static final String DEFAULT_VARIANT = "default";
+    private static final String COUNT_UNIT = "count";
+    private static final String GREEN = "green";
+    private static final String YELLOW = "yellow";
+    private static final String DOCTORS_PER_1000 = "doctors_per_1000";
+    private static final String STATE_LABEL = "State";
+    private static final String POPULATION_KEY = "population";
+    private static final String POPULATION_LABEL = "Population";
+    private static final String DOCTORS_KEY = "doctors";
+    private static final String VALUE_KEY = "value";
+
     private final DashboardSummaryRepository dashboardSummaryRepository;
 
     @Inject
@@ -71,7 +84,7 @@ public class GetCountryDashboardSummaryUseCase {
                 .findCountryHealthcareAccessDistribution(periodId);
 
         DashboardSummary summary = new DashboardSummary(
-                new DashboardTerritory(null, null, "MÉXICO", "country"),
+                new DashboardTerritory(null, null, COUNTRY_NAME, COUNTRY_TYPE),
                 metrics.getPeriod(),
                 category,
                 buildHealthcareAccessDeficiencyKpis(metrics),
@@ -92,7 +105,7 @@ public class GetCountryDashboardSummaryUseCase {
                         "Total population",
                         toDecimalOrNull(metrics.getTotalPopulation()),
                         "people",
-                        "default",
+                        DEFAULT_VARIANT,
                         1
                 ),
                 new DashboardKpi(
@@ -107,15 +120,15 @@ public class GetCountryDashboardSummaryUseCase {
                         "priority_states",
                         "Priority states",
                         toDecimalOrNull(metrics.getPriorityStates()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getPriorityStates(), "red", "green"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getPriorityStates(), "red", GREEN),
                         3
                 ),
                 new DashboardKpi(
                         "medical_coverage_index",
                         "Medical coverage index",
                         toDecimalOrNull(metrics.getMedicalCoverageIndex()),
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         getVariantFromMedicalCoverage(metrics.getMedicalCoverageIndex()),
                         4
                 )
@@ -127,11 +140,11 @@ public class GetCountryDashboardSummaryUseCase {
                 "Priority states for healthcare investment",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "State"),
-                        new DashboardRankingColumn("population", "Population"),
-                        new DashboardRankingColumn("doctors", "Doctors"),
+                        new DashboardRankingColumn("name", STATE_LABEL),
+                        new DashboardRankingColumn(POPULATION_KEY, POPULATION_LABEL),
+                        new DashboardRankingColumn(DOCTORS_KEY, "Doctors"),
                         new DashboardRankingColumn("coverageIndex", "Coverage index"),
-                        new DashboardRankingColumn("value", "Deficiency rate")
+                        new DashboardRankingColumn(VALUE_KEY, "Deficiency rate")
                 ),
                 rows
         );
@@ -141,8 +154,8 @@ public class GetCountryDashboardSummaryUseCase {
         return new DashboardChart(
                 "bar",
                 "Population vs doctors",
-                "population",
-                "doctors",
+                POPULATION_KEY,
+                DOCTORS_KEY,
                 null,
                 data
         );
@@ -178,7 +191,7 @@ public class GetCountryDashboardSummaryUseCase {
                 .findCountryInfrastructureDistribution(periodId);
 
         DashboardSummary summary = new DashboardSummary(
-                new DashboardTerritory(null, null, "MÉXICO", "country"),
+                new DashboardTerritory(null, null, COUNTRY_NAME, COUNTRY_TYPE),
                 metrics.getPeriod(),
                 category,
                 buildHospitalBedsKpis(metrics),
@@ -204,16 +217,16 @@ public class GetCountryDashboardSummaryUseCase {
                         "states_with_hospital_deficit",
                         "States with hospital deficit",
                         toDecimalOrNull(metrics.getStatesWithHospitalDeficit()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getStatesWithHospitalDeficit(), "yellow", "green"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getStatesWithHospitalDeficit(), YELLOW, GREEN),
                         2
                 ),
                 new DashboardKpi(
                         "total_hospitals",
                         "Total hospitals",
                         toDecimalOrNull(metrics.getTotalHospitals()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         3
                 ),
                 new DashboardKpi(
@@ -221,7 +234,7 @@ public class GetCountryDashboardSummaryUseCase {
                         "Average beds per hospital",
                         metrics.getAverageBedsPerHospital(),
                         "beds_per_hospital",
-                        "default",
+                        DEFAULT_VARIANT,
                         4
                 )
         );
@@ -232,10 +245,10 @@ public class GetCountryDashboardSummaryUseCase {
                 "States with lowest hospital capacity",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "State"),
+                        new DashboardRankingColumn("name", STATE_LABEL),
                         new DashboardRankingColumn("hospitalBeds", "Hospital beds"),
-                        new DashboardRankingColumn("population", "Population"),
-                        new DashboardRankingColumn("value", "Beds / 1,000")
+                        new DashboardRankingColumn(POPULATION_KEY, POPULATION_LABEL),
+                        new DashboardRankingColumn(VALUE_KEY, "Beds / 1,000")
                 ),
                 rows
         );
@@ -274,11 +287,11 @@ public class GetCountryDashboardSummaryUseCase {
         double number = value.doubleValue();
 
         if (number >= 3.0) {
-            return "green";
+            return GREEN;
         }
 
         if (number >= 1.0) {
-            return "yellow";
+            return YELLOW;
         }
 
         return "red";
@@ -303,7 +316,7 @@ public class GetCountryDashboardSummaryUseCase {
                 .findCountrySpecialtiesDistribution(periodId);
 
         DashboardSummary summary = new DashboardSummary(
-                new DashboardTerritory(null, null, "MÉXICO", "country"),
+                new DashboardTerritory(null, null, COUNTRY_NAME, COUNTRY_TYPE),
                 metrics.getPeriod(),
                 category,
                 buildMedicalCoverageKpis(metrics),
@@ -318,10 +331,10 @@ public class GetCountryDashboardSummaryUseCase {
     private List<DashboardKpi> buildMedicalCoverageKpis(CountryMedicalCoverageMetrics metrics) {
         return List.of(
                 new DashboardKpi(
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         "Doctors per 1,000 inhabitants",
                         metrics.getDoctorsPer1000(),
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         getVariantFromMedicalCoverage(metrics.getDoctorsPer1000()),
                         1
                 ),
@@ -329,23 +342,23 @@ public class GetCountryDashboardSummaryUseCase {
                         "critical_states",
                         "Critical states",
                         toDecimalOrNull(metrics.getCriticalStates()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getCriticalStates(), "red", "green"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getCriticalStates(), "red", GREEN),
                         2
                 ),
                 new DashboardKpi(
                         "total_doctors",
                         "Total doctors",
                         toDecimalOrNull(metrics.getTotalDoctors()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         3
                 ),
                 new DashboardKpi(
                         "average_state_medical_coverage",
                         "Average state medical coverage",
                         metrics.getAverageStateMedicalCoverage(),
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         getVariantFromMedicalCoverage(metrics.getAverageStateMedicalCoverage()),
                         4
                 )
@@ -357,10 +370,10 @@ public class GetCountryDashboardSummaryUseCase {
                 "States with lowest medical coverage",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "State"),
-                        new DashboardRankingColumn("doctors", "Doctors"),
-                        new DashboardRankingColumn("population", "Population"),
-                        new DashboardRankingColumn("value", "Doctors / 1,000")
+                        new DashboardRankingColumn("name", STATE_LABEL),
+                        new DashboardRankingColumn(DOCTORS_KEY, "Doctors"),
+                        new DashboardRankingColumn(POPULATION_KEY, POPULATION_LABEL),
+                        new DashboardRankingColumn(VALUE_KEY, "Doctors / 1,000")
                 ),
                 rows
         );
@@ -399,11 +412,11 @@ public class GetCountryDashboardSummaryUseCase {
         double number = value.doubleValue();
 
         if (number >= 2.7) {
-            return "green";
+            return GREEN;
         }
 
         if (number >= 1.0) {
-            return "yellow";
+            return YELLOW;
         }
 
         return "red";

@@ -18,7 +18,6 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class GetComparisonSummaryUseCase {
@@ -28,6 +27,9 @@ public class GetComparisonSummaryUseCase {
     private static final BigDecimal HOSPITALS_REFERENCE_PER_100K = BigDecimal.valueOf(5.0);
     private static final BigDecimal OLDER_ADULTS_REFERENCE_PERCENTAGE = BigDecimal.valueOf(20.0);
     private static final String AVAILABILITY_STATUS = "availabilityStatus";
+    private static final String TOTAL_POPULATION = "totalPopulation";
+    private static final String GREEN = "green";
+    private static final String YELLOW = "yellow";
 
     private final ComparisonSummaryRepository comparisonSummaryRepository;
     private final AuthenticatedUserContext authenticatedUserContext;
@@ -196,11 +198,11 @@ public class GetComparisonSummaryUseCase {
                             extra(
                                     AVAILABILITY_STATUS, availabilityStatus(medicalCoverage),
                                     "totalDoctors", item.getTotalDoctors(),
-                                    "totalPopulation", item.getTotalPopulation()
+                                    TOTAL_POPULATION, item.getTotalPopulation()
                             )
                     );
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return new ComparisonChart(
                 "medical_coverage",
@@ -241,7 +243,7 @@ public class GetComparisonSummaryUseCase {
                             )
                     );
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return new ComparisonChart(
                 "doctor_deficit",
@@ -265,11 +267,11 @@ public class GetComparisonSummaryUseCase {
                             extra(
                                     AVAILABILITY_STATUS, availabilityStatus(hospitalBedsPer1000),
                                     "totalHospitalBeds", item.getTotalHospitalBeds(),
-                                    "totalPopulation", item.getTotalPopulation()
+                                    TOTAL_POPULATION, item.getTotalPopulation()
                             )
                     );
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return new ComparisonChart(
                 "hospital_beds_per_1000",
@@ -295,11 +297,11 @@ public class GetComparisonSummaryUseCase {
                             variantLowerIsBetter(povertyRate, BigDecimal.valueOf(20), BigDecimal.valueOf(40)),
                             extra(
                                     "totalPovertyPopulation", item.getTotalPovertyPopulation(),
-                                    "totalPopulation", item.getTotalPopulation()
+                                    TOTAL_POPULATION, item.getTotalPopulation()
                             )
                     );
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return new ComparisonChart(
                 "poverty_rate",
@@ -491,11 +493,11 @@ public class GetComparisonSummaryUseCase {
         if (value == null) return "neutral";
 
         if (value.compareTo(goodReference) >= 0) {
-            return "green";
+            return GREEN;
         }
 
         if (value.compareTo(riskReference) >= 0) {
-            return "yellow";
+            return YELLOW;
         }
 
         return "red";
@@ -509,11 +511,11 @@ public class GetComparisonSummaryUseCase {
         if (value == null) return "neutral";
 
         if (value.compareTo(goodMax) <= 0) {
-            return "green";
+            return GREEN;
         }
 
         if (value.compareTo(riskMax) <= 0) {
-            return "yellow";
+            return YELLOW;
         }
 
         return "red";
@@ -525,10 +527,10 @@ public class GetComparisonSummaryUseCase {
         }
 
         if (score.compareTo(BigDecimal.valueOf(40)) >= 0) {
-            return new PriorityClassification("medium", "Medium", "yellow");
+            return new PriorityClassification("medium", "Medium", YELLOW);
         }
 
-        return new PriorityClassification("low", "Low", "green");
+        return new PriorityClassification("low", "Low", GREEN);
     }
 
     private ComparisonSummaryDto toDto(ComparisonSummary summary) {
@@ -538,15 +540,15 @@ public class GetComparisonSummaryUseCase {
                 summary.getTerritories()
                         .stream()
                         .map(this::toTerritoryDto)
-                        .collect(Collectors.toList()),
+                        .toList(),
                 summary.getCharts()
                         .stream()
                         .map(this::toChartDto)
-                        .collect(Collectors.toList()),
+                        .toList(),
                 summary.getPriority()
                         .stream()
                         .map(this::toPriorityResultDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 
@@ -581,7 +583,7 @@ public class GetComparisonSummaryUseCase {
                 chart.getData()
                         .stream()
                         .map(this::toChartDataPointDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 
@@ -608,7 +610,7 @@ public class GetComparisonSummaryUseCase {
                 result.getFactors()
                         .stream()
                         .map(this::toPriorityFactorDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 
