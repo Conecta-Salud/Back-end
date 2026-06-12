@@ -221,7 +221,14 @@ public class HealthEstablishmentsIndicatorWriter {
         if (value instanceof Number number) {
             return number.longValue();
         }
-
-        return Long.parseLong(value.toString());
+        if (value == null) {
+            throw new IllegalArgumentException("Cannot convert null to long");
+        }
+        String normalizedValue = value.toString().trim();
+        try {
+            return Long.parseLong(normalizedValue);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Cannot convert value to long: " + normalizedValue, exception);
+        }
     }
 }

@@ -148,7 +148,11 @@ public class TerritoryIndicatorValueWriter {
             return number.intValue();
         }
 
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     public record IndicatorMetadata(Integer id, String code, Integer categoryId) {

@@ -71,6 +71,10 @@ public class AdminOverviewRepositoryImpl implements AdminOverviewRepository {
             return ((BigInteger) value).longValue();
         }
 
-        return Long.valueOf(value.toString());
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 }

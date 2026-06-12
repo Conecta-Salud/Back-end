@@ -108,9 +108,9 @@ public class HealthDashboardRepositoryImpl implements HealthDashboardRepository 
     }
 
     private String indicatorValue(String indicatorCode) {
-        return "MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
+        return ("MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
                 + "AND COALESCE(da.availability_status, tiv.availability_status) NOT IN ('not_available', 'not_applicable') "
-                + "THEN tiv.value END)".formatted(indicatorCode);
+                + "THEN tiv.value END)").formatted(indicatorCode);
     }
 
     private HealthDashboard mapToHealthDashboard(Object[] row) {
@@ -134,7 +134,11 @@ public class HealthDashboardRepositoryImpl implements HealthDashboardRepository 
         if (value instanceof Short) return ((Short) value).intValue();
         if (value instanceof BigInteger) return ((BigInteger) value).intValue();
         if (value instanceof BigDecimal) return ((BigDecimal) value).intValue();
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private Long toLong(Object value) {
@@ -143,6 +147,10 @@ public class HealthDashboardRepositoryImpl implements HealthDashboardRepository 
         if (value instanceof Integer) return ((Integer) value).longValue();
         if (value instanceof BigInteger) return ((BigInteger) value).longValue();
         if (value instanceof BigDecimal) return ((BigDecimal) value).longValue();
-        return Long.valueOf(value.toString());
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 }

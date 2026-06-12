@@ -186,7 +186,7 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
     private String indicatorValue(String indicatorCode) {
         return "MAX(CASE WHEN i.code = '%s' AND COALESCE(da.is_available, 1) = 1 "
                 + "AND COALESCE(da.availability_status, tiv.availability_status) NOT IN ('not_available', 'not_applicable') "
-                + "THEN tiv.value END)".formatted(indicatorCode);
+                + "THEN tiv.value END)";
     }
 
     private TerritoryComparison mapRowToTerritoryComparison(Object[] row) {
@@ -215,7 +215,11 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
         if (value instanceof Number number) {
             return number.intValue();
         }
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private Long toLong(Object value) {
@@ -225,7 +229,11 @@ public class ComparisonRepositoryImpl implements ComparisonRepository {
         if (value instanceof Number number) {
             return number.longValue();
         }
-        return Long.valueOf(value.toString());
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     private BigInteger toBigIntegerNullable(Object value) {

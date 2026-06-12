@@ -141,10 +141,11 @@ public class HealthUnitRepositoryImpl implements HealthUnitRepository, PanacheRe
 
     private Long toLong(Object value) {
         if (value == null) return 0L;
-        if (value instanceof Long) return (Long) value;
-        if (value instanceof Integer) return ((Integer) value).longValue();
-        if (value instanceof BigInteger) return ((BigInteger) value).longValue();
-        if (value instanceof BigDecimal) return ((BigDecimal) value).longValue();
-        return Long.valueOf(value.toString());
+        if (value instanceof Number) return ((Number) value).longValue();
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException ex) {
+            return 0L;
+        }
     }
 }

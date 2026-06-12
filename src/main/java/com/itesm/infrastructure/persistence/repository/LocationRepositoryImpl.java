@@ -121,7 +121,11 @@ public class LocationRepositoryImpl implements LocationRepository {
             return numberValue.intValue();
         }
 
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private String toStringValue(Object value) {

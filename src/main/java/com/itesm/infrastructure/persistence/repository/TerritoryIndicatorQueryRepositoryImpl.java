@@ -255,7 +255,11 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
         if (value instanceof Number number) {
             return number.intValue();
         }
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private Long toLongNullable(Object value) {
@@ -265,7 +269,11 @@ public class TerritoryIndicatorQueryRepositoryImpl implements TerritoryIndicator
         if (value instanceof Number number) {
             return number.longValue();
         }
-        return Long.valueOf(value.toString());
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     private BigDecimal toBigDecimal(Object value) {

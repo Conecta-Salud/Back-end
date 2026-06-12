@@ -198,7 +198,11 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
             return number.longValue();
         }
 
-        return Long.valueOf(value.toString());
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     private Integer toInteger(Object value) {
@@ -210,7 +214,11 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
             return number.intValue();
         }
 
-        return Integer.valueOf(value.toString());
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private String toStringValue(Object value) {
