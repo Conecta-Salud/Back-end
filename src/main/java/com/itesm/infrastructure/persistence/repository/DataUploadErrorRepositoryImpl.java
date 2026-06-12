@@ -16,6 +16,8 @@ import java.util.List;
 @ApplicationScoped
 public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository {
 
+    private static final String UPLOAD_ID_PARAMETER = "uploadId";
+    private static final String BATCH_ID_PARAMETER = "batchId";
     private static final List<String> NON_BLOCKING_ERROR_CODES = List.of(
             "INVALID_COORDINATE",
             "INVALID_CARE_LEVEL"
@@ -70,7 +72,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
     @Transactional
     public void deleteByUploadId(Integer uploadId) {
         em.createQuery("DELETE FROM DataUploadErrorEntity e WHERE e.dataUpload.id = :uploadId")
-                .setParameter("uploadId", uploadId)
+                .setParameter(UPLOAD_ID_PARAMETER, uploadId)
                 .executeUpdate();
     }
 
@@ -85,7 +87,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
                         WHERE e.dataUpload.id = :uploadId
                         ORDER BY e.csvRowNumber ASC, e.id ASC
                         """, DataUploadErrorEntity.class)
-                .setParameter("uploadId", uploadId)
+                .setParameter(UPLOAD_ID_PARAMETER, uploadId)
                 .setFirstResult(safePage * safeSize)
                 .setMaxResults(safeSize)
                 .getResultList();
@@ -119,7 +121,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
                         ORDER BY u.id ASC, e.csv_row_number ASC, e.id ASC
                         LIMIT :limit OFFSET :offset
                         """)
-                .setParameter("batchId", batchId)
+                .setParameter(BATCH_ID_PARAMETER, batchId)
                 .setParameter("limit", safeSize)
                 .setParameter("offset", safePage * safeSize)
                 .getResultList();
@@ -143,7 +145,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
                         FROM DataUploadErrorEntity e
                         WHERE e.dataUpload.id = :uploadId
                         """, Long.class)
-                .setParameter("uploadId", uploadId)
+                .setParameter(UPLOAD_ID_PARAMETER, uploadId)
                 .getSingleResult();
     }
 
@@ -155,7 +157,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
                         WHERE e.dataUpload.id = :uploadId
                           AND e.errorCode NOT IN (:nonBlockingErrorCodes)
                         """, Long.class)
-                .setParameter("uploadId", uploadId)
+                .setParameter(UPLOAD_ID_PARAMETER, uploadId)
                 .setParameter("nonBlockingErrorCodes", NON_BLOCKING_ERROR_CODES)
                 .getSingleResult();
     }
@@ -168,7 +170,7 @@ public class DataUploadErrorRepositoryImpl implements DataUploadErrorRepository 
                         JOIN data_uploads u ON u.id = e.data_upload_id
                         WHERE u.batch_id = :batchId
                         """)
-                .setParameter("batchId", batchId)
+                .setParameter(BATCH_ID_PARAMETER, batchId)
                 .getSingleResult();
 
         return toLong(count);

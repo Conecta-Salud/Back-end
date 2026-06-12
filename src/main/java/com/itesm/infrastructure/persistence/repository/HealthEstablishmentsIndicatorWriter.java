@@ -9,6 +9,12 @@ import jakarta.transaction.Transactional;
 public class HealthEstablishmentsIndicatorWriter {
 
     private static final String METHODOLOGY_NOTE = "Conteo de establecimientos de salud registrados en el catalogo DGIS.";
+    private static final String INDICATOR_ID_PARAMETER = "indicatorId";
+    private static final String SOURCE_YEAR_PARAMETER = "sourceYear";
+    private static final String DATA_SOURCE_ID_PARAMETER = "dataSourceId";
+    private static final String SOURCE_FILE_PARAMETER = "sourceFile";
+    private static final String AVAILABILITY_STATUS_PARAMETER = "availabilityStatus";
+    private static final String METHODOLOGY_NOTE_PARAMETER = "methodologyNote";
 
     private final EntityManager em;
 
@@ -72,12 +78,12 @@ public class HealthEstablishmentsIndicatorWriter {
                             availability_status = VALUES(availability_status),
                             methodology_note = VALUES(methodology_note)
                         """)
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("sourceYear", sourceYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(SOURCE_YEAR_PARAMETER, sourceYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
                 .executeUpdate();
     }
 
@@ -122,12 +128,12 @@ public class HealthEstablishmentsIndicatorWriter {
                             availability_status = VALUES(availability_status),
                             methodology_note = VALUES(methodology_note)
                         """)
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("sourceYear", sourceYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(SOURCE_YEAR_PARAMETER, sourceYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
                 .executeUpdate();
     }
 
@@ -173,12 +179,12 @@ public class HealthEstablishmentsIndicatorWriter {
                             availability_status = VALUES(availability_status),
                             methodology_note = VALUES(methodology_note)
                         """)
-                .setParameter("indicatorId", indicatorId)
-                .setParameter("sourceYear", sourceYear)
-                .setParameter("dataSourceId", dataSourceId)
-                .setParameter("sourceFile", sourceFile)
-                .setParameter("availabilityStatus", AvailabilityStatus.available.name())
-                .setParameter("methodologyNote", METHODOLOGY_NOTE)
+                .setParameter(INDICATOR_ID_PARAMETER, indicatorId)
+                .setParameter(SOURCE_YEAR_PARAMETER, sourceYear)
+                .setParameter(DATA_SOURCE_ID_PARAMETER, dataSourceId)
+                .setParameter(SOURCE_FILE_PARAMETER, sourceFile)
+                .setParameter(AVAILABILITY_STATUS_PARAMETER, AvailabilityStatus.available.name())
+                .setParameter(METHODOLOGY_NOTE_PARAMETER, METHODOLOGY_NOTE)
                 .executeUpdate();
     }
 
@@ -197,7 +203,7 @@ public class HealthEstablishmentsIndicatorWriter {
                         WHERE source_year = :sourceYear
                           AND is_active = 1
                         """)
-                .setParameter("sourceYear", sourceYear)
+                .setParameter(SOURCE_YEAR_PARAMETER, sourceYear)
                 .getSingleResult();
 
         return toLong(count);
@@ -211,7 +217,7 @@ public class HealthEstablishmentsIndicatorWriter {
                         WHERE hu.source_year = :sourceYear
                           AND hu.is_active = 1
                         """.formatted(expression))
-                .setParameter("sourceYear", sourceYear)
+                .setParameter(SOURCE_YEAR_PARAMETER, sourceYear)
                 .getSingleResult();
 
         return toLong(count);

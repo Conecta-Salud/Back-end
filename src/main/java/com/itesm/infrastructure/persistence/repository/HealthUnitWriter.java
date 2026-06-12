@@ -11,6 +11,9 @@ import java.util.Optional;
 @ApplicationScoped
 public class HealthUnitWriter {
 
+    private static final String SOURCE_YEAR_PARAMETER = "sourceYear";
+    private static final String CLUES_PARAMETER = "clues";
+
     private final EntityManager em;
 
     public HealthUnitWriter(EntityManager em) {
@@ -28,7 +31,7 @@ public class HealthUnitWriter {
                         SET is_active = 0
                         WHERE source_year = :sourceYear
                         """)
-                .setParameter("sourceYear", sourceYear)
+                .setParameter(SOURCE_YEAR_PARAMETER, sourceYear)
                 .executeUpdate();
     }
 
@@ -87,14 +90,14 @@ public class HealthUnitWriter {
                                 longitude = VALUES(longitude),
                                 is_active = VALUES(is_active)
                             """)
-                    .setParameter("clues", value.clues())
+                    .setParameter(CLUES_PARAMETER, value.clues())
                     .setParameter("name", value.name())
                     .setParameter("municipalityId", value.municipalityId())
                     .setParameter("institutionId", value.institutionId())
                     .setParameter("establishmentTypeId", value.establishmentTypeId())
                     .setParameter("medicalUnitTypeId", value.medicalUnitTypeId())
                     .setParameter("careLevel", value.careLevel())
-                    .setParameter("sourceYear", value.sourceYear())
+                    .setParameter(SOURCE_YEAR_PARAMETER, value.sourceYear())
                     .setParameter("operationStatus", value.operationStatus())
                     .setParameter("localityName", value.localityName())
                     .setParameter("latitude", value.latitude())
@@ -116,7 +119,7 @@ public class HealthUnitWriter {
                         FROM health_units
                         WHERE clues = :clues
                         """)
-                .setParameter("clues", clues.trim())
+                .setParameter(CLUES_PARAMETER, clues.trim())
                 .setMaxResults(1)
                 .getResultList();
 
@@ -164,14 +167,14 @@ public class HealthUnitWriter {
                             :active
                         )
                         """)
-                .setParameter("clues", value.clues())
+                .setParameter(CLUES_PARAMETER, value.clues())
                 .setParameter("name", value.name())
                 .setParameter("municipalityId", value.municipalityId())
                 .setParameter("institutionId", value.institutionId())
                 .setParameter("establishmentTypeId", value.establishmentTypeId())
                 .setParameter("medicalUnitTypeId", value.medicalUnitTypeId())
                 .setParameter("careLevel", value.careLevel())
-                .setParameter("sourceYear", value.sourceYear())
+                .setParameter(SOURCE_YEAR_PARAMETER, value.sourceYear())
                 .setParameter("operationStatus", value.operationStatus())
                 .setParameter("localityName", value.localityName())
                 .setParameter("latitude", value.latitude())

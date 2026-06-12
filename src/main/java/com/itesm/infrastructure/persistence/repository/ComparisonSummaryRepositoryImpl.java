@@ -15,6 +15,8 @@ import java.util.List;
 @ApplicationScoped
 public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryRepository {
 
+    private static final String PERIOD_ID_PARAMETER = "periodId";
+
     // Arma la base de datos para comparacion avanzada. Los indicadores agregados
     // vienen de territory_indicator_values; hospitales se calcula operativo porque
     // no existe como indicador materializado oficial.
@@ -30,7 +32,7 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
                         "SELECT COUNT(p) FROM PeriodEntity p WHERE p.id = :periodId",
                         Long.class
                 )
-                .setParameter("periodId", periodId)
+                .setParameter(PERIOD_ID_PARAMETER, periodId)
                 .getSingleResult();
 
         return count > 0;
@@ -89,7 +91,7 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
         );
 
         NativeQuery<?> query = em.createNativeQuery(sql).unwrap(NativeQuery.class);
-        query.setParameter("periodId", periodId);
+        query.setParameter(PERIOD_ID_PARAMETER, periodId);
         query.setParameterList("stateCodes", stateCodes);
 
         return ((List<Object[]>) query.getResultList()).stream()
@@ -154,7 +156,7 @@ public class ComparisonSummaryRepositoryImpl implements ComparisonSummaryReposit
         );
 
         NativeQuery<?> query = em.createNativeQuery(sql).unwrap(NativeQuery.class);
-        query.setParameter("periodId", periodId);
+        query.setParameter(PERIOD_ID_PARAMETER, periodId);
         query.setParameterList("municipalityCodes", municipalityCodes);
 
         return ((List<Object[]>) query.getResultList()).stream()

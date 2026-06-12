@@ -17,6 +17,8 @@ import java.util.Optional;
 @ApplicationScoped
 public class DataUploadRepositoryImpl implements DataUploadRepository {
 
+    private static final String BATCH_ID_PARAMETER = "batchId";
+
     private final EntityManager em;
 
     public DataUploadRepositoryImpl(EntityManager em) {
@@ -68,7 +70,7 @@ public class DataUploadRepositoryImpl implements DataUploadRepository {
                         WHERE u.batch.id = :batchId
                         ORDER BY u.createdAt ASC, u.id ASC
                         """, DataUploadEntity.class)
-                .setParameter("batchId", batchId)
+                .setParameter(BATCH_ID_PARAMETER, batchId)
                 .getResultList();
     }
 
@@ -79,7 +81,7 @@ public class DataUploadRepositoryImpl implements DataUploadRepository {
                         FROM DataUploadEntity u
                         WHERE u.batch.id = :batchId
                         """, Long.class)
-                .setParameter("batchId", batchId)
+                .setParameter(BATCH_ID_PARAMETER, batchId)
                 .getSingleResult();
     }
 
@@ -95,7 +97,7 @@ public class DataUploadRepositoryImpl implements DataUploadRepository {
                         WHERE u.batch.id = :batchId
                           AND u.checksum = :checksum
                         """, Long.class)
-                .setParameter("batchId", batchId)
+                .setParameter(BATCH_ID_PARAMETER, batchId)
                 .setParameter("checksum", checksum)
                 .getSingleResult();
 
@@ -114,7 +116,7 @@ public class DataUploadRepositoryImpl implements DataUploadRepository {
                         WHERE u.batch.id = :batchId
                           AND u.fileRole = :fileRole
                         """, Long.class)
-                .setParameter("batchId", batchId)
+                .setParameter(BATCH_ID_PARAMETER, batchId)
                 .setParameter("fileRole", fileRole)
                 .getSingleResult();
 
