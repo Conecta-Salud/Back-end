@@ -23,7 +23,7 @@ public class TerritoryCatalogWriter {
 
     @Transactional
     public Integer ensureState(String inegiCode, String name) {
-        String safeCode = requireText(inegiCode, "inegiCode");
+        String safeCode = requireText(inegiCode, INEGI_CODE_PARAMETER);
         String safeName = requireText(name, "name");
 
         if ("00".equals(safeCode)) {
