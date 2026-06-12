@@ -1,6 +1,5 @@
 package com.itesm.application.dto.state;
 
-import java.math.BigDecimal;
 
 public class StateResponseDto {
 

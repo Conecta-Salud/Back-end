@@ -3,6 +3,7 @@ package com.itesm.application.dto.common;
 import jakarta.json.bind.annotation.JsonbPropertyOrder;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @JsonbPropertyOrder({"code", "message", "detail", "path", "timestamp"})
 public class ApiErrorResponse {
@@ -18,7 +19,7 @@ public class ApiErrorResponse {
         this.message = message;
         this.detail = detail;
         this.path = path;
-        this.timestamp = LocalDateTime.now();
+        this.timestamp = LocalDateTime.now(ZoneId.systemDefault());
     }
 
     public String getCode() {

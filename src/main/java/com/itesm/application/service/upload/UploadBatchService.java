@@ -27,6 +27,8 @@ import java.util.UUID;
 @ApplicationScoped
 public class UploadBatchService {
 
+    private static final String UNKNOWN_BATCH_MESSAGE = "UNKNOWN_BATCH: lote de carga no encontrado";
+
     // Orquesta el ciclo de vida de una carga CSV: lote, archivo fisico, validacion,
     // procesamiento y actualizacion de contadores visibles para administradores.
     private final UploadBatchRepository uploadBatchRepository;
@@ -127,7 +129,7 @@ public class UploadBatchService {
         }
 
         UploadBatchEntity batch = uploadBatchRepository.findById(batchId)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+                .orElseThrow(() -> new NotFoundException(UNKNOWN_BATCH_MESSAGE));
         CsvFileRole parsedFileRole = parseFileRole(fileRole);
         assertCanUploadFile(batch);
         assertFileRoleAllowed(batch.getSourceType(), parsedFileRole);
@@ -181,7 +183,7 @@ public class UploadBatchService {
         }
 
         UploadBatchEntity batch = uploadBatchRepository.findById(batchId)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+                .orElseThrow(() -> new NotFoundException(UNKNOWN_BATCH_MESSAGE));
         UploadProcessingMode mode = parseProcessingMode(request.getMode(), true);
         boolean replaceExistingForYear = Boolean.TRUE.equals(request.getReplaceExistingForYear());
         boolean failOnErrors = Boolean.TRUE.equals(request.getFailOnErrors());
@@ -195,7 +197,7 @@ public class UploadBatchService {
 
         uploadBatchRepository.recalculateCounters(batchId);
         batch = uploadBatchRepository.findById(batchId)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+                .orElseThrow(() -> new NotFoundException(UNKNOWN_BATCH_MESSAGE));
         boolean hasRegisteredErrors = uploads.stream()
                 .anyMatch(upload -> dataUploadErrorRepository.countBlockingByUploadId(upload.getId()) > 0);
 
@@ -272,7 +274,7 @@ public class UploadBatchService {
 
     public UploadBatchDetailResponse findBatchDetail(Integer batchId) {
         UploadBatchEntity batch = uploadBatchRepository.findById(batchId)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+                .orElseThrow(() -> new NotFoundException(UNKNOWN_BATCH_MESSAGE));
         List<UploadFileSummaryResponse> files = dataUploadRepository.findByBatchId(batchId)
                 .stream()
                 .map(this::toFileSummaryResponse)
@@ -301,7 +303,7 @@ public class UploadBatchService {
 
     public PageResponseDto<UploadErrorResponse> findBatchErrors(Integer batchId, int page, int size) {
         uploadBatchRepository.findById(batchId)
-                .orElseThrow(() -> new NotFoundException("UNKNOWN_BATCH: lote de carga no encontrado"));
+                .orElseThrow(() -> new NotFoundException(UNKNOWN_BATCH_MESSAGE));
 
         PageResult<UploadErrorRow> result = dataUploadErrorRepository.findByBatchId(batchId, page, size);
 

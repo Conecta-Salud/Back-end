@@ -1,6 +1,5 @@
 package com.itesm.application.dto.municipality;
 
-import java.math.BigDecimal;
 
 public class MunicipalityResponseDto {
 

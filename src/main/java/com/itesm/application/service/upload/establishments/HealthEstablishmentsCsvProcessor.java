@@ -53,6 +53,13 @@ public class HealthEstablishmentsCsvProcessor {
     private static final String INDICATOR_CODE = "health_establishments";
     private static final String METHODOLOGY_NOTE = "Conteo de establecimientos de salud registrados en el catalogo DGIS.";
     private static final String PERIOD_DESCRIPTION = "Datos oficiales cargados desde catalogo de establecimientos DGIS.";
+    private static final String REQUIRED_FIELD_MISSING = "REQUIRED_FIELD_MISSING";
+    private static final String STATE_CODE_COLUMN = "CLAVE DE LA ENTIDAD";
+    private static final String MUNICIPALITY_CODE_COLUMN = "CLAVE DEL MUNICIPIO";
+    private static final String INVALID_STATE_CODE = "INVALID_STATE_CODE";
+    private static final String INVALID_MUNICIPALITY_CODE = "INVALID_MUNICIPALITY_CODE";
+    private static final String INVALID_COORDINATE = "INVALID_COORDINATE";
+    private static final String CSV_PROCESSING_FOUND = "El procesamiento CSV encontró ";
 
     private final CsvStorageService csvStorageService;
     private final DataUploadRepository dataUploadRepository;
@@ -388,7 +395,7 @@ public class HealthEstablishmentsCsvProcessor {
         String value = optionalText(rawValue);
 
         if (value == null) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "REQUIRED_FIELD_MISSING", columnName + " es obligatorio."));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, REQUIRED_FIELD_MISSING, columnName + " es obligatorio."));
         }
 
         return value;
@@ -406,19 +413,19 @@ public class HealthEstablishmentsCsvProcessor {
         String rawValue = row.getStateCodeRaw();
 
         if (rawValue == null || rawValue.isBlank()) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "REQUIRED_FIELD_MISSING", "La clave de estado es obligatoria."));
+            errors.add(error(row.getCsvRowNumber(), STATE_CODE_COLUMN, rawValue, REQUIRED_FIELD_MISSING, "La clave de estado es obligatoria."));
             return null;
         }
 
         String value = rawValue.trim();
         if (!value.matches("\\d{1,2}")) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "INVALID_STATE_CODE", "La clave de estado debe tener 1 o 2 dígitos."));
+            errors.add(error(row.getCsvRowNumber(), STATE_CODE_COLUMN, rawValue, INVALID_STATE_CODE, "La clave de estado debe tener 1 o 2 dígitos."));
             return null;
         }
 
         String normalized = value.length() == 1 ? "0" + value : value;
         if ("00".equals(normalized)) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DE LA ENTIDAD", rawValue, "INVALID_STATE_CODE", "La clave de estado 00 no es válida para unidades de salud."));
+            errors.add(error(row.getCsvRowNumber(), STATE_CODE_COLUMN, rawValue, INVALID_STATE_CODE, "La clave de estado 00 no es válida para unidades de salud."));
             return null;
         }
 
@@ -429,7 +436,7 @@ public class HealthEstablishmentsCsvProcessor {
         String rawValue = row.getMunicipalityCodeRaw();
 
         if (rawValue == null || rawValue.isBlank()) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "REQUIRED_FIELD_MISSING", "La clave de municipio es obligatoria."));
+            errors.add(error(row.getCsvRowNumber(), MUNICIPALITY_CODE_COLUMN, rawValue, REQUIRED_FIELD_MISSING, "La clave de municipio es obligatoria."));
             return null;
         }
 
@@ -439,7 +446,7 @@ public class HealthEstablishmentsCsvProcessor {
 
         String value = rawValue.trim();
         if (!value.matches("\\d{1,5}")) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe ser numérica."));
+            errors.add(error(row.getCsvRowNumber(), MUNICIPALITY_CODE_COLUMN, rawValue, INVALID_MUNICIPALITY_CODE, "La clave de municipio debe ser numérica."));
             return null;
         }
 
@@ -449,7 +456,7 @@ public class HealthEstablishmentsCsvProcessor {
         }
 
         if (localMunicipalityCode.length() > 3) {
-            errors.add(error(row.getCsvRowNumber(), "CLAVE DEL MUNICIPIO", rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe tener 3 dígitos o ser una clave INEGI de 5 dígitos correspondiente al estado."));
+            errors.add(error(row.getCsvRowNumber(), MUNICIPALITY_CODE_COLUMN, rawValue, INVALID_MUNICIPALITY_CODE, "La clave de municipio debe tener 3 dígitos o ser una clave INEGI de 5 dígitos correspondiente al estado."));
             return null;
         }
 
@@ -503,13 +510,13 @@ public class HealthEstablishmentsCsvProcessor {
         try {
             BigDecimal value = new BigDecimal(rawValue.trim());
             if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
-                errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_COORDINATE", columnName + " está fuera del rango válido."));
+                errors.add(error(row.getCsvRowNumber(), columnName, rawValue, INVALID_COORDINATE, columnName + " está fuera del rango válido."));
                 return null;
             }
 
             return value;
         } catch (RuntimeException e) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "INVALID_COORDINATE", columnName + " debe ser numérico."));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, INVALID_COORDINATE, columnName + " debe ser numérico."));
             return null;
         }
     }
@@ -538,9 +545,9 @@ public class HealthEstablishmentsCsvProcessor {
     }
 
     private boolean isBlockingIssue(UploadErrorDraft error) {
-        return "REQUIRED_FIELD_MISSING".equals(error.getErrorCode())
-                || "INVALID_STATE_CODE".equals(error.getErrorCode())
-                || "INVALID_MUNICIPALITY_CODE".equals(error.getErrorCode())
+        return REQUIRED_FIELD_MISSING.equals(error.getErrorCode())
+                || INVALID_STATE_CODE.equals(error.getErrorCode())
+                || INVALID_MUNICIPALITY_CODE.equals(error.getErrorCode())
                 || "DUPLICATED_CLUES_IN_FILE".equals(error.getErrorCode())
                 || "INVALID_ROW_FORMAT".equals(error.getErrorCode());
     }
@@ -550,7 +557,7 @@ public class HealthEstablishmentsCsvProcessor {
     }
 
     private boolean isCoordinateWarning(UploadErrorDraft error) {
-        return "INVALID_COORDINATE".equals(error.getErrorCode());
+        return INVALID_COORDINATE.equals(error.getErrorCode());
     }
 
     private ProcessingCatalog loadCatalog(UploadBatchEntity batch) {
@@ -635,17 +642,17 @@ public class HealthEstablishmentsCsvProcessor {
             return null;
         }
 
-        StringBuilder record = new StringBuilder(firstLine);
-        while (hasOpenQuotes(record)) {
+        StringBuilder csvRecord = new StringBuilder(firstLine);
+        while (hasOpenQuotes(csvRecord)) {
             String continuation = reader.readLine();
             if (continuation == null) {
                 break;
             }
 
-            record.append('\n').append(continuation);
+            csvRecord.append('\n').append(continuation);
         }
 
-        return record.toString();
+        return csvRecord.toString();
     }
 
     private boolean hasOpenQuotes(CharSequence value) {
@@ -703,14 +710,14 @@ public class HealthEstablishmentsCsvProcessor {
 
     private String processingSummary(int errorRecords, int warningRecords) {
         if (errorRecords == 0) {
-            return "El procesamiento CSV encontró " + warningRecords + " advertencia(s).";
+            return CSV_PROCESSING_FOUND + warningRecords + " advertencia(s).";
         }
 
         if (warningRecords == 0) {
-            return "El procesamiento CSV encontró " + errorRecords + " error(es).";
+            return CSV_PROCESSING_FOUND + errorRecords + " error(es).";
         }
 
-        return "El procesamiento CSV encontró " + errorRecords + " error(es) y " + warningRecords + " advertencia(s).";
+        return CSV_PROCESSING_FOUND + errorRecords + " error(es) y " + warningRecords + " advertencia(s).";
     }
 
     private UploadStatus statusFor(int errorRecords, int warningRecords, int healthUnitsUpserted) {

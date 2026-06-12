@@ -11,7 +11,9 @@ public class UpdateUserDto {
     private Boolean active;
     private UserRole role;
 
-    public UpdateUserDto() {}
+    public UpdateUserDto() {
+        // Required by JSON-B for request body deserialization.
+    }
 
     public Integer getDepartmentId() {
         return departmentId;

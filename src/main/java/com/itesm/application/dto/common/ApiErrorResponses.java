@@ -9,6 +9,12 @@ public final class ApiErrorResponses {
 
     public static final String INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR";
     public static final String AUTH_PROVIDER_CONFIGURATION_ERROR = "AUTH_PROVIDER_CONFIGURATION_ERROR";
+    private static final String DUPLICATED_FILE = "DUPLICATED_FILE";
+    private static final String DUPLICATED_BATCH_VERSION = "DUPLICATED_BATCH_VERSION";
+    private static final String EXPECTED_FILES_EXCEEDED = "EXPECTED_FILES_EXCEEDED";
+    private static final String INVALID_BATCH_STATUS = "INVALID_BATCH_STATUS";
+    private static final String INVALID_UPLOAD_STATUS = "INVALID_UPLOAD_STATUS";
+    private static final String BATCH_HAS_ERRORS = "BATCH_HAS_ERRORS";
 
     private static final Pattern CODE_PREFIX = Pattern.compile("^([A-Z][A-Z0-9_]*)(?:\\s*:\\s*(.*))?$");
 
@@ -17,20 +23,20 @@ public final class ApiErrorResponses {
             "FILE_TOO_LARGE",
             "EMPTY_FILE",
             "MISSING_REQUIRED_HEADER",
-            "DUPLICATED_FILE",
+            DUPLICATED_FILE,
             "DUPLICATED_FILE_ROLE_IN_BATCH",
-            "DUPLICATED_BATCH_VERSION",
-            "EXPECTED_FILES_EXCEEDED",
+            DUPLICATED_BATCH_VERSION,
+            EXPECTED_FILES_EXCEEDED,
             "INVALID_FILE_ROLE",
             "INVALID_FILE_ROLE_FOR_SOURCE_TYPE",
             "INVALID_SOURCE_TYPE",
-            "INVALID_BATCH_STATUS",
-            "INVALID_UPLOAD_STATUS",
+            INVALID_BATCH_STATUS,
+            INVALID_UPLOAD_STATUS,
             "INVALID_PROCESSING_MODE",
             "INVALID_YEAR",
             "INVALID_NUMERIC_VALUE",
             "REQUIRED_FIELD_MISSING",
-            "BATCH_HAS_ERRORS",
+            BATCH_HAS_ERRORS,
             "INVALID_FILE_NAME",
             "INVALID_STATUS",
             "UPLOAD_STORAGE_ERROR",
@@ -69,20 +75,20 @@ public final class ApiErrorResponses {
             Map.entry("FILE_TOO_LARGE", "El archivo excede el tamaño máximo permitido."),
             Map.entry("EMPTY_FILE", "El archivo CSV está vacío."),
             Map.entry("MISSING_REQUIRED_HEADER", "El archivo CSV no contiene todos los encabezados requeridos."),
-            Map.entry("DUPLICATED_FILE", "Este archivo ya fue cargado en el lote."),
+            Map.entry(DUPLICATED_FILE, "Este archivo ya fue cargado en el lote."),
             Map.entry("DUPLICATED_FILE_ROLE_IN_BATCH", "Ya existe un archivo con ese rol en el lote."),
-            Map.entry("DUPLICATED_BATCH_VERSION", "Ya existe un lote de carga con esa versión para el tipo de fuente y año seleccionados."),
-            Map.entry("EXPECTED_FILES_EXCEEDED", "El lote ya alcanzó el número esperado de archivos."),
+            Map.entry(DUPLICATED_BATCH_VERSION, "Ya existe un lote de carga con esa versión para el tipo de fuente y año seleccionados."),
+            Map.entry(EXPECTED_FILES_EXCEEDED, "El lote ya alcanzó el número esperado de archivos."),
             Map.entry("INVALID_FILE_ROLE", "El rol del archivo no es válido."),
             Map.entry("INVALID_FILE_ROLE_FOR_SOURCE_TYPE", "El tipo de archivo no corresponde con el tipo de carga seleccionado."),
             Map.entry("INVALID_SOURCE_TYPE", "El tipo de carga no es válido."),
-            Map.entry("INVALID_BATCH_STATUS", "El estado actual del lote no permite esta operación."),
-            Map.entry("INVALID_UPLOAD_STATUS", "El estado actual del archivo no permite esta operación."),
+            Map.entry(INVALID_BATCH_STATUS, "El estado actual del lote no permite esta operación."),
+            Map.entry(INVALID_UPLOAD_STATUS, "El estado actual del archivo no permite esta operación."),
             Map.entry("INVALID_PROCESSING_MODE", "El modo de procesamiento no es válido."),
             Map.entry("INVALID_YEAR", "El año proporcionado no es válido."),
             Map.entry("INVALID_NUMERIC_VALUE", "El archivo contiene un valor numérico inválido."),
             Map.entry("REQUIRED_FIELD_MISSING", "Falta un campo requerido."),
-            Map.entry("BATCH_HAS_ERRORS", "El lote contiene errores y no puede procesarse con failOnErrors activado."),
+            Map.entry(BATCH_HAS_ERRORS, "El lote contiene errores y no puede procesarse con failOnErrors activado."),
             Map.entry("UNKNOWN_BATCH", "No se encontró el lote de carga solicitado."),
             Map.entry("UNKNOWN_UPLOAD", "No se encontró el archivo de carga solicitado."),
             Map.entry("UNKNOWN_DATA_SOURCE", "No se encontró la fuente de datos solicitada."),
@@ -107,12 +113,12 @@ public final class ApiErrorResponses {
 
     private static final Map<String, String> DEFAULT_DETAILS = Map.ofEntries(
             Map.entry(AUTH_PROVIDER_CONFIGURATION_ERROR, "Revise la configuración del proveedor de autenticación en el servidor."),
-            Map.entry("INVALID_BATCH_STATUS", "El lote solo puede procesarse cuando está pendiente o en advertencia."),
-            Map.entry("INVALID_UPLOAD_STATUS", "El archivo solo puede validarse cuando está pendiente, en advertencia o en error."),
-            Map.entry("BATCH_HAS_ERRORS", "El lote tiene errores de validación. Revise la tabla de errores antes de procesar."),
-            Map.entry("DUPLICATED_FILE", "Ya existe un archivo con el mismo contenido dentro de este lote."),
-            Map.entry("DUPLICATED_BATCH_VERSION", "Cambia la versión del lote o usa el lote existente."),
-            Map.entry("EXPECTED_FILES_EXCEEDED", "El número de archivos cargados ya alcanzó el máximo esperado para este lote.")
+            Map.entry(INVALID_BATCH_STATUS, "El lote solo puede procesarse cuando está pendiente o en advertencia."),
+            Map.entry(INVALID_UPLOAD_STATUS, "El archivo solo puede validarse cuando está pendiente, en advertencia o en error."),
+            Map.entry(BATCH_HAS_ERRORS, "El lote tiene errores de validación. Revise la tabla de errores antes de procesar."),
+            Map.entry(DUPLICATED_FILE, "Ya existe un archivo con el mismo contenido dentro de este lote."),
+            Map.entry(DUPLICATED_BATCH_VERSION, "Cambia la versión del lote o usa el lote existente."),
+            Map.entry(EXPECTED_FILES_EXCEEDED, "El número de archivos cargados ya alcanzó el máximo esperado para este lote.")
     );
 
     private ApiErrorResponses() {

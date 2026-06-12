@@ -8,7 +8,6 @@ import com.itesm.domain.repository.SystemActivityLogRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.LocalDateTime;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class FindActivityLogsUseCase {
@@ -44,7 +43,7 @@ public class FindActivityLogsUseCase {
                 logs.getItems()
                         .stream()
                         .map(this::toDto)
-                        .collect(Collectors.toList()),
+                        .toList(),
                 logs.getTotalItems(),
                 logs.getPage(),
                 logs.getSize(),
