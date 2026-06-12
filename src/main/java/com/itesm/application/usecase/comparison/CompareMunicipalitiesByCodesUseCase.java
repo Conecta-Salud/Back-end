@@ -10,7 +10,6 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class CompareMunicipalitiesByCodesUseCase {
@@ -59,6 +58,6 @@ public class CompareMunicipalitiesByCodesUseCase {
                                 item.getTotalHospitalBeds()
                         )
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

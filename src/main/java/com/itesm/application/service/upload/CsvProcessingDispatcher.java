@@ -18,6 +18,9 @@ import java.util.List;
 @ApplicationScoped
 public class CsvProcessingDispatcher {
 
+    private static final String FILE_COUNT_LABEL = " archivo(s), ";
+    private static final String ERRORS_LABEL = " errores.";
+
     // Punto unico de enrutamiento: el sourceType del lote decide que procesador CSV
     // interpreta los archivos y que tablas/indicadores se actualizan.
     private final DataUploadRepository dataUploadRepository;
@@ -75,7 +78,7 @@ public class CsvProcessingDispatcher {
                 statusFor(result),
             "Datos poblacionales procesados: "
                 + result.filesProcessed()
-                + " archivo(s), "
+                + FILE_COUNT_LABEL
                 + result.dataRows()
                 + " filas de datos, "
                 + result.skippedRows()
@@ -85,7 +88,7 @@ public class CsvProcessingDispatcher {
                 + result.valuesUpserted()
                 + " valores insertados/actualizados, "
                 + result.errorRecords()
-                + " errores."
+                + ERRORS_LABEL
         );
     }
 
@@ -106,7 +109,7 @@ public class CsvProcessingDispatcher {
                 statusFor(result),
             "Establecimientos procesados: "
                 + result.filesProcessed()
-                + " archivo(s), "
+                + FILE_COUNT_LABEL
                 + result.dataRows()
                 + " filas, "
                 + result.skippedRows()
@@ -122,7 +125,7 @@ public class CsvProcessingDispatcher {
                 + result.warningRecords()
                 + " advertencias no bloqueantes, "
                 + result.errorRecords()
-                + " errores."
+                + ERRORS_LABEL
         );
     }
 
@@ -143,7 +146,7 @@ public class CsvProcessingDispatcher {
                 statusFor(result),
             "Datos sectoriales procesados: "
                 + result.filesProcessed()
-                + " archivo(s), "
+                + FILE_COUNT_LABEL
                 + result.dataRows()
                 + " filas, "
                 + result.skippedRows()
@@ -161,7 +164,7 @@ public class CsvProcessingDispatcher {
                 + result.territorialIndicatorsUpserted()
                 + " indicadores territoriales actualizados, "
                 + result.errorRecords()
-                + " errores."
+                + ERRORS_LABEL
         );
     }
 

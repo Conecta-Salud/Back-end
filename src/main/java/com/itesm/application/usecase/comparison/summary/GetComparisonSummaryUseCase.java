@@ -27,6 +27,7 @@ public class GetComparisonSummaryUseCase {
     private static final BigDecimal HOSPITAL_BEDS_REFERENCE_PER_1000 = BigDecimal.valueOf(3.0);
     private static final BigDecimal HOSPITALS_REFERENCE_PER_100K = BigDecimal.valueOf(5.0);
     private static final BigDecimal OLDER_ADULTS_REFERENCE_PERCENTAGE = BigDecimal.valueOf(20.0);
+    private static final String AVAILABILITY_STATUS = "availabilityStatus";
 
     private final ComparisonSummaryRepository comparisonSummaryRepository;
     private final AuthenticatedUserContext authenticatedUserContext;
@@ -174,11 +175,11 @@ public class GetComparisonSummaryUseCase {
                 level.getValue(),
                 items.stream()
                         .map(ComparisonRawItem::getTerritory)
-                        .collect(Collectors.toList()),
+                        .toList(),
                 charts,
                 items.stream()
                         .map(this::buildPriorityResult)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 
@@ -193,7 +194,7 @@ public class GetComparisonSummaryUseCase {
                             medicalCoverage,
                             variantHigherIsBetter(medicalCoverage, DOCTORS_REFERENCE_PER_1000, BigDecimal.ONE),
                             extra(
-                                    "availabilityStatus", availabilityStatus(medicalCoverage),
+                                    AVAILABILITY_STATUS, availabilityStatus(medicalCoverage),
                                     "totalDoctors", item.getTotalDoctors(),
                                     "totalPopulation", item.getTotalPopulation()
                             )
@@ -233,7 +234,7 @@ public class GetComparisonSummaryUseCase {
                             deficitPer1000,
                             variantLowerIsBetter(deficitPer1000, BigDecimal.ONE, DOCTORS_REFERENCE_PER_1000),
                             extra(
-                                    "availabilityStatus", availabilityStatus(deficitPer1000),
+                                    AVAILABILITY_STATUS, availabilityStatus(deficitPer1000),
                                     "estimatedDoctorDeficit", estimatedDoctorDeficit,
                                     "medicalCoverage", medicalCoverage,
                                     "reference", DOCTORS_REFERENCE_PER_1000
@@ -262,7 +263,7 @@ public class GetComparisonSummaryUseCase {
                             hospitalBedsPer1000,
                             variantHigherIsBetter(hospitalBedsPer1000, HOSPITAL_BEDS_REFERENCE_PER_1000, BigDecimal.ONE),
                             extra(
-                                    "availabilityStatus", availabilityStatus(hospitalBedsPer1000),
+                                    AVAILABILITY_STATUS, availabilityStatus(hospitalBedsPer1000),
                                     "totalHospitalBeds", item.getTotalHospitalBeds(),
                                     "totalPopulation", item.getTotalPopulation()
                             )

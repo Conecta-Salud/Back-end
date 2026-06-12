@@ -62,13 +62,22 @@ public class HealthSectorialCsvProcessor {
 
     private static final int CHUNK_SIZE = 500;
     private static final Charset SOURCE_CHARSET = Charset.forName("windows-1252");
+    private static final String TOTAL_DOCTORS = "total_doctors";
+    private static final String TOTAL_NURSES = "total_nurses";
+    private static final String HOSPITAL_BEDS = "hospital_beds";
+    private static final String CONSULTING_ROOMS = "consulting_rooms";
+    private static final String DOCTORS_PER_1000 = "doctors_per_1000";
+    private static final String BEDS_PER_1000 = "beds_per_1000";
+    private static final String REQUIRED_FIELD_MISSING = "REQUIRED_FIELD_MISSING";
+    private static final String CLAVE_ESTADO = "Clave Estado";
+    private static final String CLAVE_MUNICIPIO = "Clave Municipio";
     private static final Set<String> REQUIRED_INDICATORS = Set.of(
-            "total_doctors",
-            "total_nurses",
-            "hospital_beds",
-            "consulting_rooms",
-            "doctors_per_1000",
-            "beds_per_1000",
+            TOTAL_DOCTORS,
+            TOTAL_NURSES,
+            HOSPITAL_BEDS,
+            CONSULTING_ROOMS,
+            DOCTORS_PER_1000,
+            BEDS_PER_1000,
             "total_population"
     );
     private static final Set<String> REQUIRED_INFRASTRUCTURE_TYPES = Set.of(
@@ -263,7 +272,7 @@ public class HealthSectorialCsvProcessor {
                 }
 
                 dataRows++;
-                RowProcessingResult rowResult = processRow(batch, upload, row, writeFinalData, periodId, catalog, context, seenClues);
+                RowProcessingResult rowResult = processRow(batch, upload, row, writeFinalData, periodId, context, seenClues);
                 chunk.errors().addAll(rowResult.errors());
                 rowResult.staffDraftOptional().ifPresent(chunk.staff()::add);
                 rowResult.infrastructureDraftOptional().ifPresent(chunk.infrastructure()::add);
@@ -316,7 +325,6 @@ public class HealthSectorialCsvProcessor {
             HealthSectorialCsvRow row,
             boolean writeFinalData,
             Integer periodId,
-            ProcessingCatalog catalog,
             ProcessingContext context,
             Set<String> seenClues
     ) {
@@ -347,7 +355,7 @@ public class HealthSectorialCsvProcessor {
             return new RowProcessingResult(null, null, List.of(), List.of(), errors, errors.isEmpty(), false);
         }
 
-        Integer healthUnitId = resolveHealthUnitId(row, context, clues, unitName, stateCode, stateName,
+        Integer healthUnitId = resolveHealthUnitId(context, clues, unitName, stateCode, stateName,
                 municipalityCode, municipalityName, institutionName, establishmentTypeName, medicalUnitTypeName, expectedYear);
         boolean minimalCreated = context.minimalHealthUnitsCreated().remove(clues);
 
@@ -367,7 +375,6 @@ public class HealthSectorialCsvProcessor {
     }
 
     private Integer resolveHealthUnitId(
-            HealthSectorialCsvRow row,
             ProcessingContext context,
             String clues,
             String unitName,
@@ -488,7 +495,7 @@ public class HealthSectorialCsvProcessor {
     ) {
         List<DataAvailabilityWriteDraft> result = new ArrayList<>();
         List<String> sectorialCodes = List.of(
-                "total_doctors", "total_nurses", "hospital_beds", "consulting_rooms", "doctors_per_1000", "beds_per_1000");
+                TOTAL_DOCTORS, TOTAL_NURSES, HOSPITAL_BEDS, CONSULTING_ROOMS, DOCTORS_PER_1000, BEDS_PER_1000);
         List<String> levels = List.of(TerritoryLevel.country.name(), TerritoryLevel.state.name(), TerritoryLevel.municipality.name());
 
         for (String code : sectorialCodes) {
@@ -497,12 +504,15 @@ public class HealthSectorialCsvProcessor {
             for (String level : levels) {
                 boolean available = availableLevels.contains(level);
                 boolean rate = code.endsWith("_per_1000");
+                String unavailableNote = rate
+                        ? RATE_NOT_AVAILABLE_NOTE
+                        : "No se cargaron datos sectoriales para el territorio/anio.";
                 result.add(new DataAvailabilityWriteDraft(
                         indicator.categoryId(), indicator.id(), level, analysisYear,
                         available ? analysisYear : null,
                         available,
                         available ? AvailabilityStatus.available.name() : AvailabilityStatus.not_available.name(),
-                        available ? null : (rate ? RATE_NOT_AVAILABLE_NOTE : "No se cargaron datos sectoriales para el territorio/anio.")
+                        available ? null : unavailableNote
                 ));
             }
         }
@@ -529,7 +539,7 @@ public class HealthSectorialCsvProcessor {
     private String required(HealthSectorialCsvRow row, String columnName, String rawValue, List<UploadErrorDraft> errors) {
         String value = optionalText(rawValue);
         if (value == null) {
-            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, "REQUIRED_FIELD_MISSING", columnName + " es obligatorio."));
+            errors.add(error(row.getCsvRowNumber(), columnName, rawValue, REQUIRED_FIELD_MISSING, columnName + " es obligatorio."));
         }
         return value;
     }
@@ -563,17 +573,17 @@ public class HealthSectorialCsvProcessor {
     private String normalizeStateCode(HealthSectorialCsvRow row, List<UploadErrorDraft> errors) {
         String rawValue = row.getStateCodeRaw();
         if (rawValue == null || rawValue.isBlank()) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "REQUIRED_FIELD_MISSING", "La clave de estado es obligatoria."));
+            errors.add(error(row.getCsvRowNumber(), CLAVE_ESTADO, rawValue, REQUIRED_FIELD_MISSING, "La clave de estado es obligatoria."));
             return null;
         }
         String value = rawValue.trim();
         if (!value.matches("\\d{1,2}")) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "INVALID_STATE_CODE", "La clave de estado debe tener 1 o 2 dígitos."));
+            errors.add(error(row.getCsvRowNumber(), CLAVE_ESTADO, rawValue, "INVALID_STATE_CODE", "La clave de estado debe tener 1 o 2 dígitos."));
             return null;
         }
         String normalized = value.length() == 1 ? "0" + value : value;
         if ("00".equals(normalized)) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Estado", rawValue, "INVALID_STATE_CODE", "La clave de estado 00 no es válida para unidades de salud."));
+            errors.add(error(row.getCsvRowNumber(), CLAVE_ESTADO, rawValue, "INVALID_STATE_CODE", "La clave de estado 00 no es válida para unidades de salud."));
             return null;
         }
         return normalized;
@@ -582,7 +592,7 @@ public class HealthSectorialCsvProcessor {
     private String normalizeMunicipalityCode(HealthSectorialCsvRow row, String stateCode, List<UploadErrorDraft> errors) {
         String rawValue = row.getMunicipalityCodeRaw();
         if (rawValue == null || rawValue.isBlank()) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "REQUIRED_FIELD_MISSING", "La clave de municipio es obligatoria."));
+            errors.add(error(row.getCsvRowNumber(), CLAVE_MUNICIPIO, rawValue, REQUIRED_FIELD_MISSING, "La clave de municipio es obligatoria."));
             return null;
         }
         if (stateCode == null) {
@@ -590,7 +600,7 @@ public class HealthSectorialCsvProcessor {
         }
         String value = rawValue.trim();
         if (!value.matches("\\d{1,5}")) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe ser numérica."));
+            errors.add(error(row.getCsvRowNumber(), CLAVE_MUNICIPIO, rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe ser numérica."));
             return null;
         }
         String localCode = value;
@@ -598,7 +608,7 @@ public class HealthSectorialCsvProcessor {
             localCode = value.substring(2);
         }
         if (localCode.length() > 3) {
-            errors.add(error(row.getCsvRowNumber(), "Clave Municipio", rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe tener 3 dígitos o ser una clave INEGI de 5 dígitos correspondiente al estado."));
+            errors.add(error(row.getCsvRowNumber(), CLAVE_MUNICIPIO, rawValue, "INVALID_MUNICIPALITY_CODE", "La clave de municipio debe tener 3 dígitos o ser una clave INEGI de 5 dígitos correspondiente al estado."));
             return null;
         }
         return stateCode + leftPad(localCode, 3);
@@ -620,15 +630,15 @@ public class HealthSectorialCsvProcessor {
         if (firstLine == null) {
             return null;
         }
-        StringBuilder record = new StringBuilder(firstLine);
-        while (hasOpenQuotes(record)) {
+        StringBuilder csvRecord = new StringBuilder(firstLine);
+        while (hasOpenQuotes(csvRecord)) {
             String continuation = reader.readLine();
             if (continuation == null) {
                 break;
             }
-            record.append('\n').append(continuation);
+            csvRecord.append('\n').append(continuation);
         }
-        return record.toString();
+        return csvRecord.toString();
     }
 
     private boolean hasOpenQuotes(CharSequence value) {
@@ -697,12 +707,12 @@ public class HealthSectorialCsvProcessor {
     ) {
         Set<Integer> sectorialIndicatorIds() {
             return Set.of(
-                    indicatorIdsByCode.get("total_doctors"),
-                    indicatorIdsByCode.get("total_nurses"),
-                    indicatorIdsByCode.get("hospital_beds"),
-                    indicatorIdsByCode.get("consulting_rooms"),
-                    indicatorIdsByCode.get("doctors_per_1000"),
-                    indicatorIdsByCode.get("beds_per_1000")
+                    indicatorIdsByCode.get(TOTAL_DOCTORS),
+                    indicatorIdsByCode.get(TOTAL_NURSES),
+                    indicatorIdsByCode.get(HOSPITAL_BEDS),
+                    indicatorIdsByCode.get(CONSULTING_ROOMS),
+                    indicatorIdsByCode.get(DOCTORS_PER_1000),
+                    indicatorIdsByCode.get(BEDS_PER_1000)
             );
         }
     }

@@ -17,6 +17,15 @@ import java.util.Set;
 @ApplicationScoped
 public class CsvSchemaRegistry {
 
+    private static final String PERIODOS = "periodos";
+    private static final String AREA_GEOGRAFICA = "area geografica";
+    private static final String POBLACION_TOTAL = "poblacion total";
+    private static final String PORCENTAJE_POBLACION_60 = "porcentaje de poblacion de 60";
+    private static final String TERRITORY_LEVEL = "territory_level";
+    private static final String INEGI_CODE = "inegi_code";
+    private static final String TERRITORY_NAME = "territory_name";
+    private static final String VALUE = "value";
+
     // Catalogo tecnico de contratos CSV: define encabezados y encoding esperados por
     // fileRole, separado de los procesadores para mantener una sola fuente de reglas.
     private final Map<CsvFileRole, List<String>> requiredHeaders = new EnumMap<>(CsvFileRole.class);
@@ -24,44 +33,44 @@ public class CsvSchemaRegistry {
 
     public CsvSchemaRegistry() {
         requiredHeaders.put(CsvFileRole.population_indicators, List.of(
-                "periodos",
-                "area geografica",
-                "poblacion total",
-                "porcentaje de poblacion de 60",
+                PERIODOS,
+                AREA_GEOGRAFICA,
+                POBLACION_TOTAL,
+                PORCENTAJE_POBLACION_60,
                 "carencia por acceso",
                 "poblacion en situacion de pobreza"
         ));
         partialHeaderRoles.add(CsvFileRole.population_indicators);
 
         requiredHeaders.put(CsvFileRole.population_municipal_base, List.of(
-                "periodos",
-                "area geografica",
-                "poblacion total",
-                "porcentaje de poblacion de 60"
+                PERIODOS,
+                AREA_GEOGRAFICA,
+                POBLACION_TOTAL,
+                PORCENTAJE_POBLACION_60
         ));
         partialHeaderRoles.add(CsvFileRole.population_municipal_base);
 
         requiredHeaders.put(CsvFileRole.population_state_national_indicators, List.of(
-                "periodos",
-                "area geografica",
-                "poblacion total",
-                "porcentaje de poblacion de 60",
+                PERIODOS,
+                AREA_GEOGRAFICA,
+                POBLACION_TOTAL,
+                PORCENTAJE_POBLACION_60,
                 "carencia por acceso",
                 "poblacion en situacion de pobreza"
         ));
         partialHeaderRoles.add(CsvFileRole.population_state_national_indicators);
 
         requiredHeaders.put(CsvFileRole.population_total, List.of(
-                "territory_level", "inegi_code", "state_inegi_code", "territory_name", "value"
+                TERRITORY_LEVEL, INEGI_CODE, "state_inegi_code", TERRITORY_NAME, VALUE
         ));
         requiredHeaders.put(CsvFileRole.percentage_over_60, List.of(
-                "territory_level", "inegi_code", "state_inegi_code", "territory_name", "value"
+                TERRITORY_LEVEL, INEGI_CODE, "state_inegi_code", TERRITORY_NAME, VALUE
         ));
         requiredHeaders.put(CsvFileRole.healthcare_access_deficiency, List.of(
-                "territory_level", "inegi_code", "territory_name", "value"
+                TERRITORY_LEVEL, INEGI_CODE, TERRITORY_NAME, VALUE
         ));
         requiredHeaders.put(CsvFileRole.total_poverty_population, List.of(
-                "territory_level", "inegi_code", "territory_name", "value"
+                TERRITORY_LEVEL, INEGI_CODE, TERRITORY_NAME, VALUE
         ));
         requiredHeaders.put(CsvFileRole.establishments_catalog, List.of(
                 "clues",

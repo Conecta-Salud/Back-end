@@ -48,12 +48,20 @@ public class PopulationIndicatorsCsvProcessor {
     private static final String BASE_POPULATION_NOTE = "Dato poblacional base 2020 utilizado como referencia para el año de análisis.";
     private static final String MUNICIPAL_UNAVAILABLE_NOTE = "Indicador no disponible a nivel municipal en la fuente oficial.";
     private static final String PERIOD_DESCRIPTION = "Datos oficiales cargados desde fuente poblacional.";
+    private static final String TOTAL_POPULATION = "total_population";
+    private static final String PERCENTAGE_OVER_60 = "percentage_over_60";
+    private static final String HEALTHCARE_ACCESS_DEFICIENCY = "healthcare_access_deficiency";
+    private static final String TOTAL_POVERTY_POPULATION = "total_poverty_population";
+    private static final String REQUIRED_FIELD_MISSING = "REQUIRED_FIELD_MISSING";
+    private static final String POBLACION_TOTAL = "Población total";
+    private static final String PERIODOS = "Periodos";
+    private static final String AREA_GEOGRAFICA = "Area geografica";
     private static final List<Short> TARGET_ANALYSIS_YEARS = List.of((short) 2018, (short) 2020, (short) 2022, (short) 2024);
     private static final Set<String> INDICATOR_CODES = Set.of(
-            "total_population",
-            "percentage_over_60",
-            "healthcare_access_deficiency",
-            "total_poverty_population"
+            TOTAL_POPULATION,
+            PERCENTAGE_OVER_60,
+            HEALTHCARE_ACCESS_DEFICIENCY,
+            TOTAL_POVERTY_POPULATION
     );
     private static final Set<CsvFileRole> SUPPORTED_ROLES = EnumSet.of(
             CsvFileRole.population_indicators,
@@ -283,7 +291,7 @@ public class PopulationIndicatorsCsvProcessor {
                     territory,
                     period,
                     catalog,
-                    "healthcare_access_deficiency",
+                    HEALTHCARE_ACCESS_DEFICIENCY,
                     "Carencia por acceso a los servicios de salud",
                     row.getHealthcareAccessDeficiencyRaw(),
                     values,
@@ -296,7 +304,7 @@ public class PopulationIndicatorsCsvProcessor {
                     territory,
                     period,
                     catalog,
-                    "total_poverty_population",
+                    TOTAL_POVERTY_POPULATION,
                     "Poblacion en situacion de pobreza",
                     row.getTotalPovertyPopulationRaw(),
                     values,
@@ -318,14 +326,14 @@ public class PopulationIndicatorsCsvProcessor {
             List<UploadErrorDraft> errors
     ) {
         if (period.shortValue() != POPULATION_SOURCE_YEAR) {
-            validateOptionalDecimal(row, "Población total", row.getTotalPopulationRaw(), errors);
+            validateOptionalDecimal(row, POBLACION_TOTAL, row.getTotalPopulationRaw(), errors);
             validateOptionalDecimal(row, "Porcentaje de población de 60 y más años", row.getPercentageOver60Raw(), errors);
             return;
         }
 
         BigDecimal totalPopulation = parseRequiredDecimal(
                 row,
-                "Población total",
+                POBLACION_TOTAL,
                 row.getTotalPopulationRaw(),
                 errors
         );
@@ -339,7 +347,7 @@ public class PopulationIndicatorsCsvProcessor {
         if (totalPopulation != null && !isWholeNumber(totalPopulation)) {
             errors.add(error(
                     row.getCsvRowNumber(),
-                    "Población total",
+                    POBLACION_TOTAL,
                     row.getTotalPopulationRaw(),
                     "INVALID_NUMERIC_VALUE",
                     "Población total debe ser un valor entero."
@@ -357,7 +365,7 @@ public class PopulationIndicatorsCsvProcessor {
                         batch,
                         upload,
                         territory,
-                        catalog.indicators().get("total_population").id(),
+                        catalog.indicators().get(TOTAL_POPULATION).id(),
                         totalPopulation.stripTrailingZeros(),
                         analysisYear,
                         POPULATION_SOURCE_YEAR,
@@ -370,7 +378,7 @@ public class PopulationIndicatorsCsvProcessor {
                         batch,
                         upload,
                         territory,
-                        catalog.indicators().get("percentage_over_60").id(),
+                        catalog.indicators().get(PERCENTAGE_OVER_60).id(),
                         percentageOver60,
                         analysisYear,
                         POPULATION_SOURCE_YEAR,
@@ -427,7 +435,7 @@ public class PopulationIndicatorsCsvProcessor {
         String rawPeriod = row.getPeriodRaw();
 
         if (!hasText(rawPeriod)) {
-            errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "REQUIRED_FIELD_MISSING", "Periodos es obligatorio."));
+            errors.add(error(row.getCsvRowNumber(), PERIODOS, rawPeriod, REQUIRED_FIELD_MISSING, "Periodos es obligatorio."));
             return null;
         }
 
@@ -435,13 +443,13 @@ public class PopulationIndicatorsCsvProcessor {
             short period = Short.parseShort(rawPeriod.trim());
 
             if (!TARGET_ANALYSIS_YEARS.contains(period)) {
-                errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "INVALID_YEAR", "Periodos debe ser 2018, 2020, 2022 o 2024."));
+                errors.add(error(row.getCsvRowNumber(), PERIODOS, rawPeriod, "INVALID_YEAR", "Periodos debe ser 2018, 2020, 2022 o 2024."));
                 return null;
             }
 
             return period;
         } catch (NumberFormatException e) {
-            errors.add(error(row.getCsvRowNumber(), "Periodos", rawPeriod, "INVALID_YEAR", "Periodos debe ser numérico."));
+            errors.add(error(row.getCsvRowNumber(), PERIODOS, rawPeriod, "INVALID_YEAR", "Periodos debe ser numérico."));
             return null;
         }
     }
@@ -454,7 +462,7 @@ public class PopulationIndicatorsCsvProcessor {
         String rawArea = row.getGeographicAreaRaw();
 
         if (!hasText(rawArea)) {
-            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "Área geográfica es obligatoria."));
+            errors.add(error(row.getCsvRowNumber(), AREA_GEOGRAFICA, rawArea, REQUIRED_FIELD_MISSING, "Área geográfica es obligatoria."));
             return null;
         }
 
@@ -463,7 +471,7 @@ public class PopulationIndicatorsCsvProcessor {
         String name = tokens.length > 1 ? tokens[1].trim() : null;
 
         if (!code.matches("\\d{2}|\\d{5}")) {
-            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "INVALID_TERRITORY_CODE", "La clave territorial debe tener 2 o 5 dígitos."));
+            errors.add(error(row.getCsvRowNumber(), AREA_GEOGRAFICA, rawArea, "INVALID_TERRITORY_CODE", "La clave territorial debe tener 2 o 5 dígitos."));
             return null;
         }
 
@@ -473,7 +481,7 @@ public class PopulationIndicatorsCsvProcessor {
 
         if (code.length() == 2) {
             if (!hasText(name)) {
-                errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "El nombre del estado es obligatorio."));
+                errors.add(error(row.getCsvRowNumber(), AREA_GEOGRAFICA, rawArea, REQUIRED_FIELD_MISSING, "El nombre del estado es obligatorio."));
                 return null;
             }
 
@@ -486,7 +494,7 @@ public class PopulationIndicatorsCsvProcessor {
                         stateCode -> territoryCatalogWriter.ensureState(stateCode, name)
                 );
             } catch (RuntimeException e) {
-                errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "TERRITORY_CATALOG_ERROR", safeErrorMessage(e)));
+                errors.add(error(row.getCsvRowNumber(), AREA_GEOGRAFICA, rawArea, "TERRITORY_CATALOG_ERROR", safeErrorMessage(e)));
                 return null;
             }
 
@@ -500,7 +508,7 @@ public class PopulationIndicatorsCsvProcessor {
         String stateCode = code.substring(0, 2);
 
         if (!hasText(name)) {
-            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "REQUIRED_FIELD_MISSING", "El nombre del municipio es obligatorio."));
+            errors.add(error(row.getCsvRowNumber(), AREA_GEOGRAFICA, rawArea, REQUIRED_FIELD_MISSING, "El nombre del municipio es obligatorio."));
             return null;
         }
 
@@ -517,7 +525,7 @@ public class PopulationIndicatorsCsvProcessor {
                     )
             );
         } catch (RuntimeException e) {
-            errors.add(error(row.getCsvRowNumber(), "Area geografica", rawArea, "TERRITORY_CATALOG_ERROR", safeErrorMessage(e)));
+            errors.add(error(row.getCsvRowNumber(), AREA_GEOGRAFICA, rawArea, "TERRITORY_CATALOG_ERROR", safeErrorMessage(e)));
             return null;
         }
 
@@ -591,10 +599,10 @@ public class PopulationIndicatorsCsvProcessor {
     private List<DataAvailabilityWriteDraft> buildAvailability(Map<String, IndicatorMetadata> indicators) {
         List<DataAvailabilityWriteDraft> values = new ArrayList<>();
 
-        addPopulationAvailability(values, indicators.get("total_population"));
-        addPopulationAvailability(values, indicators.get("percentage_over_60"));
-        addCountryStateAvailability(values, indicators.get("healthcare_access_deficiency"));
-        addCountryStateAvailability(values, indicators.get("total_poverty_population"));
+        addPopulationAvailability(values, indicators.get(TOTAL_POPULATION));
+        addPopulationAvailability(values, indicators.get(PERCENTAGE_OVER_60));
+        addCountryStateAvailability(values, indicators.get(HEALTHCARE_ACCESS_DEFICIENCY));
+        addCountryStateAvailability(values, indicators.get(TOTAL_POVERTY_POPULATION));
 
         return values;
     }
@@ -903,5 +911,3 @@ public class PopulationIndicatorsCsvProcessor {
         }
     }
 }
-
-
