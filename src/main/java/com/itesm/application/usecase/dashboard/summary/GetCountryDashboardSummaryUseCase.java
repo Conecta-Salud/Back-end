@@ -14,7 +14,6 @@ import jakarta.ws.rs.NotFoundException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class GetCountryDashboardSummaryUseCase {
@@ -25,6 +24,7 @@ public class GetCountryDashboardSummaryUseCase {
     private static final String COUNT_UNIT = "count";
     private static final String GREEN = "green";
     private static final String YELLOW = "yellow";
+    private static final String NEUTRAL = "neutral";
     private static final String DOCTORS_PER_1000 = "doctors_per_1000";
     private static final String STATE_LABEL = "State";
     private static final String POPULATION_KEY = "population";
@@ -281,7 +281,7 @@ public class GetCountryDashboardSummaryUseCase {
 
     private String getVariantFromHospitalBeds(BigDecimal value) {
         if (value == null) {
-            return "neutral";
+            return NEUTRAL;
         }
 
         double number = value.doubleValue();
@@ -406,7 +406,7 @@ public class GetCountryDashboardSummaryUseCase {
 
     private String getVariantFromMedicalCoverage(BigDecimal value) {
         if (value == null) {
-            return "neutral";
+            return NEUTRAL;
         }
 
         double number = value.doubleValue();
@@ -436,7 +436,7 @@ public class GetCountryDashboardSummaryUseCase {
 
     private String getVariantFromPositiveCount(Long value, String positiveVariant, String zeroVariant) {
         if (value == null) {
-            return "neutral";
+            return NEUTRAL;
         }
 
         return value > 0 ? positiveVariant : zeroVariant;
@@ -450,7 +450,7 @@ public class GetCountryDashboardSummaryUseCase {
                 summary.getKpis()
                         .stream()
                         .map(this::toKpiDto)
-                        .collect(Collectors.toList()),
+                        .toList(),
                 toRankingDto(summary.getRanking()),
                 toChartDto(summary.getMainChart()),
                 toChartDto(summary.getSecondaryChart())
@@ -493,11 +493,11 @@ public class GetCountryDashboardSummaryUseCase {
                                 column.getKey(),
                                 column.getLabel()
                         ))
-                        .collect(Collectors.toList()),
+                        .toList(),
                 ranking.getRows()
                         .stream()
                         .map(this::toRankingRowDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 
@@ -536,7 +536,7 @@ public class GetCountryDashboardSummaryUseCase {
                 chart.getData()
                         .stream()
                         .map(this::toChartDataPointDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 

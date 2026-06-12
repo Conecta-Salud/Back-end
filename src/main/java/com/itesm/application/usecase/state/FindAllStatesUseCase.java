@@ -6,7 +6,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class FindAllStatesUseCase {
@@ -25,6 +24,6 @@ public class FindAllStatesUseCase {
                         state.getName(),
                         state.getInegiCode()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

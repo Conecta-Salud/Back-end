@@ -14,10 +14,21 @@ import jakarta.ws.rs.NotFoundException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class GetStateDashboardSummaryUseCase {
+
+    private static final String DEFAULT_VARIANT = "default";
+    private static final String COUNT_UNIT = "count";
+    private static final String GREEN = "green";
+    private static final String YELLOW = "yellow";
+    private static final String NEUTRAL = "neutral";
+    private static final String DOCTORS_PER_1000 = "doctors_per_1000";
+    private static final String MUNICIPALITY_LABEL = "Municipality";
+    private static final String POPULATION_KEY = "population";
+    private static final String POPULATION_LABEL = "Population";
+    private static final String DOCTORS_KEY = "doctors";
+    private static final String VALUE_KEY = "value";
 
     private final DashboardSummaryRepository dashboardSummaryRepository;
 
@@ -101,22 +112,22 @@ public class GetStateDashboardSummaryUseCase {
                         "Total population",
                         toDecimalOrNull(metrics.getTotalPopulation()),
                         "people",
-                        "default",
+                        DEFAULT_VARIANT,
                         1
                 ),
                 new DashboardKpi(
                         "priority_municipalities",
                         "Priority municipalities",
                         toDecimalOrNull(metrics.getPriorityMunicipalities()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getPriorityMunicipalities(), "red", "green"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getPriorityMunicipalities(), "red", GREEN),
                         2
                 ),
                 new DashboardKpi(
                         "medical_coverage_index",
                         "Medical coverage index",
                         toDecimalOrNull(metrics.getMedicalCoverageIndex()),
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         getVariantFromMedicalCoverage(metrics.getMedicalCoverageIndex()),
                         3
                 ),
@@ -125,7 +136,7 @@ public class GetStateDashboardSummaryUseCase {
                         "Available infrastructure",
                         toDecimalOrNull(metrics.getAvailableInfrastructure()),
                         "health_units",
-                        "default",
+                        DEFAULT_VARIANT,
                         4
                 )
         );
@@ -136,11 +147,11 @@ public class GetStateDashboardSummaryUseCase {
                 "Priority municipalities for healthcare investment",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "Municipality"),
-                        new DashboardRankingColumn("population", "Population"),
-                        new DashboardRankingColumn("doctors", "Doctors"),
+                        new DashboardRankingColumn("name", MUNICIPALITY_LABEL),
+                        new DashboardRankingColumn(POPULATION_KEY, POPULATION_LABEL),
+                        new DashboardRankingColumn(DOCTORS_KEY, "Doctors"),
                         new DashboardRankingColumn("coverageIndex", "Coverage index"),
-                        new DashboardRankingColumn("value", "Deficiency rate")
+                        new DashboardRankingColumn(VALUE_KEY, "Deficiency rate")
                 ),
                 rows
         );
@@ -150,8 +161,8 @@ public class GetStateDashboardSummaryUseCase {
         return new DashboardChart(
                 "bar",
                 "Population vs doctors",
-                "population",
-                "doctors",
+                POPULATION_KEY,
+                DOCTORS_KEY,
                 null,
                 data
         );
@@ -215,24 +226,24 @@ public class GetStateDashboardSummaryUseCase {
                         "municipalities_with_hospital_deficit",
                         "Municipalities with hospital deficit",
                         toDecimalOrNull(metrics.getMunicipalitiesWithHospitalDeficit()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getMunicipalitiesWithHospitalDeficit(), "yellow", "green"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getMunicipalitiesWithHospitalDeficit(), YELLOW, GREEN),
                         2
                 ),
                 new DashboardKpi(
                         "total_hospitals",
                         "Total hospitals",
                         toDecimalOrNull(metrics.getTotalHospitals()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         3
                 ),
                 new DashboardKpi(
                         "total_consulting_rooms",
                         "Total consulting rooms",
                         toDecimalOrNull(metrics.getTotalConsultingRooms()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         4
                 )
         );
@@ -243,10 +254,10 @@ public class GetStateDashboardSummaryUseCase {
                 "Municipalities with lowest hospital capacity",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "Municipality"),
+                        new DashboardRankingColumn("name", MUNICIPALITY_LABEL),
                         new DashboardRankingColumn("hospitalBeds", "Hospital beds"),
-                        new DashboardRankingColumn("population", "Population"),
-                        new DashboardRankingColumn("value", "Beds / 1,000")
+                        new DashboardRankingColumn(POPULATION_KEY, POPULATION_LABEL),
+                        new DashboardRankingColumn(VALUE_KEY, "Beds / 1,000")
                 ),
                 rows
         );
@@ -279,17 +290,17 @@ public class GetStateDashboardSummaryUseCase {
 
     private String getVariantFromHospitalBeds(BigDecimal value) {
         if (value == null) {
-            return "neutral";
+            return NEUTRAL;
         }
 
         double number = value.doubleValue();
 
         if (number >= 3.0) {
-            return "green";
+            return GREEN;
         }
 
         if (number >= 1.0) {
-            return "yellow";
+            return YELLOW;
         }
 
         return "red";
@@ -330,10 +341,10 @@ public class GetStateDashboardSummaryUseCase {
     private List<DashboardKpi> buildMedicalCoverageKpis(StateMedicalCoverageMetrics metrics) {
         return List.of(
                 new DashboardKpi(
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         "Doctors per 1,000 inhabitants",
                         metrics.getDoctorsPer1000(),
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         getVariantFromMedicalCoverage(metrics.getDoctorsPer1000()),
                         1
                 ),
@@ -341,23 +352,23 @@ public class GetStateDashboardSummaryUseCase {
                         "critical_municipalities",
                         "Critical municipalities",
                         toDecimalOrNull(metrics.getCriticalMunicipalities()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getCriticalMunicipalities(), "red", "green"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getCriticalMunicipalities(), "red", GREEN),
                         2
                 ),
                 new DashboardKpi(
                         "total_doctors",
                         "Total doctors",
                         toDecimalOrNull(metrics.getTotalDoctors()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         3
                 ),
                 new DashboardKpi(
                         "average_municipal_coverage",
                         "Average municipal coverage",
                         metrics.getAverageMunicipalCoverage(),
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         getVariantFromMedicalCoverage(metrics.getAverageMunicipalCoverage()),
                         4
                 )
@@ -369,10 +380,10 @@ public class GetStateDashboardSummaryUseCase {
                 "Municipalities with lowest medical coverage",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "Municipality"),
-                        new DashboardRankingColumn("doctors", "Doctors"),
-                        new DashboardRankingColumn("population", "Population"),
-                        new DashboardRankingColumn("value", "Doctors / 1,000")
+                        new DashboardRankingColumn("name", MUNICIPALITY_LABEL),
+                        new DashboardRankingColumn(DOCTORS_KEY, "Doctors"),
+                        new DashboardRankingColumn(POPULATION_KEY, POPULATION_LABEL),
+                        new DashboardRankingColumn(VALUE_KEY, "Doctors / 1,000")
                 ),
                 rows
         );
@@ -405,17 +416,17 @@ public class GetStateDashboardSummaryUseCase {
 
     private String getVariantFromMedicalCoverage(BigDecimal value) {
         if (value == null) {
-            return "neutral";
+            return NEUTRAL;
         }
 
         double number = value.doubleValue();
 
         if (number >= 2.7) {
-            return "green";
+            return GREEN;
         }
 
         if (number >= 1.0) {
-            return "yellow";
+            return YELLOW;
         }
 
         return "red";
@@ -435,7 +446,7 @@ public class GetStateDashboardSummaryUseCase {
 
     private String getVariantFromPositiveCount(Long value, String positiveVariant, String zeroVariant) {
         if (value == null) {
-            return "neutral";
+            return NEUTRAL;
         }
 
         return value > 0 ? positiveVariant : zeroVariant;
@@ -446,7 +457,7 @@ public class GetStateDashboardSummaryUseCase {
                 toTerritoryDto(summary.getTerritory()),
                 toPeriodDto(summary.getPeriod()),
                 summary.getCategory().getValue(),
-                summary.getKpis().stream().map(this::toKpiDto).collect(Collectors.toList()),
+                summary.getKpis().stream().map(this::toKpiDto).toList(),
                 toRankingDto(summary.getRanking()),
                 toChartDto(summary.getMainChart()),
                 toChartDto(summary.getSecondaryChart())
@@ -486,11 +497,11 @@ public class GetStateDashboardSummaryUseCase {
                 ranking.getColumns()
                         .stream()
                         .map(column -> new DashboardRankingColumnDto(column.getKey(), column.getLabel()))
-                        .collect(Collectors.toList()),
+                        .toList(),
                 ranking.getRows()
                         .stream()
                         .map(this::toRankingRowDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 
@@ -529,7 +540,7 @@ public class GetStateDashboardSummaryUseCase {
                 chart.getData()
                         .stream()
                         .map(this::toChartDataPointDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 

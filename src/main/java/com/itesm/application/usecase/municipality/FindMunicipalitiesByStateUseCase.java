@@ -7,7 +7,6 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class FindMunicipalitiesByStateUseCase {
@@ -32,6 +31,6 @@ public class FindMunicipalitiesByStateUseCase {
                         municipality.getName(),
                         municipality.getInegiCode()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

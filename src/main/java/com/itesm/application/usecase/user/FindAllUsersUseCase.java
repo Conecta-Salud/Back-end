@@ -9,8 +9,6 @@ import com.itesm.domain.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.stream.Collectors;
-
 @ApplicationScoped
 public class FindAllUsersUseCase {
 
@@ -42,7 +40,7 @@ public class FindAllUsersUseCase {
                 users.getItems()
                         .stream()
                         .map(this::toDto)
-                        .collect(Collectors.toList()),
+                        .toList(),
                 users.getTotalItems(),
                 users.getPage(),
                 users.getSize(),
