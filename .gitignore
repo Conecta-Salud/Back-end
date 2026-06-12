@@ -69,5 +69,6 @@ nb-configuration.xml
 src/main/resources/conectasalud-eq3-firebase-adminsdk-fbsvc-e68f4a96b9.json
 
 .github/
+
 /build-output.txt
 /inspect_usecases.py
