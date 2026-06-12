@@ -6,7 +6,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class FindAllMunicipalitiesUseCase {
@@ -27,6 +26,6 @@ public class FindAllMunicipalitiesUseCase {
                         municipality.getName(),
                         municipality.getInegiCode()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

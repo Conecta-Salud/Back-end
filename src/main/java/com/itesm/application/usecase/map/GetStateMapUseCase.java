@@ -9,7 +9,6 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class GetStateMapUseCase {
@@ -46,6 +45,6 @@ public class GetStateMapUseCase {
                         item.getMethodologyNote(),
                         item.getDataSourceName()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

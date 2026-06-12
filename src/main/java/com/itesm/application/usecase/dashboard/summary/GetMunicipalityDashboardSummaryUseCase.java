@@ -14,10 +14,22 @@ import jakarta.ws.rs.NotFoundException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class GetMunicipalityDashboardSummaryUseCase {
+
+    private static final String DEFAULT_VARIANT = "default";
+    private static final String COUNT_UNIT = "count";
+    private static final String GREEN = "green";
+    private static final String YELLOW = "yellow";
+    private static final String NEUTRAL = "neutral";
+    private static final String DOCTORS_PER_1000 = "doctors_per_1000";
+    private static final String HEALTH_UNIT_LABEL = "Health unit";
+    private static final String CLUES_LABEL = "CLUES";
+    private static final String UNIT_TYPE_KEY = "unitType";
+    private static final String UNIT_TYPE_LABEL = "Unit type";
+    private static final String CARE_LEVEL_KEY = "careLevel";
+    private static final String CARE_LEVEL_LABEL = "Care level";
 
     private final DashboardSummaryRepository dashboardSummaryRepository;
 
@@ -101,30 +113,30 @@ public class GetMunicipalityDashboardSummaryUseCase {
                         "Population",
                         toDecimalOrNull(metrics.getTotalPopulation()),
                         "people",
-                        "default",
+                        DEFAULT_VARIANT,
                         1
                 ),
                 new DashboardKpi(
                         "available_doctors",
                         "Available doctors",
                         toDecimalOrNull(metrics.getAvailableDoctors()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         2
                 ),
                 new DashboardKpi(
                         "health_centers",
                         "Health centers",
                         toDecimalOrNull(metrics.getHealthCenters()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getHealthCenters(), "green", "red"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getHealthCenters(), GREEN, "red"),
                         3
                 ),
                 new DashboardKpi(
                         "coverage_index",
                         "Coverage index",
                         toDecimalOrNull(metrics.getCoverageIndex()),
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         getVariantFromMedicalCoverage(metrics.getCoverageIndex()),
                         4
                 )
@@ -136,11 +148,11 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 "Available health units",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "Health unit"),
+                        new DashboardRankingColumn("name", HEALTH_UNIT_LABEL),
                         new DashboardRankingColumn("doctors", "Doctors"),
-                        new DashboardRankingColumn("code", "CLUES"),
-                        new DashboardRankingColumn("unitType", "Unit type"),
-                        new DashboardRankingColumn("careLevel", "Care level")
+                        new DashboardRankingColumn("code", CLUES_LABEL),
+                        new DashboardRankingColumn(UNIT_TYPE_KEY, UNIT_TYPE_LABEL),
+                        new DashboardRankingColumn(CARE_LEVEL_KEY, CARE_LEVEL_LABEL)
                 ),
                 rows
         );
@@ -206,24 +218,24 @@ public class GetMunicipalityDashboardSummaryUseCase {
                         "total_hospitals",
                         "Hospitals",
                         toDecimalOrNull(metrics.getTotalHospitals()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getTotalHospitals(), "green", "red"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getTotalHospitals(), GREEN, "red"),
                         1
                 ),
                 new DashboardKpi(
                         "total_consulting_rooms",
                         "Consulting rooms",
                         toDecimalOrNull(metrics.getTotalConsultingRooms()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         2
                 ),
                 new DashboardKpi(
                         "total_hospital_beds",
                         "Hospital beds",
                         toDecimalOrNull(metrics.getTotalHospitalBeds()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getTotalHospitalBeds(), "green", "red"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getTotalHospitalBeds(), GREEN, "red"),
                         3
                 ),
                 new DashboardKpi(
@@ -231,7 +243,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
                         "Predominant care level",
                         null,
                         metrics.getPredominantCareLevel(),
-                        "default",
+                        DEFAULT_VARIANT,
                         4
                 )
         );
@@ -242,12 +254,12 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 "Health units by hospital infrastructure",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "Health unit"),
+                        new DashboardRankingColumn("name", HEALTH_UNIT_LABEL),
                         new DashboardRankingColumn("hospitalBeds", "Hospital beds"),
                         new DashboardRankingColumn("consultingRooms", "Consulting rooms"),
-                        new DashboardRankingColumn("code", "CLUES"),
-                        new DashboardRankingColumn("unitType", "Unit type"),
-                        new DashboardRankingColumn("careLevel", "Care level")
+                        new DashboardRankingColumn("code", CLUES_LABEL),
+                        new DashboardRankingColumn(UNIT_TYPE_KEY, UNIT_TYPE_LABEL),
+                        new DashboardRankingColumn(CARE_LEVEL_KEY, CARE_LEVEL_LABEL)
                 ),
                 rows
         );
@@ -310,10 +322,10 @@ public class GetMunicipalityDashboardSummaryUseCase {
     private List<DashboardKpi> buildMedicalCoverageKpis(MunicipalityMedicalCoverageMetrics metrics) {
         return List.of(
                 new DashboardKpi(
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         "Doctors per 1,000 inhabitants",
                         metrics.getDoctorsPer1000(),
-                        "doctors_per_1000",
+                        DOCTORS_PER_1000,
                         getVariantFromMedicalCoverage(metrics.getDoctorsPer1000()),
                         1
                 ),
@@ -321,24 +333,24 @@ public class GetMunicipalityDashboardSummaryUseCase {
                         "total_doctors",
                         "Total doctors",
                         toDecimalOrNull(metrics.getTotalDoctors()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         2
                 ),
                 new DashboardKpi(
                         "available_consulting_rooms",
                         "Available consulting rooms",
                         toDecimalOrNull(metrics.getTotalConsultingRooms()),
-                        "count",
-                        "default",
+                        COUNT_UNIT,
+                        DEFAULT_VARIANT,
                         3
                 ),
                 new DashboardKpi(
                         "available_hospitals",
                         "Available hospitals",
                         toDecimalOrNull(metrics.getTotalHospitals()),
-                        "count",
-                        getVariantFromPositiveCount(metrics.getTotalHospitals(), "green", "red"),
+                        COUNT_UNIT,
+                        getVariantFromPositiveCount(metrics.getTotalHospitals(), GREEN, "red"),
                         4
                 )
         );
@@ -349,11 +361,11 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 "Health units by available doctors",
                 List.of(
                         new DashboardRankingColumn("rank", "Rank"),
-                        new DashboardRankingColumn("name", "Health unit"),
+                        new DashboardRankingColumn("name", HEALTH_UNIT_LABEL),
                         new DashboardRankingColumn("doctors", "Doctors"),
-                        new DashboardRankingColumn("code", "CLUES"),
-                        new DashboardRankingColumn("unitType", "Unit type"),
-                        new DashboardRankingColumn("careLevel", "Care level")
+                        new DashboardRankingColumn("code", CLUES_LABEL),
+                        new DashboardRankingColumn(UNIT_TYPE_KEY, UNIT_TYPE_LABEL),
+                        new DashboardRankingColumn(CARE_LEVEL_KEY, CARE_LEVEL_LABEL)
                 ),
                 rows
         );
@@ -383,17 +395,17 @@ public class GetMunicipalityDashboardSummaryUseCase {
 
     private String getVariantFromMedicalCoverage(BigDecimal value) {
         if (value == null) {
-            return "neutral";
+            return NEUTRAL;
         }
 
         double number = value.doubleValue();
 
         if (number >= 2.7) {
-            return "green";
+            return GREEN;
         }
 
         if (number >= 1.0) {
-            return "yellow";
+            return YELLOW;
         }
 
         return "red";
@@ -413,7 +425,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
 
     private String getVariantFromPositiveCount(Long value, String positiveVariant, String zeroVariant) {
         if (value == null) {
-            return "neutral";
+            return NEUTRAL;
         }
 
         return value > 0 ? positiveVariant : zeroVariant;
@@ -424,7 +436,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 toTerritoryDto(summary.getTerritory()),
                 toPeriodDto(summary.getPeriod()),
                 summary.getCategory().getValue(),
-                summary.getKpis().stream().map(this::toKpiDto).collect(Collectors.toList()),
+                summary.getKpis().stream().map(this::toKpiDto).toList(),
                 toRankingDto(summary.getRanking()),
                 toChartDto(summary.getMainChart()),
                 toChartDto(summary.getSecondaryChart())
@@ -464,11 +476,11 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 ranking.getColumns()
                         .stream()
                         .map(column -> new DashboardRankingColumnDto(column.getKey(), column.getLabel()))
-                        .collect(Collectors.toList()),
+                        .toList(),
                 ranking.getRows()
                         .stream()
                         .map(this::toRankingRowDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 
@@ -507,7 +519,7 @@ public class GetMunicipalityDashboardSummaryUseCase {
                 chart.getData()
                         .stream()
                         .map(this::toChartDataPointDto)
-                        .collect(Collectors.toList())
+                        .toList()
         );
     }
 

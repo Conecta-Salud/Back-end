@@ -7,7 +7,6 @@ import jakarta.inject.Inject;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class SearchLocationsUseCase {
@@ -44,7 +43,7 @@ public class SearchLocationsUseCase {
                         item.getStateName(),
                         item.getDisplayName()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private String normalizeQuery(String query) {

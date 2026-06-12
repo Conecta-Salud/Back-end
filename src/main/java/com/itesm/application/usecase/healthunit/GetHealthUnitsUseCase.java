@@ -7,7 +7,6 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class GetHealthUnitsUseCase {
@@ -47,6 +46,6 @@ public class GetHealthUnitsUseCase {
                         healthUnit.getMedicalUnitTypeName(),
                         healthUnit.getCareLevel()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

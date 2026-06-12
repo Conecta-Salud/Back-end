@@ -6,7 +6,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class FindAllPeriodsUseCase {
@@ -26,6 +25,6 @@ public class FindAllPeriodsUseCase {
                         period.getPeriodYear(),
                         period.getStatus()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 }
